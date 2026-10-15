@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.R
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportStat
-import com.brenninhotools.vconverter.ui.components.ChunkyButton
+import com.brenninhotools.vconverter.ui.components.SaveActions
 import com.brenninhotools.vconverter.ui.components.DropZone
 import com.brenninhotools.vconverter.ui.components.FunkinCard
 import com.brenninhotools.vconverter.ui.components.FunkinTextField
@@ -121,21 +121,16 @@ fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> 
         FunkinCard(accent = if (viewModel.result != null) accent else null) {
             SectionTitle("Convert", accent, 3)
             Text(
-                if (modFolderName != null) {
-                    "Everything is written into \"$modFolderName\". Use an empty folder inside V-Slice's mods directory."
-                } else {
-                    "You'll pick the output folder: an empty folder inside V-Slice's mods directory."
-                },
+                "Download the converted mod as a .zip (unzip it into V-Slice's mods folder), or write it straight into an empty mod folder.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )
-            ChunkyButton(
-                text = "Convert whole mod",
+            SaveActions(
+                viewModel = viewModel,
                 accent = accent,
-                icon = R.drawable.ic_swap,
-                enabled = viewModel.mod != null && !busy,
-                loading = busy,
-                onClick = onConvert
+                modFolderName = modFolderName,
+                onSave = onConvert,
+                saveLabel = if (modFolderName != null) "Convert into $modFolderName" else "Convert into a mod folder"
             )
             progress?.let { current ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

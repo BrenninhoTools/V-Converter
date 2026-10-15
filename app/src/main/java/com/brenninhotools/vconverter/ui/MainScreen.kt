@@ -7,7 +7,14 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +34,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,13 +66,13 @@ import com.brenninhotools.vconverter.ui.weeks.WeeksScreen
 import com.brenninhotools.vconverter.ui.weeks.WeeksViewModel
 import com.brenninhotools.vconverter.ui.theme.Funkin
 
-enum class Tab(val label: String, @DrawableRes val icon: Int, val accent: Color) {
-    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink),
-    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down),
-    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left),
-    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up),
-    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right),
-    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender)
+enum class Tab(val label: String, @DrawableRes val icon: Int, val accent: Color, val title: String, val description: String) {
+    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "Whole mod", "A full Psych mod from a folder, .zip, .rar or .7z."),
+    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down, "Charts", "Psych charts and events.json into one V-Slice song."),
+    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left, "Characters", "Character JSON + spritesheet XML, pixel-exact offsets."),
+    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up, "Stages", "Stage layouts, cameras and editor props."),
+    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right, "Weeks", "Story weeks into V-Slice levels with menu props."),
+    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender, "Scripts", "Lua and HScript into V-Slice modules.")
 }
 
 @Composable
@@ -122,25 +126,7 @@ fun MainScreen() {
                 onPickFolder = { folderPicker.launch(null) }
             )
         },
-        bottomBar = {
-            NavigationBar(containerColor = Funkin.Surface, tonalElevation = 0.dp) {
-                Tab.entries.forEach { item ->
-                    NavigationBarItem(
-                        selected = tab == item,
-                        onClick = { tab = item },
-                        icon = { Icon(painterResource(item.icon), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                        label = { Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Funkin.Ink,
-                            selectedTextColor = item.accent,
-                            indicatorColor = item.accent,
-                            unselectedIconColor = Funkin.Muted,
-                            unselectedTextColor = Funkin.Muted
-                        )
-                    )
-                }
-            }
-        }
+        bottomBar = { FunkinNavBar(tab) { tab = it } }
     ) { padding ->
         AnimatedContent(
             targetState = tab,
@@ -157,6 +143,8 @@ fun MainScreen() {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
+                TabHero(current)
+                Spacer(Modifier.size(16.dp))
                 when (current) {
                     Tab.MOD -> ModScreen(mod, folderName, save)
                     Tab.CHARTS -> ChartsScreen(charts, folderName, save)
@@ -223,6 +211,94 @@ private fun Header(folderName: String?, onPickFolder: () -> Unit) {
             }
             TextButton(onClick = onPickFolder) {
                 Text(if (folderName != null) "CHANGE" else "CHOOSE", style = MaterialTheme.typography.labelMedium, color = Funkin.Down)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabHero(tab: Tab) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.horizontalGradient(listOf(tab.accent.copy(alpha = 0.22f), tab.accent.copy(alpha = 0.04f))))
+            .border(1.5.dp, tab.accent.copy(alpha = 0.35f), shape)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(tab.accent)
+                .border(3.dp, Funkin.Ink, RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(painterResource(tab.icon), contentDescription = null, tint = Funkin.Ink, modifier = Modifier.size(26.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
+            Text(tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+        }
+    }
+}
+
+@Composable
+private fun FunkinNavBar(selected: Tab, onSelect: (Tab) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Funkin.Surface)
+            .navigationBarsPadding()
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(Brush.horizontalGradient(Tab.entries.map { it.accent }))
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp)
+        ) {
+            Tab.entries.forEach { item ->
+                val active = item == selected
+                val fill by animateColorAsState(if (active) item.accent else Color.Transparent, label = "fill")
+                val tint by animateColorAsState(if (active) Funkin.Ink else Funkin.Muted, label = "tint")
+                val lift by animateDpAsState(if (active) 0.dp else 3.dp, label = "lift")
+                val shape = RoundedCornerShape(12.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onSelect(item) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .offset(y = lift)
+                            .size(width = 46.dp, height = 32.dp)
+                            .clip(shape)
+                            .background(fill)
+                            .then(if (active) Modifier.border(2.5.dp, Funkin.Ink, shape) else Modifier),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(painterResource(item.icon), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        item.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (active) item.accent else Funkin.Muted,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }

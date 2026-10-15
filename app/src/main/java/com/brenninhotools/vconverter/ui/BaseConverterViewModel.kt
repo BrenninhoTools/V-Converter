@@ -9,10 +9,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.io.DocumentIO
+import com.brenninhotools.vconverter.io.DownloadedFile
+import com.brenninhotools.vconverter.io.Downloads
 import com.brenninhotools.vconverter.io.ExtractedArchive
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.Importer
 import com.brenninhotools.vconverter.io.OutputFile
+import com.brenninhotools.vconverter.mod.ModWriter
+import com.brenninhotools.vconverter.mod.ZipModWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,7 +42,14 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
     var output by mutableStateOf<ConvertedOutput?>(null)
         protected set
 
+    var download by mutableStateOf<DownloadedFile?>(null)
+        protected set
+
     protected val context: Application get() = getApplication()
+
+    open val canDownload: Boolean get() = output != null
+
+    open fun downloadName(): String = "vconverter-${System.currentTimeMillis() / 1000}.zip"
 
     fun dismissStatus() {
         status = null
@@ -46,6 +57,46 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
 
     protected fun invalidate() {
         output = null
+        download = null
+    }
+
+    protected open fun zipPrefix(): String = ""
+
+    protected open fun writeDownload(writer: ModWriter) {
+        val result = output ?: throw IllegalStateException("Convert something first.")
+        result.files.forEach { writer.writeText(it.relativePath, it.content) }
+    }
+
+    fun download(picked: Uri?) {
+        if (!canDownload) return
+        val name = downloadName()
+        runTask {
+            try {
+                download = null
+                val file = withContext(Dispatchers.IO) {
+                    Downloads.write(context, name, picked) { stream ->
+                        ZipModWriter(stream, zipPrefix()).use { zip ->
+                            writeDownload(zip)
+                            zip.entries
+                        }
+                    }
+                }
+                download = file
+                status = null
+            } catch (e: Exception) {
+                status = StatusMessage.Error(e.message ?: "Could not create the zip.")
+            }
+        }
+    }
+
+    fun shareDownload() {
+        val file = download ?: return
+        runCatching { Downloads.share(context, file) }
+            .onFailure { status = StatusMessage.Error("No app can share this file.") }
+    }
+
+    fun openDownloads() {
+        Downloads.openDownloads(context)
     }
 
     open fun save(modFolder: Uri) {

@@ -17,6 +17,8 @@ import com.brenninhotools.vconverter.mod.ModInfo
 import com.brenninhotools.vconverter.mod.ModProgress
 import com.brenninhotools.vconverter.mod.ModScan
 import com.brenninhotools.vconverter.mod.ModScanner
+import com.brenninhotools.vconverter.mod.ModWriter
+import com.brenninhotools.vconverter.mod.ZipModWriter
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
 import com.brenninhotools.vconverter.ui.StatusMessage
 import kotlinx.coroutines.Dispatchers
@@ -90,18 +92,39 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
         archive = extracted
         mod = LoadedMod(name, files, scan)
         result = null
+        download = null
         val pack = withContext(Dispatchers.IO) { ModConverter.readPack(files, scan) }
         title = pack?.title?.takeIf { it.isNotBlank() } ?: scan.root.trimEnd('/').substringAfterLast('/').ifBlank { name.substringBeforeLast('.') }
         description = pack?.description ?: ""
         status = StatusMessage.Info("Found a mod in $name.")
     }
 
+    override val canDownload: Boolean get() = mod != null
+
+    override fun downloadName(): String = ZipModWriter.folderName(title).replace(' ', '-') + "-vslice.zip"
+
+    override fun zipPrefix(): String = ZipModWriter.folderName(title)
+
+    override fun writeDownload(writer: ModWriter) {
+        val loaded = mod ?: throw IllegalStateException("Open a mod first.")
+        result = null
+        try {
+            val conversion = ModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info())
+            result = conversion.report
+        } finally {
+            _progress.value = null
+        }
+    }
+
+    private fun info() = ModInfo(title.trim(), description.trim(), author.trim())
+
     override fun save(modFolder: Uri) {
         val loaded = mod ?: return
         runTask {
             result = null
             try {
-                val info = ModInfo(title.trim(), description.trim(), author.trim())
+                val info = info()
+                download = null
                 val conversion = withContext(Dispatchers.IO) {
                     val writer = TreeModWriter(context, modFolder)
                     ModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info)
@@ -120,6 +143,7 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
         releaseArchive()
         mod = null
         result = null
+        download = null
         title = ""
         description = ""
         status = null

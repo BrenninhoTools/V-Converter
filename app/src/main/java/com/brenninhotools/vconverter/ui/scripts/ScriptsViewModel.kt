@@ -29,6 +29,8 @@ data class PickedScript(
 }
 
 class ScriptsViewModel(application: Application) : BaseConverterViewModel(application) {
+    override fun downloadName(): String = "${ScriptConverter.slug(modName.ifBlank { "psych" }).lowercase()}-scripts.zip"
+
     var scripts by mutableStateOf(listOf<PickedScript>())
         private set
     var modName by mutableStateOf("")

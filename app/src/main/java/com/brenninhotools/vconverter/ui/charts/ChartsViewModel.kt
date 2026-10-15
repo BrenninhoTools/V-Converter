@@ -42,6 +42,8 @@ class ChartsViewModel(application: Application) : BaseConverterViewModel(applica
     var artist by mutableStateOf("")
     var charter by mutableStateOf("")
 
+    override fun downloadName(): String = "${sanitizeId(songId).ifEmpty { "song" }}-vslice.zip"
+
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {

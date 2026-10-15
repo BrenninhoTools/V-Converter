@@ -35,8 +35,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -365,8 +371,12 @@ fun ReportView(report: Report, accent: Color) {
             }
         }
         report.sections.forEach { section ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(section.title.uppercase(), style = MaterialTheme.typography.labelMedium, color = accent)
+            Collapsible(
+                title = section.title,
+                count = section.lines.size,
+                accent = accent,
+                startOpen = section.lines.size <= 3
+            ) {
                 section.lines.forEach { line ->
                     Text("• $line", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
                 }
@@ -376,18 +386,108 @@ fun ReportView(report: Report, accent: Color) {
 }
 
 @Composable
-fun OutputFiles(paths: List<String>) {
+fun Collapsible(
+    title: String,
+    count: Int,
+    accent: Color,
+    startOpen: Boolean,
+    content: @Composable () -> Unit
+) {
+    var open by rememberSaveable(title) { mutableStateOf(startOpen) }
+    val turn by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
     val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Funkin.Ink)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .background(Funkin.SurfaceHigh.copy(alpha = 0.6f))
     ) {
-        paths.forEach { path ->
-            Text(path, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted, fontFamily = FontFamily.Monospace)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { open = !open }
+                .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(width = 4.dp, height = 16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accent)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                title.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = Funkin.Text,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = accent)
+            Icon(
+                painterResource(R.drawable.ic_expand),
+                contentDescription = if (open) "Collapse" else "Expand",
+                tint = Funkin.Muted,
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .size(22.dp)
+                    .rotate(turn)
+            )
+        }
+        AnimatedVisibility(visible = open, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Column(
+                modifier = Modifier.padding(start = 26.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+fun OutputFiles(paths: List<String>, accent: Color = Funkin.Down) {
+    val groups = paths.groupBy { it.substringBeforeLast('/', "") }.toSortedMap()
+    Collapsible(
+        title = "Output files",
+        count = paths.size,
+        accent = accent,
+        startOpen = paths.size <= 6
+    ) {
+        groups.forEach { (folder, files) ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Funkin.Ink)
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(painterResource(R.drawable.ic_folder), contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (folder.isEmpty()) "/" else "$folder/",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Funkin.Text,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                files.forEach { path ->
+                    Text(
+                        "  " + path.substringAfterLast('/'),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Funkin.Muted,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
         }
     }
 }

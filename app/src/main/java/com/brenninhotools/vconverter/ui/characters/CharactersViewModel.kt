@@ -29,6 +29,8 @@ data class PickedCharacter(
 )
 
 class CharactersViewModel(application: Application) : BaseConverterViewModel(application) {
+    override fun downloadName(): String = "characters-vslice.zip"
+
     var characters by mutableStateOf(listOf<PickedCharacter>())
         private set
     var atlases by mutableStateOf(mapOf<String, SparrowAtlas>())

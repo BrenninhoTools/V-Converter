@@ -25,6 +25,8 @@ data class PickedStage(
 )
 
 class StagesViewModel(application: Application) : BaseConverterViewModel(application) {
+    override fun downloadName(): String = "stages-vslice.zip"
+
     var stages by mutableStateOf(listOf<PickedStage>())
         private set
 

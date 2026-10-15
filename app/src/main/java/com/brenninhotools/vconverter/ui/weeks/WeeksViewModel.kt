@@ -27,6 +27,8 @@ data class PickedWeek(
 )
 
 class WeeksViewModel(application: Application) : BaseConverterViewModel(application) {
+    override fun downloadName(): String = "weeks-vslice.zip"
+
     var weeks by mutableStateOf(listOf<PickedWeek>())
         private set
     var menuCharacters by mutableStateOf(mapOf<String, PsychMenuCharacter>())
