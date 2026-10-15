@@ -15,6 +15,8 @@ import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.json.asText
+import com.brenninhotools.vconverter.script.ScriptConverter
+import com.brenninhotools.vconverter.script.ScriptSource
 import com.brenninhotools.vconverter.core.json.value
 import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
@@ -46,8 +48,9 @@ class ModConverter(
     private val report = ReportBuilder()
     private val pathIndex: Map<String, String> = files.paths.associateBy { it.lowercase() }
     private var written = 0
+    private var keptPsychEvents = 0
     private var done = 0
-    private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + 2
+    private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + scan.scripts.size + 2
 
     fun convert(info: ModInfo): ModConversionResult {
         val characters = parseCharacters()
@@ -56,6 +59,7 @@ class ModConverter(
         convertSongs(charts, characters, stageIds)
         convertCharacters(characters, charts)
         convertWeeks(charts.keys)
+        convertScripts(info, charts)
         copyAssets()
         writeMeta(info)
 
@@ -66,10 +70,7 @@ class ModConverter(
         report.stat("Assets", scan.assets.size)
         report.stat("Files", written)
 
-        if (scan.scripts.isNotEmpty()) {
-            report.warn("${scan.scripts.size} Lua/HScript files were not converted. V-Slice uses its own HScript API, so scripted events, stages and mechanics need porting by hand.")
-            report.section("Scripts not converted", limited(scan.scripts.map(scan::relative)))
-        }
+
         if (scan.ignored.isNotEmpty()) {
             report.section("Other files skipped", limited(scan.ignored.map(scan::relative)))
         }
@@ -163,10 +164,11 @@ class ModConverter(
                 writer.writeText("data/songs/${scanned.id}/${scanned.id}-metadata.json", VSliceWriter.metadataJson(conversion.metadata))
                 writer.writeText("data/songs/${scanned.id}/${scanned.id}-chart.json", VSliceWriter.chartJson(conversion.chart))
                 written += 2
+                keptPsychEvents += conversion.report.keptPsychEvents
                 conversion.report.warnings.forEach { report.warn("Song ${scanned.id}: $it") }
                 if (conversion.report.unsupportedEvents.isNotEmpty()) {
                     report.section(
-                        "Song ${scanned.id} · skipped events",
+                        "Song ${scanned.id} · Psych events kept for scripts",
                         conversion.report.unsupportedEvents.map { (name, count) -> "$name ×$count" }
                     )
                 }
@@ -242,6 +244,33 @@ class ModConverter(
                 report.warn("Week \"$id\" was not converted: ${e.message}")
             }
         }
+    }
+
+    private fun convertScripts(info: ModInfo, charts: Map<String, Pair<List<ChartSource>, PsychSong>>) {
+        val scriptFiles = scan.scripts.filter { it.substringAfterLast('.').lowercase() in setOf("lua", "hx", "hxs", "hscript") }
+        val noteTypeNames = linkedSetOf<String>()
+        charts.values.forEach { (sources, _) ->
+            sources.forEach { source -> source.song.sections.forEach { section -> section.notes.forEach { if (it.type.isNotBlank()) noteTypeNames += it.type } } }
+        }
+        scriptFiles.filter { "/custom_notetypes/" in "/" + scan.relative(it).lowercase() }.forEach { noteTypeNames += it.substringAfterLast('/').substringBeforeLast('.') }
+        val keptEvents = keptPsychEvents > 0
+        if (scriptFiles.isEmpty() && !keptEvents) return
+        val slug = ScriptConverter.slug(info.title.ifBlank { "Mod" })
+        val sources = scriptFiles.mapNotNull { path ->
+            runCatching { ScriptSource(scan.relative(path), files.readText(path)) }.getOrNull()
+        }
+        sources.forEach { step("Script ${it.path.substringAfterLast('/')}") }
+        val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames))
+        val outputs = if (bundle.converted == 0) ScriptConverter.runtimeFiles(slug, ScriptConverter.noteTypeMap(noteTypeNames)) else bundle.files
+        outputs.forEach { file ->
+            writer.writeText(file.path, file.content)
+            written++
+        }
+        report.stat("Scripts", bundle.converted)
+        bundle.report.sections.forEach { report.section("Script · ${it.title}", it.lines) }
+        bundle.report.warnings.forEach { report.warn(it) }
+        val others = scan.scripts.size - scriptFiles.size
+        if (others > 0) report.warn("$others other script files (not .lua or .hx) were skipped.")
     }
 
     private fun copyAssets() {

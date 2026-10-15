@@ -72,7 +72,7 @@ class ModConversionTest {
                 "My Mod/stages/club.json" to stage,
                 "My Mod/weeks/weekdude.json" to week,
                 "My Mod/images/menucharacters/dude.json" to menuDude,
-                "My Mod/scripts/thing.lua" to "-- lua"
+                "My Mod/scripts/thing.lua" to "function onCreate() makeLuaSprite('a', '', 0, 0) end"
             )
         )
         val extracted = Files.createTempDirectory("ex").toFile()
@@ -99,7 +99,9 @@ class ModConversionTest {
         assertTrue(File(out, "data/stages/club.json").exists())
         assertTrue(File(out, "songs/dad-battle/Voices-dude.ogg").exists())
         assertEquals("My Mod", JSONObject(File(out, "_polymod_meta.json").readText()).getString("title"))
-        assertTrue(result.report.warnings.any { it.contains("Lua") })
+        assertTrue(File(out, "scripts/psych/PsychLua_My_Mod_Global_thing.hxc").readText().contains("extends Module"))
+        assertTrue(File(out, "scripts/psych/PsychLuaRuntime_My_Mod.hxc").exists())
+        assertTrue(File(out, "scripts/psych/PsychEventKind_My_Mod.hxc").exists())
     }
 
     @Test

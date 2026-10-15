@@ -13,6 +13,7 @@ import com.brenninhotools.vconverter.chart.psych.PsychEvent
 import com.brenninhotools.vconverter.chart.psych.PsychSong
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
 import com.brenninhotools.vconverter.io.ImportedFile
+import com.brenninhotools.vconverter.script.ScriptConverter
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
 import com.brenninhotools.vconverter.ui.ConvertedOutput
@@ -103,13 +104,17 @@ class ChartsViewModel(application: Application) : BaseConverterViewModel(applica
                 val result = withContext(Dispatchers.Default) {
                     val conversion = PsychToVSliceChart.convert(sources, options)
                     val folder = listOf("data", "songs", id)
-                    ConvertedOutput(
-                        files = listOf(
-                            OutputFile(folder, "$id-metadata.json", VSliceWriter.metadataJson(conversion.metadata)),
-                            OutputFile(folder, "$id-chart.json", VSliceWriter.chartJson(conversion.chart))
-                        ),
-                        report = conversion.report.toReport()
+                    val files = mutableListOf(
+                        OutputFile(folder, "$id-metadata.json", VSliceWriter.metadataJson(conversion.metadata)),
+                        OutputFile(folder, "$id-chart.json", VSliceWriter.chartJson(conversion.chart))
                     )
+                    if (conversion.report.keptPsychEvents > 0) {
+                        val noteTypes = sources.flatMap { source -> source.song.sections.flatMap { section -> section.notes.map { it.type } } }.toSet()
+                        ScriptConverter.runtimeFiles(RUNTIME_SLUG, ScriptConverter.noteTypeMap(noteTypes)).forEach { file ->
+                            files += OutputFile(file.path.substringBeforeLast('/').split('/'), file.path.substringAfterLast('/'), file.content)
+                        }
+                    }
+                    ConvertedOutput(files = files, report = conversion.report.toReport())
                 }
                 songId = id
                 output = result
@@ -129,6 +134,7 @@ class ChartsViewModel(application: Application) : BaseConverterViewModel(applica
 
     companion object {
         private val knownDifficulties = PsychToVSliceChart.difficultyOrder
+        const val RUNTIME_SLUG = "VConverter"
 
         fun baseName(fileName: String): String {
             val stem = fileName.substringBeforeLast('.')

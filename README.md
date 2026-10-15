@@ -11,7 +11,7 @@ A remake of the V-Slice converter as a native Android app written in Kotlin. It 
 | Characters | ✅ Converter |
 | Stages | ✅ Converter |
 | Weeks → Levels | ✅ Converter |
-| Lua / HScript | ❌ Not convertible (reported) |
+| Lua / HScript scripts | ✅ Converter (with a Psych API runtime) |
 
 ## Whole mod
 
@@ -23,7 +23,7 @@ The **Mod** tab converts an entire Psych Engine mod in one go, from its folder o
 - Split vocals (`Voices-Player.ogg`, `Voices-Opponent.ogg` or a character's `vocals_file`) are wired through `playerVocals` / `opponentVocals`, so audio files keep their names
 - Character slots are inferred from how the charts use each character
 - `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
-- Lua and HScript files are listed in the report; they need to be ported by hand
+- Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/psych/*.hxc`
 
 Every other tab also accepts archives and picks the files it needs from them.
 
@@ -54,7 +54,7 @@ Drop that folder inside `data/songs/` of your V-Slice mod.
 - Stacked duplicate notes are removed
 - Stage ids mapped to the V-Slice ones (`stage` → `mainStage`, `spooky` → `spookyMansion`, …); `school`/`schoolEvil` or pixel arrow skins → `pixel` note style
 
-Anything that can't be converted yet is listed in the in-app report.
+Other Psych events are kept in the chart as `PsychEvent` (name + both values), so converted scripts still get them in `onEvent`; the bundled runtime also performs the common built-in ones (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`). Anything that can't be converted yet is listed in the in-app report.
 
 ## Saving
 
@@ -66,6 +66,7 @@ Pick your V-Slice mod folder once (it is remembered). Converted files go straigh
 <mod>/data/characters/<id>.json
 <mod>/data/stages/<id>.json
 <mod>/data/levels/<id>.json
+<mod>/scripts/psych/<Class>.hxc
 ```
 
 ## Characters
@@ -95,6 +96,18 @@ Stages built only in Lua/HScript have no object list; their character layout con
 - Hidden story weeks → `visible: false`
 
 Not carried over: lock chains (`weekBefore`), freeplay hiding, per-song freeplay icons/colors (listed in the report).
+
+## Scripts
+
+The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice scripted classes (`.hxc`).
+
+- **Lua** is fully parsed (Lua 5.1 / LuaJIT syntax) and transpiled to HScript: locals, globals, closures, varargs, tables (arrays and maps), `pairs`/`ipairs`, numeric loops, `goto continue`, `and`/`or` with Lua truthiness, and the `string`, `table`, `math`, `os` and `bit` libraries, including Lua patterns (`find`, `match`, `gmatch`, `gsub`, `format`)
+- **Psych HScript** (`.hx`) is wrapped into a module: imports are mapped (`states.PlayState` → `funkin.play.PlayState`, …), and `game.boyfriend`, `camFollow`, `defaultCamZoom`, `Conductor.songPosition`, `curBeat`, `ClientPrefs`… are rewritten to their V-Slice equivalents
+- Every script becomes a `Module` that only runs where Psych would run it: its song (`data/<song>/`), its stage (`stages/`), charts that use its event (`custom_events/`) or note type (`custom_notetypes/`), or everywhere (`scripts/`)
+- Psych callbacks are hooked to V-Slice events: `onCreate`, `onCreatePost`, `onUpdate`, `onBeatHit`, `onStepHit`, `onSectionHit`, `goodNoteHit`, `opponentNoteHit`, `noteMiss`, `noteMissPress`, `onEvent`, `onMoveCamera`, `onSpawnNote`, `onCountdownTick`, `onStartCountdown`, `onEndSong`, `onSongStart`, `onPause`, `onResume`, `onGameOver`, `onDestroy`, `onTimerCompleted`, `onTweenCompleted`, `onSoundFinished`; returning `Function_Stop` cancels the countdown and the song end like in Psych
+- A shared runtime module (`PsychLuaRuntime_<mod>.hxc`) implements the Psych Lua API on top of V-Slice: Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves and shared variables
+
+The report lists, line by line, anything a script uses that has no V-Slice equivalent (`runHaxeCode`, videos, custom substates, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
 
 ## Building
 

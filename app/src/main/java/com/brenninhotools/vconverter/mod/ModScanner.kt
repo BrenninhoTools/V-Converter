@@ -22,7 +22,7 @@ data class ModScan(
     val scripts: List<String>,
     val ignored: List<String>
 ) {
-    val isEmpty: Boolean get() = songs.isEmpty() && characters.isEmpty() && stages.isEmpty() && weeks.isEmpty() && assets.isEmpty()
+    val isEmpty: Boolean get() = songs.isEmpty() && characters.isEmpty() && stages.isEmpty() && weeks.isEmpty() && assets.isEmpty() && scripts.isEmpty()
 
     fun relative(path: String): String = path.removePrefix(root)
 }

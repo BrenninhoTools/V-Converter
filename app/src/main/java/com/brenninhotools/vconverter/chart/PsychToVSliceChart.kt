@@ -19,6 +19,7 @@ data class ConversionOptions(
     val charter: String = "",
     val extraEvents: List<PsychEvent> = emptyList(),
     val customStageIds: Set<String> = emptySet(),
+    val keepPsychEvents: Boolean = true,
     val playerVocals: List<String>? = null,
     val opponentVocals: List<String>? = null,
     val generatedBy: String = "V-Converter (Psych Engine to V-Slice)"
@@ -81,7 +82,7 @@ object PsychToVSliceChart {
             scrollSpeed[source.difficulty] = source.song.speed
         }
 
-        val events = (cameraEvents(song, timing, report) + psychEvents(song.events + options.extraEvents, song, timing, report))
+        val events = (cameraEvents(song, timing, report) + psychEvents(song.events + options.extraEvents, song, timing, report, options.keepPsychEvents))
             .sortedBy { it.time }
 
         val metadata = VSliceMetadata(
@@ -172,8 +173,10 @@ object PsychToVSliceChart {
 
     private fun noteKind(type: String, opponent: Boolean, altSection: Boolean): String {
         if (type.isBlank()) return if (altSection && opponent) "alt" else ""
-        return noteKinds[type.trim().lowercase()] ?: slug(type)
+        return noteKindFor(type)
     }
+
+    fun noteKindFor(type: String): String = noteKinds[type.trim().lowercase()] ?: slug(type)
 
     private fun slug(text: String): String =
         text.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
@@ -201,12 +204,16 @@ object PsychToVSliceChart {
         return result
     }
 
-    private fun psychEvents(events: List<PsychEvent>, song: PsychSong, timing: PsychTiming, report: ConversionReport): List<VSliceEvent> {
+    private fun psychEvents(events: List<PsychEvent>, song: PsychSong, timing: PsychTiming, report: ConversionReport, keep: Boolean): List<VSliceEvent> {
         val result = mutableListOf<VSliceEvent>()
         events.distinct().sortedBy { it.time }.forEach { event ->
             val converted = convertEvent(event, song, timing)
             if (converted == null) {
                 report.skipEvent(event.name.ifBlank { "(unnamed)" })
+                if (keep && event.name.isNotBlank()) {
+                    report.keptPsychEvents++
+                    result += VSliceEvent(event.time, "PsychEvent", linkedMapOf("name" to event.name, "value1" to event.value1, "value2" to event.value2))
+                }
             } else {
                 report.convertedEvents++
                 result += converted

@@ -1,0 +1,1525 @@
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.addons.display.FlxRuntimeShader;
+import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxTimer;
+import funkin.Conductor;
+import funkin.Highscore;
+import funkin.Paths;
+import funkin.PlayerSettings;
+import funkin.Preferences;
+import funkin.audio.FunkinSound;
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+import funkin.play.PlayStatePlaylist;
+import haxe.ds.StringMap;
+import openfl.display.BlendMode;
+
+class __CLASS__ extends Module
+{
+  var game:Dynamic = null;
+  var scripts:Array<Dynamic> = [];
+  var owner:Dynamic = null;
+  var sprites:StringMap<Dynamic> = new StringMap();
+  var texts:StringMap<Dynamic> = new StringMap();
+  var tweens:StringMap<Dynamic> = new StringMap();
+  var timers:StringMap<Dynamic> = new StringMap();
+  var sounds:StringMap<Dynamic> = new StringMap();
+  var vars:StringMap<Dynamic> = new StringMap();
+  var saves:StringMap<Dynamic> = new StringMap();
+  var offsets:StringMap<Dynamic> = new StringMap();
+  var shaders:StringMap<Dynamic> = new StringMap();
+  var defaults:StringMap<Dynamic> = new StringMap();
+  var noteTypeNames:StringMap<String> = new StringMap();
+  var debugTexts:Array<Dynamic> = [];
+  var backCount:Int = 0;
+  var frontCount:Int = 0;
+  var mustHitSection:Bool = false;
+  var gfSection:Bool = false;
+
+  public function new()
+  {
+    super("__MODULE_ID__", 1000);
+    var builtIn:Array<Dynamic> = [["alt", "Alt Animation"], ["hey", "Hey!"], ["hurt", "Hurt Note"], ["noanim", "No Animation"], ["gf-sing", "GF Sing"]];
+    var custom:Array<Dynamic> = __NOTE_TYPES__;
+    for (pair in builtIn) noteTypeNames.set(pair[0], pair[1]);
+    for (pair in custom) noteTypeNames.set(pair[0], pair[1]);
+  }
+
+  function ensureGame():Bool
+  {
+    var current:Dynamic = PlayState.instance;
+    if (current == null) return false;
+    if (current == game) return true;
+    game = current;
+    scripts = [];
+    sprites = new StringMap();
+    texts = new StringMap();
+    tweens = new StringMap();
+    timers = new StringMap();
+    sounds = new StringMap();
+    vars = new StringMap();
+    offsets = new StringMap();
+    defaults = new StringMap();
+    debugTexts = [];
+    backCount = 0;
+    frontCount = 0;
+    mustHitSection = false;
+    gfSection = false;
+    return true;
+  }
+
+  override public function onStateChangeBegin(event:StateChangeScriptEvent):Void
+  {
+    super.onStateChangeBegin(event);
+    for (key in timers.keys()) safeCancel(timers.get(key));
+    for (key in tweens.keys()) safeCancel(tweens.get(key));
+    for (key in sounds.keys()) safeStop(sounds.get(key));
+    game = null;
+    scripts = [];
+  }
+
+  override public function onSongEvent(event:SongEventScriptEvent):Void
+  {
+    super.onSongEvent(event);
+    var data:Dynamic = event.eventData;
+    if (data == null || data.eventKind != "FocusCamera") return;
+    var target:Dynamic = data.value != null && Reflect.isObject(data.value) ? Reflect.field(data.value, "char") : data.value;
+    mustHitSection = target == 0;
+    gfSection = target == 2;
+  }
+
+  function safeCancel(item:Dynamic):Void
+  {
+    try
+    {
+      if (item != null) item.cancel();
+    }
+    catch (e:Dynamic) {}
+  }
+
+  function safeStop(item:Dynamic):Void
+  {
+    try
+    {
+      if (item != null) item.stop();
+    }
+    catch (e:Dynamic) {}
+  }
+
+  function strStarts(s:String, prefix:String):Bool
+  {
+    return s != null && prefix != null && s.length >= prefix.length && s.substr(0, prefix.length) == prefix;
+  }
+
+  function strEnds(s:String, suffix:String):Bool
+  {
+    return s != null && suffix != null && s.length >= suffix.length && s.substr(s.length - suffix.length) == suffix;
+  }
+
+  function strTrim(v:Dynamic):String
+  {
+    var str:String = "" + v;
+    var start:Int = 0;
+    var end:Int = str.length;
+    while (start < end && " \t\r\n".indexOf(str.charAt(start)) >= 0) start++;
+    while (end > start && " \t\r\n".indexOf(str.charAt(end - 1)) >= 0) end--;
+    return str.substring(start, end);
+  }
+
+  function arg(args:Array<Dynamic>, i:Int, fallback:Dynamic):Dynamic
+  {
+    if (args == null || i >= args.length || args[i] == null) return fallback;
+    return args[i];
+  }
+
+  function num(value:Dynamic, fallback:Float):Float
+  {
+    if (value == null) return fallback;
+    var f:Float = Std.parseFloat(Std.string(value));
+    return Math.isNaN(f) ? fallback : f;
+  }
+
+  function truthy(value:Dynamic):Bool
+  {
+    if (value == null || value == false) return false;
+    var s:String = Std.string(value).toLowerCase();
+    return s != "false";
+  }
+
+  function notify(target:Dynamic, name:String, args:Array<Dynamic>):Dynamic
+  {
+    if (target == null) return null;
+    try
+    {
+      return target.scriptCall("psychCallback", [name, args]);
+    }
+    catch (e:Dynamic)
+    {
+      return null;
+    }
+  }
+
+  public function psychVariable(name:String):Dynamic
+  {
+    if (!ensureGame()) return null;
+    try
+    {
+      return variable(name);
+    }
+    catch (e:Dynamic)
+    {
+      return null;
+    }
+  }
+
+  public function psychCall(caller:Dynamic, name:String, args:Array<Dynamic>):Dynamic
+  {
+    if (!ensureGame()) return null;
+    owner = caller;
+    if (args == null) args = [];
+    try
+    {
+      return dispatch(name, args);
+    }
+    catch (e:Dynamic)
+    {
+      return null;
+    }
+  }
+
+  function dispatch(name:String, a:Array<Dynamic>):Dynamic
+  {
+    switch (name)
+    {
+      case "registerScript":
+        if (scripts.indexOf(owner) < 0) scripts.push(owner);
+        return null;
+      case "makeLuaSprite": return makeLuaSprite(a[0], a[1], num(a[2], 0), num(a[3], 0));
+      case "makeAnimatedLuaSprite": return makeAnimatedLuaSprite(a[0], a[1], num(a[2], 0), num(a[3], 0), arg(a, 4, "sparrow"));
+      case "makeGraphic", "luaSpriteMakeGraphic": return makeGraphic(a[0], num(a[1], 256), num(a[2], 256), arg(a, 3, "FFFFFF"));
+      case "loadGraphic": return loadGraphic(a[0], a[1], num(a[2], 0), num(a[3], 0));
+      case "loadFrames": return loadFrames(a[0], a[1], arg(a, 2, "sparrow"));
+      case "addAnimationByPrefix", "luaSpriteAddAnimationByPrefix": return addAnimationByPrefix(a[0], a[1], a[2], num(a[3], 24), arg(a, 4, true));
+      case "addAnimationByIndices", "luaSpriteAddAnimationByIndices": return addAnimationByIndices(a[0], a[1], a[2], a[3], num(a[4], 24), arg(a, 5, false));
+      case "addAnimationByIndicesLoop": return addAnimationByIndices(a[0], a[1], a[2], a[3], num(a[4], 24), true);
+      case "addAnimation": return addAnimation(a[0], a[1], a[2], num(a[3], 24), arg(a, 4, true));
+      case "addOffset": return addOffset(a[0], a[1], num(a[2], 0), num(a[3], 0));
+      case "playAnim", "objectPlayAnimation", "luaSpritePlayAnimation": return playAnim(a[0], a[1], truthy(arg(a, 2, false)), truthy(arg(a, 3, false)), Std.int(num(a[4], 0)));
+      case "addLuaSprite": return addLuaSprite(a[0], truthy(arg(a, 1, false)));
+      case "removeLuaSprite": return removeLuaSprite(a[0], arg(a, 1, true));
+      case "luaSpriteExists": return sprites.exists(Std.string(a[0]));
+      case "setScrollFactor", "setLuaSpriteScrollFactor": return with(a[0], function(o) o.scrollFactor.set(num(a[1], 1), num(a[2], 1)));
+      case "scaleObject", "scaleLuaSprite":
+        return with(a[0], function(o)
+        {
+          o.scale.set(num(a[1], 1), num(a[2], 1));
+          if (truthy(arg(a, 3, true))) o.updateHitbox();
+        });
+      case "setGraphicSize":
+        return with(a[0], function(o)
+        {
+          o.setGraphicSize(Std.int(num(a[1], 0)), Std.int(num(a[2], 0)));
+          if (truthy(arg(a, 3, true))) o.updateHitbox();
+        });
+      case "updateHitbox": return with(a[0], function(o) o.updateHitbox());
+      case "screenCenter": return screenCenter(a[0], arg(a, 1, "xy"));
+      case "setObjectCamera", "setLuaSpriteCamera": return with(a[0], function(o) o.cameras = [camera(arg(a, 1, "game"))]);
+      case "setObjectOrder": return setObjectOrder(a[0], num(a[1], 0));
+      case "getObjectOrder":
+        var o:Dynamic = resolve(a[0]);
+        return o == null ? -1 : o.zIndex;
+      case "setBlendMode": return with(a[0], function(o) o.blend = BlendMode.fromString(Std.string(arg(a, 1, "normal")).toLowerCase()));
+      case "getMidpointX": return point(a[0], "midpoint", true);
+      case "getMidpointY": return point(a[0], "midpoint", false);
+      case "getGraphicMidpointX": return point(a[0], "graphic", true);
+      case "getGraphicMidpointY": return point(a[0], "graphic", false);
+      case "getScreenPositionX": return point(a[0], "screen", true);
+      case "getScreenPositionY": return point(a[0], "screen", false);
+      case "objectsOverlap":
+        var first:Dynamic = resolve(a[0]);
+        var second:Dynamic = resolve(a[1]);
+        return first != null && second != null && first.overlaps(second);
+      case "precacheImage", "precacheSound", "precacheMusic", "addCharacterToList", "setTimeBarColors", "setRatingPercent", "setRatingName", "setRatingFC", "updateScoreText", "flushSaveData", "addHaxeLibrary", "cameraZoomOnBeat":
+        return null;
+      case "makeLuaText": return makeLuaText(a[0], arg(a, 1, ""), num(a[2], 0), num(a[3], 0), num(a[4], 0));
+      case "addLuaText": return addLuaText(a[0]);
+      case "removeLuaText": return removeLuaText(a[0], arg(a, 1, true));
+      case "luaTextExists": return texts.exists(Std.string(a[0]));
+      case "setTextString": return withText(a[0], function(t) t.text = Std.string(arg(a, 1, "")));
+      case "getTextString":
+        var t:Dynamic = resolve(a[0]);
+        return t == null ? null : t.text;
+      case "setTextSize": return withText(a[0], function(t) t.size = Std.int(num(a[1], 16)));
+      case "getTextSize":
+        var t:Dynamic = resolve(a[0]);
+        return t == null ? -1 : t.size;
+      case "setTextWidth": return withText(a[0], function(t) t.fieldWidth = num(a[1], 0));
+      case "getTextWidth":
+        var t:Dynamic = resolve(a[0]);
+        return t == null ? 0 : t.width;
+      case "setTextHeight": return withText(a[0], function(t) t.fieldHeight = num(a[1], 0));
+      case "setTextAutoSize": return withText(a[0], function(t) t.autoSize = truthy(a[1]));
+      case "setTextColor": return withText(a[0], function(t) t.color = color(a[1]));
+      case "setTextFont": return withText(a[0], function(t) t.font = Paths.font(Std.string(a[1])));
+      case "getTextFont":
+        var t:Dynamic = resolve(a[0]);
+        return t == null ? null : t.font;
+      case "setTextBorder": return setTextBorder(a[0], num(a[1], 1), arg(a, 2, "000000"));
+      case "setTextAlignment": return withText(a[0], function(t) t.alignment = Std.string(arg(a, 1, "left")).toLowerCase());
+      case "setTextItalic": return withText(a[0], function(t) t.italic = truthy(a[1]));
+      case "getProperty", "getPropertyLuaSprite": return getProperty(name == "getPropertyLuaSprite" ? a[0] + "." + a[1] : a[0]);
+      case "setProperty", "setPropertyLuaSprite": return setProperty(name == "setPropertyLuaSprite" ? a[0] + "." + a[1] : a[0], name == "setPropertyLuaSprite" ? a[2] : a[1]);
+      case "getPropertyFromClass": return getPropertyFromClass(a[0], a[1]);
+      case "setPropertyFromClass": return setPropertyFromClass(a[0], a[1], a[2]);
+      case "getPropertyFromGroup":
+        var member:Dynamic = groupMember(a[0], Std.int(num(a[1], 0)));
+        return member == null ? null : getPath(member, Std.string(a[2]));
+      case "setPropertyFromGroup":
+        var member:Dynamic = groupMember(a[0], Std.int(num(a[1], 0)));
+        if (member != null) setPath(member, Std.string(a[2]), a[3]);
+        return null;
+      case "setVar":
+        vars.set(Std.string(a[0]), a[1]);
+        return a[1];
+      case "getVar": return vars.get(Std.string(a[0]));
+      case "callMethod":
+        var target:Dynamic = resolve(a[0]);
+        var method:Dynamic = target != null ? Reflect.getProperty(target, Std.string(a[1])) : null;
+        if (method == null) return null;
+        return Reflect.callMethod(target, method, a[2] == null ? [] : a[2]);
+      case "doTweenX": return tween(a[0], a[1], {x: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "doTweenY": return tween(a[0], a[1], {y: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "doTweenAlpha": return tween(a[0], a[1], {alpha: num(a[2], 1)}, num(a[3], 1), a[4]);
+      case "doTweenAngle": return tween(a[0], a[1], {angle: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "doTweenZoom": return tweenZoom(a[0], a[1], num(a[2], 1), num(a[3], 1), a[4]);
+      case "doTweenColor": return tweenColor(a[0], a[1], a[2], num(a[3], 1), a[4]);
+      case "startTween": return startTween(a[0], a[1], a[2], num(a[3], 1), a[4]);
+      case "cancelTween": return cancel(tweens, a[0]);
+      case "noteTweenX": return noteTween(a[0], a[1], {x: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "noteTweenY": return noteTween(a[0], a[1], {y: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "noteTweenAlpha": return noteTween(a[0], a[1], {alpha: num(a[2], 1)}, num(a[3], 1), a[4]);
+      case "noteTweenAngle": return noteTween(a[0], a[1], {angle: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "noteTweenDirection": return noteTween(a[0], a[1], {angle: num(a[2], 0)}, num(a[3], 1), a[4]);
+      case "runTimer": return runTimer(a[0], num(a[1], 1), Std.int(num(a[2], 1)));
+      case "cancelTimer": return cancel(timers, a[0]);
+      case "cameraShake":
+        var cam:Dynamic = camera(a[0]);
+        if (cam != null) cam.shake(num(a[1], 0.05), num(a[2], 0.5));
+        return null;
+      case "cameraFlash":
+        var cam:Dynamic = camera(a[0]);
+        if (cam != null) cam.flash(color(a[1]), num(a[2], 1), null, truthy(arg(a, 3, false)));
+        return null;
+      case "cameraFade":
+        var cam:Dynamic = camera(a[0]);
+        if (cam != null) cam.fade(color(a[1]), num(a[2], 1), truthy(arg(a, 4, false)), null, truthy(arg(a, 3, false)));
+        return null;
+      case "cameraSetTarget": return cameraSetTarget(arg(a, 0, "boyfriend"));
+      case "setCameraFollowPoint":
+        game.cameraFollowPoint.setPosition(num(a[0], 0), num(a[1], 0));
+        return null;
+      case "getCameraFollowX": return game.cameraFollowPoint.x;
+      case "getCameraFollowY": return game.cameraFollowPoint.y;
+      case "triggerEvent": return triggerEvent(Std.string(a[0]), arg(a, 1, ""), arg(a, 2, ""));
+      case "characterPlayAnim":
+        var c:Dynamic = character(a[0]);
+        if (c != null) c.playAnimation(Std.string(a[1]), truthy(arg(a, 2, false)), truthy(arg(a, 2, false)));
+        return null;
+      case "characterDance":
+        var c:Dynamic = character(a[0]);
+        if (c != null) c.dance(true);
+        return null;
+      case "getCharacterX":
+        var c:Dynamic = character(a[0]);
+        return c == null ? 0 : c.x;
+      case "getCharacterY":
+        var c:Dynamic = character(a[0]);
+        return c == null ? 0 : c.y;
+      case "setCharacterX":
+        var c:Dynamic = character(a[0]);
+        if (c != null) c.x = num(a[1], 0);
+        return null;
+      case "setCharacterY":
+        var c:Dynamic = character(a[0]);
+        if (c != null) c.y = num(a[1], 0);
+        return null;
+      case "setHealth":
+        game.health = num(a[0], 1);
+        return null;
+      case "getHealth": return game.health;
+      case "addHealth":
+        game.health += num(a[0], 0);
+        return null;
+      case "setScore":
+        game.songScore = num(a[0], 0);
+        return null;
+      case "addScore":
+        game.songScore += num(a[0], 0);
+        return null;
+      case "setMisses": return setTally("missed", num(a[0], 0), false);
+      case "addMisses": return setTally("missed", num(a[0], 0), true);
+      case "setHits": return setTally("totalNotesHit", num(a[0], 0), false);
+      case "addHits": return setTally("totalNotesHit", num(a[0], 0), true);
+      case "getSongPosition": return Conductor.instance.songPosition;
+      case "endSong", "exitSong":
+        game.endSong(true);
+        return true;
+      case "restartSong":
+        game.needsReset = true;
+        return true;
+      case "startCountdown":
+        game.startCountdown();
+        return true;
+      case "setHealthBarColors":
+        try
+        {
+          game.healthBar.createFilledBar(color(a[0]), color(a[1]));
+          game.healthBar.updateBar();
+        }
+        catch (e:Dynamic) {}
+        return null;
+      case "playSound": return playSound(a[0], num(a[1], 1), a[2]);
+      case "playMusic":
+        FlxG.sound.playMusic(Paths.music(Std.string(a[0])), num(a[1], 1), truthy(arg(a, 2, false)));
+        return null;
+      case "stopSound": return withSound(a[0], function(s) s.stop());
+      case "pauseSound": return withSound(a[0], function(s) s.pause());
+      case "resumeSound": return withSound(a[0], function(s) s.resume());
+      case "setSoundVolume": return withSound(a[0], function(s) s.volume = num(a[1], 1));
+      case "getSoundVolume":
+        var s:Dynamic = sound(a[0]);
+        return s == null ? 0 : s.volume;
+      case "getSoundTime":
+        var s:Dynamic = sound(a[0]);
+        return s == null ? 0 : s.time;
+      case "setSoundTime": return withSound(a[0], function(s) s.time = num(a[1], 0));
+      case "getSoundPitch":
+        var s:Dynamic = sound(a[0]);
+        return s == null ? 1 : s.pitch;
+      case "setSoundPitch": return withSound(a[0], function(s) s.pitch = num(a[1], 1));
+      case "soundFadeIn": return withSound(a[0], function(s) s.fadeIn(num(a[1], 1), num(a[2], 0), num(a[3], 1)));
+      case "soundFadeOut": return withSound(a[0], function(s) s.fadeOut(num(a[1], 1), num(a[2], 0)));
+      case "soundFadeCancel": return withSound(a[0], function(s) if (s.fadeTween != null) s.fadeTween.cancel());
+      case "luaSoundExists": return sounds.exists(Std.string(a[0]));
+      case "musicFadeIn":
+        if (FlxG.sound.music != null) FlxG.sound.music.fadeIn(num(a[0], 1), num(a[1], 0), num(a[2], 1));
+        return null;
+      case "musicFadeOut":
+        if (FlxG.sound.music != null) FlxG.sound.music.fadeOut(num(a[0], 1), num(a[1], 0));
+        return null;
+      case "getRandomInt": return FlxG.random.int(Std.int(num(a[0], 0)), Std.int(num(a[1], 2147483647)), parseExclude(a[2]));
+      case "getRandomFloat": return FlxG.random.float(num(a[0], 0), num(a[1], 1));
+      case "getRandomBool": return FlxG.random.bool(num(a[0], 50));
+      case "getColorFromHex", "getColorFromName", "getColorFromString": return color(a[0]);
+      case "stringStartsWith": return strStarts(Std.string(a[0]), Std.string(a[1]));
+      case "stringEndsWith": return strEnds(Std.string(a[0]), Std.string(a[1]));
+      case "stringSplit": return Std.string(a[0]).split(Std.string(arg(a, 1, ",")));
+      case "stringTrim": return strTrim(Std.string(a[0]));
+      case "debugPrint": return debugPrint(a);
+      case "close":
+        try
+        {
+          owner.scriptCall("psychClose", []);
+        }
+        catch (e:Dynamic) {}
+        return true;
+      case "keyJustPressed": return control(a[0], "_P");
+      case "keyPressed": return control(a[0], "");
+      case "keyReleased": return control(a[0], "_R");
+      case "keyboardJustPressed": return keyState(FlxG.keys.justPressed, a[0]);
+      case "keyboardPressed": return keyState(FlxG.keys.pressed, a[0]);
+      case "keyboardReleased": return keyState(FlxG.keys.justReleased, a[0]);
+      case "mouseClicked": return mouse(arg(a, 0, "left"), "justPressed");
+      case "mousePressed": return mouse(arg(a, 0, "left"), "pressed");
+      case "mouseReleased": return mouse(arg(a, 0, "left"), "justReleased");
+      case "getMouseX": return FlxG.mouse.screenX;
+      case "getMouseY": return FlxG.mouse.screenY;
+      case "initSaveData":
+        if (!saves.exists(Std.string(a[0]))) saves.set(Std.string(a[0]), {});
+        return null;
+      case "getDataFromSave":
+        var save:Dynamic = saves.get(Std.string(a[0]));
+        if (save == null) return a[2];
+        var value:Dynamic = Reflect.field(save, Std.string(a[1]));
+        return value == null ? a[2] : value;
+      case "setDataFromSave":
+        if (!saves.exists(Std.string(a[0]))) saves.set(Std.string(a[0]), {});
+        Reflect.setField(saves.get(Std.string(a[0])), Std.string(a[1]), a[2]);
+        return null;
+      case "eraseSaveData":
+        saves.remove(Std.string(a[0]));
+        return null;
+      case "callOnLuas", "callOnScripts":
+        return callAll(Std.string(a[0]), a[1] == null ? [] : a[1], truthy(arg(a, 3, true)));
+      case "callOnHScript": return null;
+      case "setOnLuas", "setOnScripts":
+        for (s in scripts) notify(s, "__set", [a[0], a[1]]);
+        return null;
+      case "setOnHScript": return null;
+      case "callScript":
+        for (s in scripts) if (Std.string(s.moduleId).indexOf(Std.string(a[0])) >= 0) return notify(s, Std.string(a[1]), a[2] == null ? [] : a[2]);
+        return null;
+      case "isRunning":
+        for (s in scripts) if (Std.string(s.moduleId).indexOf(Std.string(a[0])) >= 0) return true;
+        return false;
+      case "checkFileExists": return Assets.exists(Paths.file(Std.string(a[0])));
+      case "getTextFromFile": return Assets.getText(Paths.file(Std.string(a[0])));
+      case "getModSetting": return null;
+      case "initLuaShader": return initShader(Std.string(a[0]));
+      case "setSpriteShader":
+        var source:String = initShader(Std.string(a[1])) ? shaders.get(Std.string(a[1])) : null;
+        if (source != null) with(a[0], function(o) o.shader = new FlxRuntimeShader(source));
+        return source != null;
+      case "removeSpriteShader": return with(a[0], function(o) o.shader = null);
+      case "setShaderFloat": return withShader(a[0], function(sh) sh.setFloat(Std.string(a[1]), num(a[2], 0)));
+      case "setShaderInt": return withShader(a[0], function(sh) sh.setInt(Std.string(a[1]), Std.int(num(a[2], 0))));
+      case "setShaderBool": return withShader(a[0], function(sh) sh.setBool(Std.string(a[1]), truthy(a[2])));
+      case "setShaderFloatArray": return withShader(a[0], function(sh) sh.setFloatArray(Std.string(a[1]), a[2]));
+      case "getShaderFloat":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getFloat(Std.string(a[1])) : null;
+      case "songUsesEvent": return songUsesEvent(Std.string(a[0]));
+      case "songUsesNoteType": return songUsesNoteType(Std.string(a[0]));
+      case "noteTypeName": return noteTypeName(a[0]);
+      case "psychEventInfo": return psychEventInfo(a[0]);
+      default: return null;
+    }
+  }
+
+  function variable(name:String):Dynamic
+  {
+    var conductor:Dynamic = Conductor.instance;
+    switch (name)
+    {
+      case "curBeat": return conductor.currentBeat;
+      case "curStep": return conductor.currentStep;
+      case "curDecBeat": return conductor.currentBeatTime;
+      case "curDecStep": return conductor.currentStepTime;
+      case "curSection": return conductor.currentMeasure;
+      case "songPosition": return conductor.songPosition;
+      case "bpm", "curBpm": return conductor.bpm;
+      case "crochet": return conductor.beatLengthMs;
+      case "stepCrochet": return conductor.stepLengthMs;
+      case "songLength": return FlxG.sound.music != null ? FlxG.sound.music.length : 0;
+      case "songName": return game.currentSong != null ? game.currentSong.songName : "";
+      case "songPath", "loadedSongName", "loadedSongPath": return game.currentSong != null ? game.currentSong.id : "";
+      case "curStage": return game.currentStageId;
+      case "screenWidth": return FlxG.width;
+      case "screenHeight": return FlxG.height;
+      case "downscroll": return Preferences.downscroll;
+      case "middlescroll", "hideHud", "practice", "seenCutscene", "lowQuality", "inGameOver", "luaDebugMode", "instakillOnMiss", "noResetButton", "guitarHeroSustains":
+        return name == "inGameOver" ? game.isGameOverState == true : false;
+      case "ghostTapping", "shadersEnabled", "flashingLights", "hasVocals", "luaDeprecatedWarnings", "altAnim": return name == "flashingLights" ? Preferences.flashingLights : true;
+      case "framerate": return Preferences.framerate;
+      case "botPlay": return game.isBotPlayMode == true;
+      case "difficultyName", "difficultyPath", "difficultyNameTranslation": return game.currentDifficulty;
+      case "difficulty": return 1;
+      case "isStoryMode": return PlayStatePlaylist.isStoryMode;
+      case "mustHitSection": return mustHitSection;
+      case "gfSection": return gfSection;
+      case "boyfriendName": return characterId(game.currentStage != null ? game.currentStage.getBoyfriend() : null);
+      case "dadName": return characterId(game.currentStage != null ? game.currentStage.getDad() : null);
+      case "gfName": return characterId(game.currentStage != null ? game.currentStage.getGirlfriend() : null);
+      case "health": return game.health;
+      case "score": return game.songScore;
+      case "misses": return tally("missed");
+      case "hits", "totalNotesHit": return tally("totalNotesHit");
+      case "combo": return tally("combo");
+      case "scrollSpeed": return game.currentChart != null ? game.currentChart.scrollSpeed : 1;
+      case "version": return "1.0.4";
+      case "playbackRate": return game.playbackRate;
+      case "startedCountdown": return game.isInCountdown != true;
+      case "cameraX": return game.cameraFollowPoint.x;
+      case "cameraY": return game.cameraFollowPoint.y;
+      case "rating", "totalPlayed", "deaths", "noteOffset", "healthBarAlpha", "healthGainMult", "healthLossMult", "splashAlpha", "scoreZoom":
+        return name == "healthBarAlpha" || name == "healthGainMult" || name == "healthLossMult" || name == "splashAlpha" ? 1 : 0;
+      case "ratingName", "ratingFC", "week", "weekRaw", "noteSkin", "noteSkinPostfix", "splashSkin", "splashSkinPostfix", "timeBarType", "modFolder", "currentModDirectory", "scriptName", "chartPath", "buildTarget":
+        return name == "buildTarget" ? "android" : "";
+      case "defaultBoyfriendX": return snapshot(name, character("boyfriend"), "x");
+      case "defaultBoyfriendY": return snapshot(name, character("boyfriend"), "y");
+      case "defaultOpponentX": return snapshot(name, character("dad"), "x");
+      case "defaultOpponentY": return snapshot(name, character("dad"), "y");
+      case "defaultGirlfriendX": return snapshot(name, character("gf"), "x");
+      case "defaultGirlfriendY": return snapshot(name, character("gf"), "y");
+    }
+    if (strStarts(name, "defaultPlayerStrum") || strStarts(name, "defaultOpponentStrum"))
+    {
+      var player:Bool = strStarts(name, "defaultPlayerStrum");
+      var axis:String = name.charAt(name.length - 2).toLowerCase();
+      var index:Int = Std.parseInt(name.charAt(name.length - 1));
+      return snapshot(name, groupMember(player ? "playerStrums" : "opponentStrums", index), axis);
+    }
+    return vars.get(name);
+  }
+
+  function snapshot(key:String, target:Dynamic, field:String):Dynamic
+  {
+    if (defaults.exists(key)) return defaults.get(key);
+    if (target == null) return 0;
+    var value:Dynamic = Reflect.getProperty(target, field);
+    defaults.set(key, value);
+    return value;
+  }
+
+  function characterId(c:Dynamic):String
+  {
+    return c == null ? "" : c.characterId;
+  }
+
+  function tally(field:String):Dynamic
+  {
+    try
+    {
+      return Reflect.getProperty(Highscore.tallies, field);
+    }
+    catch (e:Dynamic)
+    {
+      return 0;
+    }
+  }
+
+  function setTally(field:String, value:Float, add:Bool):Dynamic
+  {
+    try
+    {
+      var current:Dynamic = Reflect.getProperty(Highscore.tallies, field);
+      Reflect.setProperty(Highscore.tallies, field, Std.int(add ? current + value : value));
+    }
+    catch (e:Dynamic) {}
+    return null;
+  }
+
+  function character(name:Dynamic):Dynamic
+  {
+    if (game == null || game.currentStage == null) return null;
+    var key:String = Std.string(name).toLowerCase();
+    if (key == "dad" || key == "opponent" || key == "1") return game.currentStage.getDad();
+    if (key == "gf" || key == "girlfriend" || key == "2") return game.currentStage.getGirlfriend();
+    return game.currentStage.getBoyfriend();
+  }
+
+  function camera(name:Dynamic):Dynamic
+  {
+    var key:String = name == null ? "game" : Std.string(name).toLowerCase();
+    if (key == "hud" || key == "camhud") return game.camHUD;
+    if (key == "other" || key == "camother") return game.camCutscene != null ? game.camCutscene : game.camHUD;
+    return game.camGame;
+  }
+
+  function root(name:String):Dynamic
+  {
+    if (sprites.exists(name)) return sprites.get(name);
+    if (texts.exists(name)) return texts.get(name);
+    if (vars.exists(name)) return vars.get(name);
+    switch (name)
+    {
+      case "boyfriend", "bf", "boyfriendGroup": return character("boyfriend");
+      case "dad", "dadGroup": return character("dad");
+      case "gf", "girlfriend", "gfGroup": return character("gf");
+      case "camGame", "game.camGame": return game.camGame;
+      case "camHUD": return game.camHUD;
+      case "camOther": return camera("other");
+      case "camFollow", "camFollowPos": return game.cameraFollowPoint;
+      case "playerStrums": return game.playerStrumline;
+      case "opponentStrums": return game.opponentStrumline;
+      case "scoreTxt": return Reflect.getProperty(game, "scoreText");
+      case "inst": return FlxG.sound.music;
+      case "vocals": return game.vocals;
+      case "game", "instance", "this": return game;
+    }
+    if (game.currentStage != null)
+    {
+      var prop:Dynamic = game.currentStage.getNamedProp(name);
+      if (prop != null) return prop;
+    }
+    return Reflect.getProperty(game, name);
+  }
+
+  function step(target:Dynamic, part:String):Dynamic
+  {
+    if (target == null) return null;
+    var bracket:Int = part.indexOf("[");
+    if (bracket < 0) return Reflect.getProperty(target, part);
+    var base:Dynamic = bracket == 0 ? target : Reflect.getProperty(target, part.substr(0, bracket));
+    var index:Int = Std.parseInt(part.substring(bracket + 1, part.indexOf("]")));
+    if (base == null) return null;
+    var members:Dynamic = Reflect.getClassNameOf(base) == "Array" ? base : Reflect.getProperty(base, "members");
+    return members == null ? null : members[index];
+  }
+
+  function getPath(target:Dynamic, path:String):Dynamic
+  {
+    var current:Dynamic = target;
+    for (part in path.split(".")) current = step(current, part);
+    return current;
+  }
+
+  function setPath(target:Dynamic, path:String, value:Dynamic):Void
+  {
+    var parts:Array<String> = path.split(".");
+    var last:String = parts.pop();
+    var current:Dynamic = target;
+    for (part in parts) current = step(current, part);
+    if (current != null) Reflect.setProperty(current, last, value);
+  }
+
+  function resolve(path:Dynamic):Dynamic
+  {
+    if (path == null) return null;
+    if (Reflect.getClassNameOf(path) != "String") return path;
+    var parts:Array<String> = Std.string(path).split(".");
+    var current:Dynamic = root(parts.shift());
+    for (part in parts) current = step(current, part);
+    return current;
+  }
+
+  function getProperty(path:Dynamic):Dynamic
+  {
+    var key:String = Std.string(path);
+    switch (key)
+    {
+      case "health": return game.health;
+      case "songScore": return game.songScore;
+      case "songMisses": return tally("missed");
+      case "combo": return tally("combo");
+      case "defaultCamZoom": return game.currentCameraZoom;
+      case "camZooming", "isCameraOnForcedPos", "inCutscene": return key == "inCutscene" ? game.isInCutscene : vars.get(key) == true;
+      case "cameraSpeed": return 1;
+      case "songSpeed": return game.playerStrumline != null ? game.playerStrumline.scrollSpeed : 1;
+    }
+    return resolve(key);
+  }
+
+  function setProperty(path:Dynamic, value:Dynamic):Dynamic
+  {
+    var key:String = Std.string(path);
+    switch (key)
+    {
+      case "health":
+        game.health = num(value, 1);
+        return true;
+      case "songScore":
+        game.songScore = num(value, 0);
+        return true;
+      case "songMisses": return setTally("missed", num(value, 0), false);
+      case "defaultCamZoom":
+        game.currentCameraZoom = num(value, 1);
+        return true;
+      case "camZooming", "isCameraOnForcedPos", "cameraSpeed":
+        vars.set(key, value);
+        return true;
+      case "inCutscene":
+        game.isInCutscene = truthy(value);
+        return true;
+      case "songSpeed":
+        if (game.playerStrumline != null) game.playerStrumline.scrollSpeed = num(value, 1);
+        if (game.opponentStrumline != null) game.opponentStrumline.scrollSpeed = num(value, 1);
+        return true;
+    }
+    var parts:Array<String> = key.split(".");
+    if (parts.length == 1)
+    {
+      if (vars.exists(key))
+      {
+        vars.set(key, value);
+        return true;
+      }
+      Reflect.setProperty(game, key, value);
+      return true;
+    }
+    var last:String = parts.pop();
+    var target:Dynamic = resolve(parts.join("."));
+    if (target != null) Reflect.setProperty(target, last, value);
+    return true;
+  }
+
+  function classTarget(name:String):Dynamic
+  {
+    var key:String = name.toLowerCase();
+    if (strEnds(key, "flxg")) return FlxG;
+    if (strEnds(key, "playstate")) return game;
+    if (strEnds(key, "conductor")) return Conductor.instance;
+    return null;
+  }
+
+  function getPropertyFromClass(className:Dynamic, path:Dynamic):Dynamic
+  {
+    var cls:String = Std.string(className);
+    var key:String = Std.string(path);
+    if (strEnds(cls.toLowerCase(), "clientprefs"))
+    {
+      var field:String = strStarts(key, "data.") ? key.substr(5) : key;
+      switch (field)
+      {
+        case "downScroll": return Preferences.downscroll;
+        case "middleScroll": return false;
+        case "flashing": return Preferences.flashingLights;
+        case "framerate": return Preferences.framerate;
+        case "ghostTapping", "antialiasing", "shaders": return true;
+        case "lowQuality", "hideHud": return false;
+        default: return null;
+      }
+    }
+    var target:Dynamic = classTarget(cls);
+    if (target == null) return null;
+    if (target == game && strStarts(key, "instance.")) key = key.substr(9);
+    return getPath(target, key);
+  }
+
+  function setPropertyFromClass(className:Dynamic, path:Dynamic, value:Dynamic):Dynamic
+  {
+    var target:Dynamic = classTarget(Std.string(className));
+    if (target == null) return null;
+    var key:String = Std.string(path);
+    if (target == game && strStarts(key, "instance.")) key = key.substr(9);
+    setPath(target, key, value);
+    return true;
+  }
+
+  function groupMember(group:Dynamic, index:Int):Dynamic
+  {
+    var name:String = Std.string(group);
+    switch (name)
+    {
+      case "playerStrums": return game.playerStrumline != null ? game.playerStrumline.strumlineNotes.members[index] : null;
+      case "opponentStrums": return game.opponentStrumline != null ? game.opponentStrumline.strumlineNotes.members[index] : null;
+      case "strumLineNotes":
+        return index < 4 ? groupMember("opponentStrums", index) : groupMember("playerStrums", index - 4);
+      case "notes", "unspawnNotes": return null;
+    }
+    var target:Dynamic = resolve(name);
+    if (target == null) return null;
+    if (Reflect.getClassNameOf(target) == "Array") return target[index];
+    var members:Dynamic = Reflect.getProperty(target, "members");
+    return members == null ? null : members[index];
+  }
+
+  function with(target:Dynamic, action:Dynamic):Dynamic
+  {
+    var o:Dynamic = resolve(target);
+    if (o == null) return false;
+    action(o);
+    return true;
+  }
+
+  function withText(target:Dynamic, action:Dynamic):Dynamic
+  {
+    return with(target, action);
+  }
+
+  function withShader(target:Dynamic, action:Dynamic):Dynamic
+  {
+    var o:Dynamic = resolve(target);
+    if (o == null || o.shader == null) return false;
+    action(o.shader);
+    return true;
+  }
+
+  function color(value:Dynamic):Int
+  {
+    if (value == null) return 0xFFFFFFFF;
+    if (Reflect.getClassNameOf(value) != "String") return Std.int(value);
+    var text:String = strTrim(Std.string(value)).toLowerCase();
+    switch (text)
+    {
+      case "white": return 0xFFFFFFFF;
+      case "black": return 0xFF000000;
+      case "red": return 0xFFFF0000;
+      case "green", "lime": return 0xFF00FF00;
+      case "blue": return 0xFF0000FF;
+      case "yellow": return 0xFFFFFF00;
+      case "cyan": return 0xFF00FFFF;
+      case "magenta": return 0xFFFF00FF;
+      case "pink": return 0xFFFFC0CB;
+      case "purple": return 0xFF800080;
+      case "orange": return 0xFFFFA500;
+      case "gray", "grey": return 0xFF808080;
+      case "transparent": return 0x00000000;
+    }
+    if (strStarts(text, "#")) text = text.substr(1);
+    if (strStarts(text, "0x")) text = text.substr(2);
+    if (text.length == 6) text = "ff" + text;
+    var parsed:Null<Int> = Std.parseInt("0x" + text);
+    return parsed == null ? 0xFFFFFFFF : parsed;
+  }
+
+  function sprite(tag:String, value:Dynamic):Void
+  {
+    if (sprites.exists(tag)) removeLuaSprite(tag, true);
+    sprites.set(tag, value);
+  }
+
+  function makeLuaSprite(tag:Dynamic, image:Dynamic, x:Float, y:Float):Dynamic
+  {
+    var s:FlxSprite = new FlxSprite(x, y);
+    if (image != null && Std.string(image).length > 0) s.loadGraphic(Paths.image(Std.string(image)));
+    s.antialiasing = true;
+    sprite(Std.string(tag), s);
+    return true;
+  }
+
+  function makeAnimatedLuaSprite(tag:Dynamic, image:Dynamic, x:Float, y:Float, type:Dynamic):Dynamic
+  {
+    var s:FlxSprite = new FlxSprite(x, y);
+    s.frames = atlas(Std.string(image), type);
+    s.antialiasing = true;
+    sprite(Std.string(tag), s);
+    return true;
+  }
+
+  function atlas(image:String, type:Dynamic):Dynamic
+  {
+    var kind:String = type == null ? "sparrow" : Std.string(type).toLowerCase();
+    if (kind == "packer" || kind == "packeratlas" || kind == "pac") return Paths.getPackerAtlas(image);
+    return Paths.getSparrowAtlas(image);
+  }
+
+  function makeGraphic(target:Dynamic, width:Float, height:Float, fill:Dynamic):Dynamic
+  {
+    return with(target, function(o) o.makeGraphic(Std.int(width), Std.int(height), color(fill)));
+  }
+
+  function loadGraphic(target:Dynamic, image:Dynamic, gridX:Float, gridY:Float):Dynamic
+  {
+    return with(target, function(o)
+    {
+      var animated:Bool = gridX > 0 || gridY > 0;
+      o.loadGraphic(Paths.image(Std.string(image)), animated, Std.int(gridX), Std.int(gridY));
+    });
+  }
+
+  function loadFrames(target:Dynamic, image:Dynamic, type:Dynamic):Dynamic
+  {
+    return with(target, function(o) o.frames = atlas(Std.string(image), type));
+  }
+
+  function addAnimationByPrefix(target:Dynamic, name:Dynamic, prefix:Dynamic, fps:Float, loop:Dynamic):Dynamic
+  {
+    return with(target, function(o)
+    {
+      o.animation.addByPrefix(Std.string(name), Std.string(prefix), Std.int(fps), truthy(loop));
+      if (o.animation.curAnim == null) o.animation.play(Std.string(name), true);
+    });
+  }
+
+  function indices(value:Dynamic):Array<Int>
+  {
+    var result:Array<Int> = [];
+    if (value == null) return result;
+    if (Reflect.getClassNameOf(value) == "Array")
+    {
+      var list:Array<Dynamic> = value;
+      for (v in list) result.push(Std.int(num(v, 0)));
+      return result;
+    }
+    if (Reflect.isObject(value) && Reflect.getClassNameOf(value) == "Unknown")
+    {
+      var i:Int = 1;
+      while (Reflect.field(value, Std.string(i)) != null)
+      {
+        result.push(Std.int(num(Reflect.field(value, Std.string(i)), 0)));
+        i++;
+      }
+      return result;
+    }
+    for (part in Std.string(value).split(","))
+    {
+      var n:Null<Int> = Std.parseInt(strTrim(part));
+      if (n != null) result.push(n);
+    }
+    return result;
+  }
+
+  function addAnimationByIndices(target:Dynamic, name:Dynamic, prefix:Dynamic, frames:Dynamic, fps:Float, loop:Dynamic):Dynamic
+  {
+    return with(target, function(o)
+    {
+      o.animation.addByIndices(Std.string(name), Std.string(prefix), indices(frames), "", Std.int(fps), truthy(loop));
+      if (o.animation.curAnim == null) o.animation.play(Std.string(name), true);
+    });
+  }
+
+  function addAnimation(target:Dynamic, name:Dynamic, frames:Dynamic, fps:Float, loop:Dynamic):Dynamic
+  {
+    return with(target, function(o)
+    {
+      o.animation.add(Std.string(name), indices(frames), Std.int(fps), truthy(loop));
+      if (o.animation.curAnim == null) o.animation.play(Std.string(name), true);
+    });
+  }
+
+  function addOffset(target:Dynamic, anim:Dynamic, x:Float, y:Float):Dynamic
+  {
+    offsets.set(Std.string(target) + "::" + Std.string(anim), [x, y]);
+    return true;
+  }
+
+  function playAnim(target:Dynamic, name:Dynamic, forced:Bool, reverse:Bool, frame:Int):Dynamic
+  {
+    var o:Dynamic = resolve(target);
+    if (o == null) return false;
+    var anim:String = Std.string(name);
+    if (Reflect.getProperty(o, "characterId") != null)
+    {
+      o.playAnimation(anim, forced, forced);
+      return true;
+    }
+    if (o.animation == null || o.animation.getByName(anim) == null) return false;
+    o.animation.play(anim, forced, reverse, frame);
+    var offset:Dynamic = offsets.get(Std.string(target) + "::" + anim);
+    if (offset != null) o.offset.set(offset[0], offset[1]);
+    return true;
+  }
+
+  function charactersZ(front:Bool):Int
+  {
+    var result:Int = front ? -2147483647 : 2147483647;
+    for (c in [character("boyfriend"), character("dad"), character("gf")])
+    {
+      if (c == null) continue;
+      if (front && c.zIndex > result) result = c.zIndex;
+      if (!front && c.zIndex < result) result = c.zIndex;
+    }
+    if (result == 2147483647 || result == -2147483647) return front ? 1000 : 0;
+    return result;
+  }
+
+  function addLuaSprite(tag:Dynamic, front:Bool):Dynamic
+  {
+    var s:Dynamic = sprites.get(Std.string(tag));
+    if (s == null) return false;
+    if (game.currentStage != null)
+    {
+      if (front)
+      {
+        frontCount++;
+        s.zIndex = charactersZ(true) + frontCount;
+      }
+      else
+      {
+        backCount++;
+        s.zIndex = charactersZ(false) - 500 + backCount;
+      }
+      game.currentStage.add(s);
+      game.currentStage.refresh();
+    }
+    else
+    {
+      game.add(s);
+    }
+    return true;
+  }
+
+  function removeLuaSprite(tag:Dynamic, destroy:Dynamic):Dynamic
+  {
+    var key:String = Std.string(tag);
+    var s:Dynamic = sprites.get(key);
+    if (s == null) return false;
+    try
+    {
+      if (game.currentStage != null) game.currentStage.remove(s, true);
+      game.remove(s, true);
+    }
+    catch (e:Dynamic) {}
+    if (truthy(destroy))
+    {
+      try
+      {
+        s.destroy();
+      }
+      catch (e:Dynamic) {}
+      sprites.remove(key);
+    }
+    return true;
+  }
+
+  function screenCenter(target:Dynamic, axes:Dynamic):Dynamic
+  {
+    return with(target, function(o)
+    {
+      var key:String = Std.string(axes).toLowerCase();
+      if (key.indexOf("x") >= 0) o.x = (FlxG.width - o.width) / 2;
+      if (key.indexOf("y") >= 0) o.y = (FlxG.height - o.height) / 2;
+    });
+  }
+
+  function setObjectOrder(target:Dynamic, position:Float):Dynamic
+  {
+    var o:Dynamic = resolve(target);
+    if (o == null) return false;
+    o.zIndex = Std.int(position);
+    if (game.currentStage != null) game.currentStage.refresh();
+    return true;
+  }
+
+  function point(target:Dynamic, kind:String, x:Bool):Dynamic
+  {
+    var o:Dynamic = resolve(target);
+    if (o == null) return 0;
+    var p:Dynamic = kind == "graphic" ? o.getGraphicMidpoint() : (kind == "screen" ? o.getScreenPosition() : o.getMidpoint());
+    return x ? p.x : p.y;
+  }
+
+  function makeLuaText(tag:Dynamic, text:Dynamic, width:Float, x:Float, y:Float):Dynamic
+  {
+    var key:String = Std.string(tag);
+    if (texts.exists(key)) removeLuaText(key, true);
+    var t:FlxText = new FlxText(x, y, width, Std.string(text), 16);
+    t.font = Paths.font("vcr.ttf");
+    t.alignment = "center";
+    t.cameras = [game.camHUD];
+    t.scrollFactor.set(0, 0);
+    applyBorder(t, 2, 0xFF000000);
+    texts.set(key, t);
+    return true;
+  }
+
+  function applyBorder(t:Dynamic, size:Float, borderColor:Int):Void
+  {
+    try
+    {
+      var style:Dynamic = Type.resolveEnum("flixel.text.FlxTextBorderStyle");
+      if (style != null) t.borderStyle = Reflect.getProperty(style, size > 0 ? "OUTLINE" : "NONE");
+    }
+    catch (e:Dynamic) {}
+    t.borderColor = borderColor;
+    t.borderSize = size;
+  }
+
+  function setTextBorder(tag:Dynamic, size:Float, borderColor:Dynamic):Dynamic
+  {
+    return with(tag, function(t) applyBorder(t, size, color(borderColor)));
+  }
+
+  function addLuaText(tag:Dynamic):Dynamic
+  {
+    var t:Dynamic = texts.get(Std.string(tag));
+    if (t == null) return false;
+    game.add(t);
+    return true;
+  }
+
+  function removeLuaText(tag:Dynamic, destroy:Dynamic):Dynamic
+  {
+    var key:String = Std.string(tag);
+    var t:Dynamic = texts.get(key);
+    if (t == null) return false;
+    try
+    {
+      game.remove(t, true);
+    }
+    catch (e:Dynamic) {}
+    if (truthy(destroy))
+    {
+      try
+      {
+        t.destroy();
+      }
+      catch (e:Dynamic) {}
+      texts.remove(key);
+    }
+    return true;
+  }
+
+  function ease(name:Dynamic):Dynamic
+  {
+    var key:String = name == null ? "linear" : Std.string(name).toLowerCase();
+    switch (key)
+    {
+      case "backin": return FlxEase.backIn;
+      case "backinout": return FlxEase.backInOut;
+      case "backout": return FlxEase.backOut;
+      case "bouncein": return FlxEase.bounceIn;
+      case "bounceinout": return FlxEase.bounceInOut;
+      case "bounceout": return FlxEase.bounceOut;
+      case "circin": return FlxEase.circIn;
+      case "circinout": return FlxEase.circInOut;
+      case "circout": return FlxEase.circOut;
+      case "cubein": return FlxEase.cubeIn;
+      case "cubeinout": return FlxEase.cubeInOut;
+      case "cubeout": return FlxEase.cubeOut;
+      case "elasticin": return FlxEase.elasticIn;
+      case "elasticinout": return FlxEase.elasticInOut;
+      case "elasticout": return FlxEase.elasticOut;
+      case "expoin": return FlxEase.expoIn;
+      case "expoinout": return FlxEase.expoInOut;
+      case "expoout": return FlxEase.expoOut;
+      case "quadin": return FlxEase.quadIn;
+      case "quadinout": return FlxEase.quadInOut;
+      case "quadout": return FlxEase.quadOut;
+      case "quartin": return FlxEase.quartIn;
+      case "quartinout": return FlxEase.quartInOut;
+      case "quartout": return FlxEase.quartOut;
+      case "quintin": return FlxEase.quintIn;
+      case "quintinout": return FlxEase.quintInOut;
+      case "quintout": return FlxEase.quintOut;
+      case "sinein": return FlxEase.sineIn;
+      case "sineinout": return FlxEase.sineInOut;
+      case "sineout": return FlxEase.sineOut;
+      case "smoothstepin": return FlxEase.smoothStepIn;
+      case "smoothstepinout": return FlxEase.smoothStepInOut;
+      case "smoothstepout": return FlxEase.smoothStepOut;
+      case "smootherstepin": return FlxEase.smootherStepIn;
+      case "smootherstepinout": return FlxEase.smootherStepInOut;
+      case "smootherstepout": return FlxEase.smootherStepOut;
+      default: return FlxEase.linear;
+    }
+  }
+
+  function tweenTarget(name:Dynamic):Dynamic
+  {
+    return resolve(name);
+  }
+
+  function keepTween(tag:Dynamic, start:Dynamic):Dynamic
+  {
+    var key:String = Std.string(tag);
+    cancel(tweens, key);
+    var caller:Dynamic = owner;
+    var created:Dynamic = start(function(t)
+    {
+      tweens.remove(key);
+      notify(caller, "onTweenCompleted", [key]);
+    });
+    tweens.set(key, created);
+    return true;
+  }
+
+  function tween(tag:Dynamic, target:Dynamic, values:Dynamic, duration:Float, easeName:Dynamic):Dynamic
+  {
+    var o:Dynamic = tweenTarget(target);
+    if (o == null) return false;
+    return keepTween(tag, function(done) return FlxTween.tween(o, values, duration, {ease: ease(easeName), onComplete: done}));
+  }
+
+  function tweenZoom(tag:Dynamic, target:Dynamic, zoom:Float, duration:Float, easeName:Dynamic):Dynamic
+  {
+    var cam:Dynamic = camera(target == null ? "game" : (Std.string(target).toLowerCase().indexOf("hud") >= 0 ? "hud" : Std.string(target)));
+    if (cam == game.camGame)
+    {
+      return keepTween(tag, function(done) return FlxTween.tween(game, {currentCameraZoom: zoom}, duration, {ease: ease(easeName), onComplete: done}));
+    }
+    return keepTween(tag, function(done) return FlxTween.tween(cam, {zoom: zoom}, duration, {ease: ease(easeName), onComplete: done}));
+  }
+
+  function tweenColor(tag:Dynamic, target:Dynamic, targetColor:Dynamic, duration:Float, easeName:Dynamic):Dynamic
+  {
+    var o:Dynamic = tweenTarget(target);
+    if (o == null) return false;
+    return keepTween(tag, function(done) return FlxTween.color(o, duration, o.color, color(targetColor), {ease: ease(easeName), onComplete: done}));
+  }
+
+  function startTween(tag:Dynamic, target:Dynamic, values:Dynamic, duration:Float, options:Dynamic):Dynamic
+  {
+    var o:Dynamic = tweenTarget(target);
+    if (o == null || values == null) return false;
+    var easeName:Dynamic = options != null && Reflect.isObject(options) ? Reflect.field(options, "ease") : null;
+    return keepTween(tag, function(done) return FlxTween.tween(o, values, duration, {ease: ease(easeName), onComplete: done}));
+  }
+
+  function noteTween(tag:Dynamic, note:Dynamic, values:Dynamic, duration:Float, easeName:Dynamic):Dynamic
+  {
+    var index:Int = Std.int(num(note, 0));
+    var strum:Dynamic = groupMember("strumLineNotes", index);
+    if (strum == null) return false;
+    return keepTween(tag, function(done) return FlxTween.tween(strum, values, duration, {ease: ease(easeName), onComplete: done}));
+  }
+
+  function cancel(map:StringMap<Dynamic>, tag:Dynamic):Dynamic
+  {
+    var key:String = Std.string(tag);
+    var item:Dynamic = map.get(key);
+    if (item == null) return false;
+    safeCancel(item);
+    map.remove(key);
+    return true;
+  }
+
+  function runTimer(tag:Dynamic, time:Float, loops:Int):Dynamic
+  {
+    var key:String = Std.string(tag);
+    cancel(timers, key);
+    var caller:Dynamic = owner;
+    var timer:FlxTimer = new FlxTimer().start(time, function(t)
+    {
+      if (t.finished) timers.remove(key);
+      notify(caller, "onTimerCompleted", [key, t.loops, t.loopsLeft]);
+    }, loops);
+    timers.set(key, timer);
+    return true;
+  }
+
+  function cameraSetTarget(target:Dynamic):Dynamic
+  {
+    var c:Dynamic = character(target);
+    if (c == null) return null;
+    game.cameraFollowPoint.setPosition(c.cameraFocusPoint.x, c.cameraFocusPoint.y);
+    return null;
+  }
+
+  function sound(tag:Dynamic):Dynamic
+  {
+    if (tag == null || Std.string(tag).length == 0) return FlxG.sound.music;
+    return sounds.get(Std.string(tag));
+  }
+
+  function withSound(tag:Dynamic, action:Dynamic):Dynamic
+  {
+    var s:Dynamic = sound(tag);
+    if (s == null) return false;
+    action(s);
+    return true;
+  }
+
+  function playSound(name:Dynamic, volume:Float, tag:Dynamic):Dynamic
+  {
+    var caller:Dynamic = owner;
+    var key:String = tag == null ? "" : Std.string(tag);
+    if (key.length > 0)
+    {
+      safeStop(sounds.get(key));
+      var s:Dynamic = FunkinSound.load(Paths.sound(Std.string(name)), volume, false, true, true, function()
+      {
+        sounds.remove(key);
+        notify(caller, "onSoundFinished", [key]);
+      });
+      sounds.set(key, s);
+      return key;
+    }
+    FunkinSound.playOnce(Paths.sound(Std.string(name)), volume);
+    return null;
+  }
+
+  function parseExclude(value:Dynamic):Array<Int>
+  {
+    if (value == null || Std.string(value).length == 0) return null;
+    var list:Array<Int> = indices(value);
+    return list.length == 0 ? null : list;
+  }
+
+  function debugPrint(values:Array<Dynamic>):Dynamic
+  {
+    var parts:Array<String> = [];
+    for (v in values) parts.push(v == null ? "nil" : Std.string(v));
+    var t:FlxText = new FlxText(10, 10, FlxG.width - 20, parts.join(" "), 16);
+    t.font = Paths.font("vcr.ttf");
+    t.cameras = [game.camHUD];
+    t.scrollFactor.set(0, 0);
+    applyBorder(t, 1, 0xFF000000);
+    for (old in debugTexts) old.y += 20;
+    debugTexts.push(t);
+    game.add(t);
+    FlxTween.tween(t, {alpha: 0}, 1, {startDelay: 4, onComplete: function(_)
+    {
+      debugTexts.remove(t);
+      try
+      {
+        game.remove(t, true);
+        t.destroy();
+      }
+      catch (e:Dynamic) {}
+    }});
+    return null;
+  }
+
+  function control(name:Dynamic, suffix:String):Dynamic
+  {
+    var controls:Dynamic = PlayerSettings.player1.controls;
+    var key:String = Std.string(name).toLowerCase();
+    var field:String = switch (key)
+    {
+      case "left": "NOTE_LEFT";
+      case "down": "NOTE_DOWN";
+      case "up": "NOTE_UP";
+      case "right": "NOTE_RIGHT";
+      case "accept": "ACCEPT";
+      case "back": "BACK";
+      case "pause": "PAUSE";
+      case "reset": "RESET";
+      default: null;
+    };
+    if (key == "space") return keyState(suffix == "_P" ? FlxG.keys.justPressed : (suffix == "_R" ? FlxG.keys.justReleased : FlxG.keys.pressed), "SPACE");
+    if (field == null) return false;
+    try
+    {
+      return Reflect.getProperty(controls, field + suffix) == true;
+    }
+    catch (e:Dynamic)
+    {
+      return false;
+    }
+  }
+
+  function keyState(state:Dynamic, key:Dynamic):Dynamic
+  {
+    try
+    {
+      return Reflect.getProperty(state, Std.string(key).toUpperCase()) == true;
+    }
+    catch (e:Dynamic)
+    {
+      return false;
+    }
+  }
+
+  function mouse(button:Dynamic, kind:String):Dynamic
+  {
+    var name:String = Std.string(button).toLowerCase();
+    var prefix:String = name == "right" ? "Right" : (name == "middle" ? "Middle" : "");
+    var field:String = prefix.length == 0 ? kind : kind + prefix;
+    try
+    {
+      return Reflect.getProperty(FlxG.mouse, field) == true;
+    }
+    catch (e:Dynamic)
+    {
+      return false;
+    }
+  }
+
+  function callAll(name:String, args:Array<Dynamic>, ignoreStops:Bool):Dynamic
+  {
+    var result:Dynamic = null;
+    for (s in scripts.copy())
+    {
+      var value:Dynamic = notify(s, name, args);
+      if (value != null) result = value;
+      if (!ignoreStops && value == "##PSYCHLUA_FUNCTIONSTOP") return value;
+    }
+    return result;
+  }
+
+  function initShader(name:String):Bool
+  {
+    if (shaders.exists(name)) return true;
+    try
+    {
+      var source:String = Assets.getText(Paths.frag(name));
+      if (source == null) return false;
+      shaders.set(name, source);
+      return true;
+    }
+    catch (e:Dynamic)
+    {
+      return false;
+    }
+  }
+
+  function triggerEvent(name:String, value1:Dynamic, value2:Dynamic):Dynamic
+  {
+    handleBuiltinEvent(name, value1, value2);
+    callAll("onEvent", [name, value1, value2, Conductor.instance.songPosition], true);
+    return true;
+  }
+
+  public function handleBuiltinEvent(name:String, value1:Dynamic, value2:Dynamic):Void
+  {
+    if (!ensureGame()) return;
+    try
+    {
+      switch (name)
+      {
+        case "Add Camera Zoom":
+          if (FlxG.camera.zoom < 1.35)
+          {
+            FlxG.camera.zoom += num(value1, 0.015);
+            game.camHUD.zoom += num(value2, 0.03);
+          }
+        case "Screen Shake":
+          shake(game.camGame, value1);
+          shake(game.camHUD, value2);
+        case "Set Property":
+          var text:String = Std.string(value2);
+          var parsed:Dynamic = text == "true" ? true : (text == "false" ? false : (Math.isNaN(Std.parseFloat(text)) ? text : Std.parseFloat(text)));
+          setProperty(value1, parsed);
+        case "Play Sound":
+          FunkinSound.playOnce(Paths.sound(Std.string(value1)), num(value2, 1));
+        case "Set GF Speed":
+          var gf:Dynamic = character("gf");
+          if (gf != null) gf.danceEvery = num(value1, 1);
+        case "Alt Idle Animation":
+          var c:Dynamic = character(value1);
+          if (c != null) c.idleSuffix = Std.string(value2);
+        case "Hey!":
+          var key:String = Std.string(value1).toLowerCase();
+          if (key != "gf" && key != "girlfriend" && key != "1") character("boyfriend").playAnimation("hey", true, true);
+          if (key != "bf" && key != "boyfriend" && key != "0") character("gf").playAnimation("cheer", true, true);
+        case "Play Animation":
+          var c:Dynamic = character(value2);
+          if (c != null) c.playAnimation(Std.string(value1), true, true);
+      }
+    }
+    catch (e:Dynamic) {}
+  }
+
+  function shake(cam:Dynamic, value:Dynamic):Void
+  {
+    if (cam == null || value == null) return;
+    var parts:Array<String> = Std.string(value).split(",");
+    var duration:Float = num(parts[0], 0);
+    var intensity:Float = parts.length > 1 ? num(parts[1], 0) : 0;
+    if (duration > 0 && intensity != 0) cam.shake(intensity, duration);
+  }
+
+  function chartEvents():Array<Dynamic>
+  {
+    try
+    {
+      var events:Dynamic = game.currentChart.events;
+      return events == null ? [] : events;
+    }
+    catch (e:Dynamic)
+    {
+      return [];
+    }
+  }
+
+  function songUsesEvent(name:String):Bool
+  {
+    for (e in chartEvents())
+    {
+      if (e.eventKind == "PsychEvent" && e.value != null && Reflect.field(e.value, "name") == name) return true;
+    }
+    return false;
+  }
+
+  function songUsesNoteType(name:String):Bool
+  {
+    try
+    {
+      var notes:Array<Dynamic> = game.currentChart.notes;
+      for (n in notes)
+      {
+        if (n.kind != null && noteTypeName(n.kind) == name) return true;
+      }
+    }
+    catch (e:Dynamic) {}
+    return false;
+  }
+
+  function noteTypeName(kind:Dynamic):String
+  {
+    if (kind == null || Std.string(kind).length == 0) return "";
+    var key:String = Std.string(kind);
+    return noteTypeNames.exists(key) ? noteTypeNames.get(key) : key;
+  }
+
+  function psychEventInfo(data:Dynamic):Dynamic
+  {
+    if (data == null) return null;
+    var v:Dynamic = data.value;
+    switch (data.eventKind)
+    {
+      case "PsychEvent": return {name: Reflect.field(v, "name"), value1: Reflect.field(v, "value1"), value2: Reflect.field(v, "value2")};
+      case "PlayAnimation": return {name: "Play Animation", value1: Reflect.field(v, "anim"), value2: Reflect.field(v, "target")};
+      case "ScrollSpeed": return {name: "Change Scroll Speed", value1: Std.string(Reflect.field(v, "scroll")), value2: ""};
+      case "FocusCamera":
+        if (Reflect.field(v, "char") == -1) return {name: "Camera Follow Pos", value1: Std.string(Reflect.field(v, "x")), value2: Std.string(Reflect.field(v, "y"))};
+        return null;
+      default: return null;
+    }
+  }
+}

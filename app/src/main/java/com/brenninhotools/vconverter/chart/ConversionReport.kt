@@ -14,6 +14,7 @@ class ConversionReport {
     val warnings = mutableListOf<String>()
     var cameraEvents = 0
     var convertedEvents = 0
+    var keptPsychEvents = 0
 
     fun warn(message: String) {
         if (message !in warnings) warnings += message
@@ -63,7 +64,10 @@ class ConversionReport {
                 "$convertedEvents Psych events converted"
             )
         )
-        builder.section("Skipped events (no V-Slice equivalent yet)", unsupportedEvents.map { (name, count) -> "$name ×$count" })
+        builder.section(
+            if (keptPsychEvents > 0) "Kept as PsychEvent (handled by the Psych runtime and converted scripts)" else "Skipped events (no V-Slice equivalent yet)",
+            unsupportedEvents.map { (name, count) -> "$name ×$count" }
+        )
         builder.section(
             "Duplicates removed",
             duplicateNotes.map { (difficulty, count) -> "$difficulty: $count stacked notes" }

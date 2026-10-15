@@ -50,7 +50,7 @@ fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> 
         FunkinCard {
             SectionTitle("Psych mod", accent, 1)
             Text(
-                "Convert a whole Psych Engine mod at once: songs, characters, stages, weeks, images and audio.",
+                "Convert a whole Psych Engine mod at once: songs, characters, stages, weeks, Lua/HScript scripts, images and audio.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )

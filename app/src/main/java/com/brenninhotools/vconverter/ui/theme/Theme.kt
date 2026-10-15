@@ -28,6 +28,7 @@ object Funkin {
 
     val Pink = Color(0xFFFF2D95)
     val Purple = Color(0xFF7B2FF7)
+    val Lavender = Color(0xFFB98CFF)
 }
 
 val Display = FontFamily(Font(R.font.lilita_one))

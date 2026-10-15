@@ -52,6 +52,8 @@ import com.brenninhotools.vconverter.ui.characters.CharactersViewModel
 import com.brenninhotools.vconverter.ui.charts.ChartsScreen
 import com.brenninhotools.vconverter.ui.charts.ChartsViewModel
 import com.brenninhotools.vconverter.ui.components.AppLogo
+import com.brenninhotools.vconverter.ui.scripts.ScriptsScreen
+import com.brenninhotools.vconverter.ui.scripts.ScriptsViewModel
 import com.brenninhotools.vconverter.ui.stages.StagesScreen
 import com.brenninhotools.vconverter.ui.stages.StagesViewModel
 import com.brenninhotools.vconverter.ui.mod.ModScreen
@@ -65,7 +67,8 @@ enum class Tab(val label: String, @DrawableRes val icon: Int, val accent: Color)
     CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down),
     CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left),
     STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up),
-    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right)
+    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right),
+    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender)
 }
 
 @Composable
@@ -76,6 +79,7 @@ fun MainScreen() {
     val stages: StagesViewModel = viewModel()
     val weeks: WeeksViewModel = viewModel()
     val mod: ModViewModel = viewModel()
+    val scripts: ScriptsViewModel = viewModel()
 
     var tab by rememberSaveable { mutableStateOf(Tab.MOD) }
     var pendingSave by rememberSaveable { mutableStateOf<Tab?>(null) }
@@ -86,6 +90,7 @@ fun MainScreen() {
         Tab.CHARACTERS -> characters
         Tab.STAGES -> stages
         Tab.WEEKS -> weeks
+        Tab.SCRIPTS -> scripts
     }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -124,7 +129,7 @@ fun MainScreen() {
                         selected = tab == item,
                         onClick = { tab = item },
                         icon = { Icon(painterResource(item.icon), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                        label = { Text(item.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                        label = { Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Funkin.Ink,
                             selectedTextColor = item.accent,
@@ -158,6 +163,7 @@ fun MainScreen() {
                     Tab.CHARACTERS -> CharactersScreen(characters, folderName, save)
                     Tab.STAGES -> StagesScreen(stages, folderName, save)
                     Tab.WEEKS -> WeeksScreen(weeks, folderName, save)
+                    Tab.SCRIPTS -> ScriptsScreen(scripts, folderName, save)
                 }
                 Spacer(Modifier.size(24.dp))
             }
