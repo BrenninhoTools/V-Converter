@@ -27,7 +27,7 @@ fun StagesScreen(viewModel: StagesViewModel, modFolderName: String?, onSave: () 
             SectionTitle("Stages", accent, 1)
             DropZone(
                 title = "Add Psych stages",
-                hint = "Pick stage .json files from the stages folder. Stages built in the Psych 1.0 stage editor convert with all their sprites.",
+                hint = "Pick stage .json files from the stages folder. Stages built in the Psych 1.0 stage editor convert with all their sprites. Archives (.zip/.rar/.7z) work too.",
                 accent = accent,
                 icon = R.drawable.ic_tab_stage,
                 enabled = !busy,

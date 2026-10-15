@@ -37,7 +37,7 @@ fun CharactersScreen(viewModel: CharactersViewModel, modFolderName: String?, onS
             SectionTitle("Characters", accent, 1)
             DropZone(
                 title = "Add characters & sheets",
-                hint = "Pick Psych character .json files together with their spritesheet .xml files (images/characters). The XML makes positions pixel-exact.",
+                hint = "Pick Psych character .json files together with their spritesheet .xml files (images/characters). The XML makes positions pixel-exact. You can also pick a .zip/.rar/.7z.",
                 accent = accent,
                 icon = R.drawable.ic_tab_character,
                 enabled = !busy,

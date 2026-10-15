@@ -12,7 +12,7 @@ import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
-import com.brenninhotools.vconverter.io.DocumentIO
+import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
 import com.brenninhotools.vconverter.ui.ConvertedOutput
@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 data class PickedCharacter(
-    val uri: Uri,
+    val key: String,
     val fileName: String,
     val id: String,
     val slot: CharacterSlot,
@@ -34,35 +34,39 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
     var atlases by mutableStateOf(mapOf<String, SparrowAtlas>())
         private set
 
-    private sealed interface Loaded {
-        data class Character(val item: PickedCharacter) : Loaded
-        data class Atlas(val key: String, val atlas: SparrowAtlas) : Loaded
+    private sealed interface Item {
+        data class Character(val item: PickedCharacter) : Item
+        data class Atlas(val key: String, val atlas: SparrowAtlas) : Item
     }
 
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {
-            val (items, failures) = readEach(uris) { uri, name ->
-                val lower = name.lowercase()
-                when {
-                    lower.endsWith(".xml") -> Loaded.Atlas(
-                        PsychToVSliceCharacter.atlasKey(name.substringBeforeLast('.')),
-                        SparrowAtlas.parse(DocumentIO.readText(context, uri))
-                    )
-                    lower.endsWith(".json") -> {
-                        val character = PsychCharacterParser.parse(DocumentIO.readText(context, uri))
-                        val id = sanitizeId(name.substringBeforeLast('.'))
-                        Loaded.Character(PickedCharacter(uri, name, id, PsychToVSliceCharacter.defaultSlot(id, character), character))
+            val loaded = load(uris, ::isCharacterCandidate) { file ->
+                when (file.extension) {
+                    "xml" -> {
+                        Item.Atlas(PsychToVSliceCharacter.atlasKey(file.name.substringBeforeLast('.')), SparrowAtlas.parse(file.readText()))
                     }
-                    else -> throw IllegalArgumentException("Only .json characters and .xml spritesheets are supported.")
+                    "json" -> {
+                        val character = PsychCharacterParser.parse(file.readText())
+                        val id = sanitizeId(file.name.substringBeforeLast('.'))
+                        Item.Character(PickedCharacter(file.path, file.name, id, PsychToVSliceCharacter.defaultSlot(id, character), character))
+                    }
+                    else -> throw IllegalArgumentException("Only .json characters, .xml spritesheets and .zip/.rar/.7z archives are supported.")
                 }
             }
-            atlases = atlases + items.filterIsInstance<Loaded.Atlas>().associate { it.key to it.atlas }
-            val added = items.filterIsInstance<Loaded.Character>().map { it.item }
-            characters = characters.filterNot { old -> added.any { it.uri == old.uri } } + added
+            val added = loaded.items.filterIsInstance<Item.Character>().map { it.item }
+            atlases = atlases + loaded.items.filterIsInstance<Item.Atlas>().associate { it.key to it.atlas }
+            characters = characters.filterNot { old -> added.any { it.key == old.key } } + added
             invalidate()
-            loadStatus(items.size, "file(s)", failures)
+            loadStatus(loaded, "file(s)")
         }
+    }
+
+    private fun isCharacterCandidate(file: ImportedFile): Boolean = when (file.extension) {
+        "json" -> file.isUnder("characters")
+        "xml" -> file.isUnder("characters")
+        else -> false
     }
 
     fun missingAtlases(item: PickedCharacter): List<String> =

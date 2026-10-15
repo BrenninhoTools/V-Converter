@@ -32,7 +32,7 @@ fun ChartsScreen(viewModel: ChartsViewModel, modFolderName: String?, onSave: () 
             SectionTitle("Charts", accent, 1)
             DropZone(
                 title = "Add Psych charts",
-                hint = "Pick every difficulty of one song (song-easy.json, song.json, song-hard.json…). Include events.json if the song has one.",
+                hint = "Pick every difficulty of one song (song-easy.json, song.json, song-hard.json…). Include events.json if the song has one. A .zip/.rar/.7z works too.",
                 accent = accent,
                 icon = R.drawable.ic_tab_chart,
                 enabled = !busy,

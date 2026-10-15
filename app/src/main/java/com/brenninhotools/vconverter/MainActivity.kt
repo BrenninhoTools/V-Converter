@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.brenninhotools.vconverter.io.Importer
 import com.brenninhotools.vconverter.ui.MainScreen
 import com.brenninhotools.vconverter.ui.theme.VConverterTheme
 
@@ -16,6 +17,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
         )
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) Importer.clearCache(this)
         setContent {
             VConverterTheme {
                 MainScreen()

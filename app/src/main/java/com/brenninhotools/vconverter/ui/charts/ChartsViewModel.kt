@@ -12,7 +12,7 @@ import com.brenninhotools.vconverter.chart.psych.PsychChartParser
 import com.brenninhotools.vconverter.chart.psych.PsychEvent
 import com.brenninhotools.vconverter.chart.psych.PsychSong
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
-import com.brenninhotools.vconverter.io.DocumentIO
+import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
 import com.brenninhotools.vconverter.ui.ConvertedOutput
@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 data class PickedChart(
-    val uri: Uri,
+    val key: String,
     val fileName: String,
     val difficulty: String,
     val song: PsychSong
@@ -44,22 +44,25 @@ class ChartsViewModel(application: Application) : BaseConverterViewModel(applica
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {
-            val (items, failures) = readEach(uris) { uri, name ->
-                val text = DocumentIO.readText(context, uri)
-                if (name.equals("events.json", ignoreCase = true)) {
-                    PickedEvents(name, PsychChartParser.parseEventsOnly(text))
+            val loaded = load(uris, ::isChartCandidate) { file ->
+                val text = file.readText()
+                if (file.name.equals("events.json", ignoreCase = true)) {
+                    PickedEvents(file.name, PsychChartParser.parseEventsOnly(text))
                 } else {
-                    PickedChart(uri, name, detectDifficulty(name), PsychChartParser.parse(text))
+                    PickedChart(file.path, file.name, detectDifficulty(file.name), PsychChartParser.parse(text))
                 }
             }
-            items.filterIsInstance<PickedEvents>().lastOrNull()?.let { events = it }
-            val added = items.filterIsInstance<PickedChart>()
-            charts = charts.filterNot { old -> added.any { it.uri == old.uri } } + added
+            loaded.items.filterIsInstance<PickedEvents>().lastOrNull()?.let { events = it }
+            val added = loaded.items.filterIsInstance<PickedChart>()
+            charts = charts.filterNot { old -> added.any { it.key == old.key } } + added
             fillSongInfo()
             invalidate()
-            loadStatus(items.size, "file(s)", failures)
+            loadStatus(loaded, "file(s)")
         }
     }
+
+    private fun isChartCandidate(file: ImportedFile): Boolean =
+        file.extension == "json" && listOf("characters", "stages", "weeks", "images").none { file.isUnder(it) }
 
     fun setDifficulty(index: Int, value: String) {
         charts = charts.mapIndexed { i, chart -> if (i == index) chart.copy(difficulty = value) else chart }

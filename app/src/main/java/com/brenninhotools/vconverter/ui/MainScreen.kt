@@ -54,12 +54,18 @@ import com.brenninhotools.vconverter.ui.charts.ChartsViewModel
 import com.brenninhotools.vconverter.ui.components.AppLogo
 import com.brenninhotools.vconverter.ui.stages.StagesScreen
 import com.brenninhotools.vconverter.ui.stages.StagesViewModel
+import com.brenninhotools.vconverter.ui.mod.ModScreen
+import com.brenninhotools.vconverter.ui.mod.ModViewModel
+import com.brenninhotools.vconverter.ui.weeks.WeeksScreen
+import com.brenninhotools.vconverter.ui.weeks.WeeksViewModel
 import com.brenninhotools.vconverter.ui.theme.Funkin
 
 enum class Tab(val label: String, @DrawableRes val icon: Int, val accent: Color) {
+    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink),
     CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down),
-    CHARACTERS("Characters", R.drawable.ic_tab_character, Funkin.Left),
-    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up)
+    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left),
+    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up),
+    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right)
 }
 
 @Composable
@@ -68,14 +74,18 @@ fun MainScreen() {
     val charts: ChartsViewModel = viewModel()
     val characters: CharactersViewModel = viewModel()
     val stages: StagesViewModel = viewModel()
+    val weeks: WeeksViewModel = viewModel()
+    val mod: ModViewModel = viewModel()
 
-    var tab by rememberSaveable { mutableStateOf(Tab.CHARTS) }
+    var tab by rememberSaveable { mutableStateOf(Tab.MOD) }
     var pendingSave by rememberSaveable { mutableStateOf<Tab?>(null) }
 
     fun converterFor(target: Tab): BaseConverterViewModel = when (target) {
+        Tab.MOD -> mod
         Tab.CHARTS -> charts
         Tab.CHARACTERS -> characters
         Tab.STAGES -> stages
+        Tab.WEEKS -> weeks
     }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -114,7 +124,7 @@ fun MainScreen() {
                         selected = tab == item,
                         onClick = { tab = item },
                         icon = { Icon(painterResource(item.icon), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                        label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                        label = { Text(item.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Funkin.Ink,
                             selectedTextColor = item.accent,
@@ -143,9 +153,11 @@ fun MainScreen() {
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 when (current) {
+                    Tab.MOD -> ModScreen(mod, folderName, save)
                     Tab.CHARTS -> ChartsScreen(charts, folderName, save)
                     Tab.CHARACTERS -> CharactersScreen(characters, folderName, save)
                     Tab.STAGES -> StagesScreen(stages, folderName, save)
+                    Tab.WEEKS -> WeeksScreen(weeks, folderName, save)
                 }
                 Spacer(Modifier.size(24.dp))
             }

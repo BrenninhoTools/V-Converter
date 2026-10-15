@@ -15,6 +15,8 @@ object VSliceWriter {
             .put("opponent", metadata.characters.opponent)
             .put("instrumental", metadata.characters.instrumental)
             .put("altInstrumentals", JSONArray())
+        metadata.characters.playerVocals?.let { characters.put("playerVocals", JSONArray(it)) }
+        metadata.characters.opponentVocals?.let { characters.put("opponentVocals", JSONArray(it)) }
 
         val ratings = JSONObject()
         metadata.difficulties.forEach { ratings.put(it, 0) }

@@ -39,26 +39,13 @@ object DocumentIO {
     }
 
     fun writeFiles(context: Context, treeUri: Uri, files: List<OutputFile>): List<String> {
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: throw IOException("Could not access the mod folder.")
-        if (!root.canWrite()) throw IOException("The mod folder is read-only. Pick it again to grant access.")
-        return files.map { file ->
-            val folder = file.directories.fold(root) { parent, segment -> directory(parent, segment) }
-            folder.findFile(file.name)?.delete()
-            val document = folder.createFile("application/octet-stream", file.name)
-                ?: throw IOException("Could not create ${file.relativePath}.")
-            context.contentResolver.openOutputStream(document.uri, "wt")?.use { stream ->
-                stream.write(file.content.toByteArray(Charsets.UTF_8))
-            } ?: throw IOException("Could not write ${file.relativePath}.")
-            file.relativePath
+        if (DocumentFile.fromTreeUri(context, treeUri)?.canWrite() != true) {
+            throw IOException("The mod folder is read-only or missing. Pick it again to grant access.")
         }
-    }
-
-    private fun directory(parent: DocumentFile, name: String): DocumentFile {
-        val existing = parent.findFile(name)
-        return when {
-            existing == null -> parent.createDirectory(name) ?: throw IOException("Could not create the \"$name\" folder.")
-            existing.isDirectory -> existing
-            else -> throw IOException("\"$name\" exists but is not a folder.")
+        val writer = TreeModWriter(context, treeUri)
+        return files.map { file ->
+            writer.writeText(file.relativePath, file.content)
+            file.relativePath
         }
     }
 }

@@ -1,1 +1,3 @@
 -keepattributes SourceFile,LineNumberTable
+-keep class net.sf.sevenzipjbinding.** { *; }
+-dontwarn net.sf.sevenzipjbinding.**

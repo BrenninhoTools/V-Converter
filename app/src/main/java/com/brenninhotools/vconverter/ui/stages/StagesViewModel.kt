@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.brenninhotools.vconverter.core.ReportBuilder
-import com.brenninhotools.vconverter.io.DocumentIO
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.stage.PsychStage
 import com.brenninhotools.vconverter.stage.PsychStageParser
@@ -19,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 data class PickedStage(
-    val uri: Uri,
+    val key: String,
     val fileName: String,
     val id: String,
     val stage: PsychStage
@@ -32,13 +31,12 @@ class StagesViewModel(application: Application) : BaseConverterViewModel(applica
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {
-            val (added, failures) = readEach(uris) { uri, name ->
-                val stage = PsychStageParser.parse(DocumentIO.readText(context, uri))
-                PickedStage(uri, name, name.substringBeforeLast('.'), stage)
+            val loaded = load(uris, { it.extension == "json" && it.isUnder("stages") }) { file ->
+                PickedStage(file.path, file.name, file.name.substringBeforeLast('.'), PsychStageParser.parse(file.readText()))
             }
-            stages = stages.filterNot { old -> added.any { it.uri == old.uri } } + added
+            stages = stages.filterNot { old -> loaded.items.any { it.key == old.key } } + loaded.items
             invalidate()
-            loadStatus(added.size, "stage(s)", failures)
+            loadStatus(loaded, "stage(s)")
         }
     }
 

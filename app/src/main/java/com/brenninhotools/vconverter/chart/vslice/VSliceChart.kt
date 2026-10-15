@@ -12,7 +12,9 @@ data class VSliceCharacters(
     val player: String,
     val girlfriend: String,
     val opponent: String,
-    val instrumental: String = ""
+    val instrumental: String = "",
+    val playerVocals: List<String>? = null,
+    val opponentVocals: List<String>? = null
 )
 
 data class VSliceMetadata(

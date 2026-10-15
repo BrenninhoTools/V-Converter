@@ -18,6 +18,9 @@ data class ConversionOptions(
     val artist: String = "",
     val charter: String = "",
     val extraEvents: List<PsychEvent> = emptyList(),
+    val customStageIds: Set<String> = emptySet(),
+    val playerVocals: List<String>? = null,
+    val opponentVocals: List<String>? = null,
     val generatedBy: String = "V-Converter (Psych Engine to V-Slice)"
 )
 
@@ -89,9 +92,11 @@ object PsychToVSliceChart {
             characters = VSliceCharacters(
                 player = song.player1,
                 girlfriend = song.girlfriend,
-                opponent = song.player2
+                opponent = song.player2,
+                playerVocals = options.playerVocals,
+                opponentVocals = options.opponentVocals
             ),
-            stage = convertStage(song.stage, report),
+            stage = convertStage(song.stage, options.customStageIds, report),
             noteStyle = noteStyle(song),
             timeChanges = timing.changes.map { VSliceTimeChange(it.time, it.beat, it.bpm) },
             generatedBy = options.generatedBy
@@ -268,7 +273,8 @@ object PsychToVSliceChart {
     private fun playAnimation(time: Double, target: String, anim: String) =
         VSliceEvent(time, "PlayAnimation", linkedMapOf("target" to target, "anim" to anim, "force" to true))
 
-    private fun convertStage(stage: String, report: ConversionReport): String {
+    private fun convertStage(stage: String, customStageIds: Set<String>, report: ConversionReport): String {
+        if (stage in customStageIds) return stage
         val mapped = stageIds[stage.lowercase()]
         if (mapped != null) return mapped
         report.warn("Stage \"$stage\" has no known V-Slice equivalent and was kept as-is. Make sure your mod has a V-Slice stage with this id.")

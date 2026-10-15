@@ -6,11 +6,26 @@ A remake of the V-Slice converter as a native Android app written in Kotlin. It 
 
 | Module | Status |
 | --- | --- |
-| Charts | ✅ Base converter |
+| Whole mod (folder / .zip / .rar / .7z) | ✅ Converter |
+| Charts | ✅ Converter |
 | Characters | ✅ Converter |
 | Stages | ✅ Converter |
-| Week / Level data | ⏳ Planned |
-| Audio layout | ⏳ Planned |
+| Weeks → Levels | ✅ Converter |
+| Lua / HScript | ❌ Not convertible (reported) |
+
+## Whole mod
+
+The **Mod** tab converts an entire Psych Engine mod in one go, from its folder or from a `.zip`, `.rar` (RAR4 and RAR5) or `.7z` archive. The mod root is found automatically even when the archive wraps it in extra folders.
+
+- `data/<song>/` charts (+ `events.json`) → `data/songs/<song>/`
+- `characters/`, `stages/`, `weeks/` → `data/characters/`, `data/stages/`, `data/levels/`
+- `images/`, `songs/`, `music/`, `sounds/`, `fonts/`, `videos/`, `shaders/` copied as-is
+- Split vocals (`Voices-Player.ogg`, `Voices-Opponent.ogg` or a character's `vocals_file`) are wired through `playerVocals` / `opponentVocals`, so audio files keep their names
+- Character slots are inferred from how the charts use each character
+- `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
+- Lua and HScript files are listed in the report; they need to be ported by hand
+
+Every other tab also accepts archives and picks the files it needs from them.
 
 ## Charts
 
@@ -50,6 +65,7 @@ Pick your V-Slice mod folder once (it is remembered). Converted files go straigh
 <mod>/data/songs/<song-id>/<song-id>-chart.json
 <mod>/data/characters/<id>.json
 <mod>/data/stages/<id>.json
+<mod>/data/levels/<id>.json
 ```
 
 ## Characters
@@ -72,6 +88,14 @@ Not carried over: health bar colors and per-character vocal suffixes (V-Slice ha
 
 Stages built only in Lua/HScript have no object list; their character layout converts and the report lists the images to recreate as props.
 
+## Weeks
+
+- Songs (ids in Psych's song path format), story name, background (`menubackgrounds/menu_<name>` or the default yellow) and title image (`storymenu/<week>`)
+- Menu characters from `images/menucharacters/*.json` → level props, placed where Psych draws them; base `dad`/`bf`/`gf` map to V-Slice's own props
+- Hidden story weeks → `visible: false`
+
+Not carried over: lock chains (`weekBefore`), freeplay hiding, per-song freeplay icons/colors (listed in the report).
+
 ## Building
 
 ```
@@ -79,6 +103,8 @@ Stages built only in Lua/HScript have no object list; their character layout con
 ```
 
 GitHub Actions builds a debug APK on every push to `main`.
+
+Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) (RAR, RAR5, 7z).
 
 The UI uses [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open Font License, see `licenses/`).
 
