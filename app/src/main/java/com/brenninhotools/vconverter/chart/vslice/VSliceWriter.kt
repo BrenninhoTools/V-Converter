@@ -1,6 +1,6 @@
 package com.brenninhotools.vconverter.chart.vslice
 
-import com.brenninhotools.vconverter.chart.json.toJsonNumber
+import com.brenninhotools.vconverter.core.json.toJsonNumber
 import org.json.JSONArray
 import org.json.JSONObject
 

@@ -1,4 +1,4 @@
-package com.brenninhotools.vconverter.chart.json
+package com.brenninhotools.vconverter.core.json
 
 import org.json.JSONArray
 import org.json.JSONObject

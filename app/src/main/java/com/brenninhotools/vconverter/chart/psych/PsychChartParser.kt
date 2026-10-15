@@ -1,9 +1,9 @@
 package com.brenninhotools.vconverter.chart.psych
 
-import com.brenninhotools.vconverter.chart.json.asBool
-import com.brenninhotools.vconverter.chart.json.asDouble
-import com.brenninhotools.vconverter.chart.json.asText
-import com.brenninhotools.vconverter.chart.json.value
+import com.brenninhotools.vconverter.core.json.asBool
+import com.brenninhotools.vconverter.core.json.asDouble
+import com.brenninhotools.vconverter.core.json.asText
+import com.brenninhotools.vconverter.core.json.value
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject

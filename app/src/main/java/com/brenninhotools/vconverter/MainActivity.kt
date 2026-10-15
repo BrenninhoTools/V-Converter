@@ -1,23 +1,24 @@
 package com.brenninhotools.vconverter
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
-import com.brenninhotools.vconverter.ui.ConverterScreen
-import com.brenninhotools.vconverter.ui.ConverterViewModel
+import com.brenninhotools.vconverter.ui.MainScreen
 import com.brenninhotools.vconverter.ui.theme.VConverterTheme
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: ConverterViewModel by viewModels()
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        )
         super.onCreate(savedInstanceState)
         setContent {
             VConverterTheme {
-                ConverterScreen(viewModel)
+                MainScreen()
             }
         }
     }
