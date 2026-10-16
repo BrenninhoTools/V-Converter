@@ -2,6 +2,7 @@ package com.brenninhotools.vconverter.reverse
 
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
+import com.brenninhotools.vconverter.script.ReflectCalls
 
 enum class HxcKind(val label: String) {
     MODULE("Module"),
@@ -281,12 +282,11 @@ object HxcToPsych {
         "\\bPreferences\\.framerate\\b" to "ClientPrefs.data.framerate",
         "\\bFunkinSound\\.playOnce\\(" to "FlxG.sound.play(",
         "\\bFunkinSound\\.load\\(" to "FlxG.sound.load(",
-        "\\bthis\\." to "",
-        "\\bReflect\\.callMethod\\(\\s*([A-Za-z_][\\w.]*)\\s*,\\s*(\u0001\\d+\u0001)" to "Reflect.callMethod($1, Reflect.getProperty($1, $2)"
+        "\\bthis\\." to ""
     ).map { (pattern, replacement) -> Regex(pattern) to replacement }
 
     private fun rewrite(text: String, notes: MutableList<String>): String {
-        var t = text
+        var t = ReflectCalls.toPsych(text)
         replacements.forEach { (regex, replacement) -> t = regex.replace(t, if (replacement.contains("$1")) replacement else Regex.escapeReplacement(replacement)) }
         t = Regex("(^|[^A-Za-z0-9_.])(public|private|static|inline|override|final)\\s+(?=(var|function)\\b)").replace(t) { it.groupValues[1] }
         if (Regex("\\bConductor\\.instance\\b").containsMatchIn(t)) notes += "Some Conductor.instance fields have no Psych equivalent."

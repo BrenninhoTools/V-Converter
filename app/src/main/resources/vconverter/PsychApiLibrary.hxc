@@ -2,6 +2,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.addons.display.FlxRuntimeShader;
 import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
@@ -1111,12 +1112,7 @@ class PsychApiLibrary extends Module
 
   function applyBorder(t:Dynamic, size:Float, borderColor:Int):Void
   {
-    try
-    {
-      var style:Dynamic = Type.resolveEnum("flixel.text.FlxTextBorderStyle");
-      if (style != null) t.borderStyle = Reflect.getProperty(style, size > 0 ? "OUTLINE" : "NONE");
-    }
-    catch (e:Dynamic) {}
+    t.borderStyle = size > 0 ? FlxTextBorderStyle.OUTLINE : FlxTextBorderStyle.NONE;
     t.borderColor = borderColor;
     t.borderSize = size;
   }

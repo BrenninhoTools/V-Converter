@@ -205,17 +205,4 @@ fun AssetPicker(
 }
 
 @Composable
-fun CodePreview(code: String) {
-    val shape = RoundedCornerShape(14.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Funkin.Ink)
-            .border(1.dp, Funkin.Outline, shape)
-            .horizontalScroll(rememberScrollState())
-            .padding(12.dp)
-    ) {
-        Text(code.trimEnd(), color = Funkin.Text, fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 15.sp, softWrap = false)
-    }
-}
+fun CodePreview(code: String, title: String = "Preview", accent: Color = Funkin.Down) = CodeView(code, title, accent)

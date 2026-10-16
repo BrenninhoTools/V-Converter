@@ -9,6 +9,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -213,8 +221,7 @@ fun MainScreen() {
                 onPickFolder = { folderPicker.launch(null) },
                 section = section,
                 onSection = { section = it },
-                reverse = reverse,
-                onReverse = { reverse = it }
+                reverse = reverse
             )
         },
         bottomBar = {
@@ -241,6 +248,10 @@ fun MainScreen() {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
+                if (current is Tab) {
+                    EngineBridge(isReverse) { reverse = it }
+                    Spacer(Modifier.size(12.dp))
+                }
                 TabHero(current, isReverse)
                 Spacer(Modifier.size(16.dp))
                 if (isReverse) when (current) {
@@ -277,68 +288,67 @@ private fun Header(
     onPickFolder: () -> Unit,
     section: Section,
     onSection: (Section) -> Unit,
-    reverse: Boolean,
-    onReverse: (Boolean) -> Unit
+    reverse: Boolean
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Funkin.Background)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AppLogo()
-            Spacer(Modifier.width(12.dp))
+            AppLogo(40)
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("V-CONVERTER", style = MaterialTheme.typography.headlineSmall, color = Funkin.Text)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (section == Section.GENERATOR) {
-                        Text("New V-Slice content", style = MaterialTheme.typography.labelMedium, color = Funkin.Warning)
+                Text("V-CONVERTER", style = MaterialTheme.typography.titleLarge, color = Funkin.Text, maxLines = 1)
+                AnimatedContent(targetState = section to reverse, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "subtitle") { (current, isReverse) ->
+                    if (current == Section.GENERATOR) {
+                        Text("New V-Slice content", style = MaterialTheme.typography.labelSmall, color = Funkin.Warning, maxLines = 1)
                     } else {
-                        Text(if (reverse) "V-Slice" else "Psych Engine", style = MaterialTheme.typography.labelMedium, color = if (reverse) Funkin.Down else Funkin.Left)
-                        Text("  →  ", style = MaterialTheme.typography.labelMedium, color = Funkin.Muted)
-                        Text(if (reverse) "Psych Engine" else "V-Slice", style = MaterialTheme.typography.labelMedium, color = if (reverse) Funkin.Left else Funkin.Down)
+                        Text(
+                            if (isReverse) "V-Slice to Psych Engine" else "Psych Engine to V-Slice",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Funkin.Muted,
+                            maxLines = 1
+                        )
                     }
                 }
             }
+            Spacer(Modifier.width(8.dp))
+            FolderChip(folderName, onPickFolder)
         }
         SectionSwitch(section, onSection)
-        AnimatedVisibility(visible = section == Section.CONVERTER) {
-            DirectionSwitch(reverse, onReverse)
-        }
-        val shape = RoundedCornerShape(14.dp)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(Funkin.Surface)
-                .border(1.5.dp, if (folderName != null) Funkin.Up.copy(alpha = 0.5f) else Funkin.Outline, shape)
-                .clickable(onClick = onPickFolder)
-                .padding(start = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painterResource(R.drawable.ic_folder),
-                contentDescription = null,
-                tint = if (folderName != null) Funkin.Up else Funkin.Muted,
-                modifier = Modifier.size(20.dp)
+    }
+}
+
+@Composable
+private fun FolderChip(folderName: String?, onClick: () -> Unit) {
+    val picked = folderName != null
+    val shape = RoundedCornerShape(50)
+    val tint = if (picked) Funkin.Up else Funkin.Muted
+    Row(
+        modifier = Modifier
+            .widthIn(max = 150.dp)
+            .clip(shape)
+            .background(if (picked) Funkin.Up.copy(alpha = 0.12f) else Funkin.Surface)
+            .border(1.5.dp, if (picked) Funkin.Up.copy(alpha = 0.6f) else Funkin.Outline, shape)
+            .clickable(onClick = onClick)
+            .padding(start = 10.dp, end = 12.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(painterResource(R.drawable.ic_folder), contentDescription = "Mod folder", tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text("MOD FOLDER", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = Funkin.Muted, maxLines = 1)
+            Text(
+                folderName ?: "Choose",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (picked) Funkin.Text else Funkin.Down,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text("MOD FOLDER", style = MaterialTheme.typography.labelSmall, color = Funkin.Muted)
-                Text(
-                    folderName ?: "Not selected",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (folderName != null) Funkin.Text else Funkin.Muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            TextButton(onClick = onPickFolder) {
-                Text(if (folderName != null) "CHANGE" else "CHOOSE", style = MaterialTheme.typography.labelMedium, color = Funkin.Down)
-            }
         }
     }
 }
@@ -346,29 +356,43 @@ private fun Header(
 @Composable
 private fun TabHero(tab: AppTab, reverse: Boolean) {
     val shape = RoundedCornerShape(20.dp)
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.horizontalGradient(listOf(tab.accent.copy(alpha = 0.22f), tab.accent.copy(alpha = 0.04f))))
-            .border(1.5.dp, tab.accent.copy(alpha = 0.35f), shape)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(Brush.linearGradient(listOf(tab.accent.copy(alpha = 0.26f), Funkin.Surface, Funkin.Surface)))
+            .border(1.5.dp, tab.accent.copy(alpha = 0.4f), shape)
     ) {
-        Box(
+        Icon(
+            painterResource(tab.icon),
+            contentDescription = null,
+            tint = tab.accent.copy(alpha = 0.10f),
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(tab.accent)
-                .border(3.dp, Funkin.Ink, RoundedCornerShape(14.dp)),
-            contentAlignment = Alignment.Center
+                .align(Alignment.CenterEnd)
+                .offset(x = 18.dp)
+                .size(110.dp)
+                .rotate(-12f)
+        )
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(painterResource(tab.icon), contentDescription = null, tint = Funkin.Ink, modifier = Modifier.size(26.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
-            Text(if (reverse && tab is Tab) tab.reverseDescription else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(tab.accent)
+                    .border(3.dp, Funkin.Ink, RoundedCornerShape(15.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(painterResource(tab.icon), contentDescription = null, tint = Funkin.Ink, modifier = Modifier.size(27.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
+                Spacer(Modifier.height(2.dp))
+                Text(if (reverse && tab is Tab) tab.reverseDescription else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+            }
         }
     }
 }
@@ -467,45 +491,69 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
 }
 
 @Composable
-private fun DirectionSwitch(reverse: Boolean, onChange: (Boolean) -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Funkin.Surface)
-            .border(1.5.dp, Funkin.Outline, shape)
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        listOf(false to ("Psych" to "V-Slice"), true to ("V-Slice" to "Psych")).forEach { (value, names) ->
-            val active = value == reverse
-            val fill by animateColorAsState(if (active) Funkin.SurfaceHigh else Color.Transparent, label = "direction")
-            val inner = RoundedCornerShape(11.dp)
-            Row(
+private fun EngineBridge(reverse: Boolean, onChange: (Boolean) -> Unit) {
+    val turn by animateFloatAsState(if (reverse) 180f else 0f, animationSpec = spring(dampingRatio = 0.55f, stiffness = 300f), label = "swap")
+    val from = if (reverse) Engine.VSLICE else Engine.PSYCH
+    val to = if (reverse) Engine.PSYCH else Engine.VSLICE
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            EngineCard("From", from, Modifier.weight(1f)) { onChange(!reverse) }
+            EngineCard("To", to, Modifier.weight(1f)) { onChange(!reverse) }
+        }
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(Funkin.Ink)
+                .padding(4.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(from.color, to.color)))
+                .border(2.5.dp, Funkin.Ink, CircleShape)
+                .clickable { onChange(!reverse) },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_swap),
+                contentDescription = "Swap direction",
+                tint = Funkin.Ink,
                 modifier = Modifier
-                    .weight(1f)
-                    .height(36.dp)
-                    .clip(inner)
-                    .background(fill)
-                    .then(if (active) Modifier.border(1.5.dp, Funkin.Down.copy(alpha = 0.7f), inner) else Modifier)
-                    .clickable { onChange(value) },
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val (from, to) = names
-                val fromColor = if (from == "Psych") Funkin.Left else Funkin.Down
-                val toColor = if (to == "Psych") Funkin.Left else Funkin.Down
-                Text(from.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (active) fromColor else Funkin.Muted)
-                Icon(
-                    painterResource(R.drawable.ic_swap),
-                    contentDescription = null,
-                    tint = if (active) Funkin.Text else Funkin.Muted,
-                    modifier = Modifier
-                        .padding(horizontal = 6.dp)
-                        .size(14.dp)
-                )
-                Text(to.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (active) toColor else Funkin.Muted)
+                    .size(20.dp)
+                    .rotate(turn)
+            )
+        }
+    }
+}
+
+private enum class Engine(val label: String, val detail: String, val color: Color) {
+    PSYCH("PSYCH", "Lua · HScript · JSON", Funkin.Left),
+    VSLICE("V-SLICE", "Polymod · .hxc", Funkin.Down)
+}
+
+@Composable
+private fun EngineCard(role: String, engine: Engine, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    val color by animateColorAsState(engine.color, label = "engine")
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(color.copy(alpha = 0.16f), Funkin.Surface)))
+            .border(1.5.dp, color.copy(alpha = 0.55f), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalAlignment = if (role == "From") Alignment.Start else Alignment.End
+    ) {
+        Text(role.uppercase(), style = MaterialTheme.typography.labelSmall, color = Funkin.Muted)
+        AnimatedContent(
+            targetState = engine,
+            transitionSpec = {
+                val direction = if (role == "From") -1 else 1
+                (slideInVertically { it * direction } + fadeIn()) togetherWith (slideOutVertically { -it * direction } + fadeOut())
+            },
+            label = "engineName"
+        ) { current ->
+            Column(horizontalAlignment = if (role == "From") Alignment.Start else Alignment.End) {
+                Text(current.label, style = MaterialTheme.typography.titleLarge, color = current.color, maxLines = 1)
+                Text(current.detail, style = MaterialTheme.typography.labelSmall, color = Funkin.Muted, maxLines = 1)
             }
         }
     }

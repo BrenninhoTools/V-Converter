@@ -4,9 +4,11 @@ import com.brenninhotools.vconverter.chart.ChartSource
 import com.brenninhotools.vconverter.chart.ConversionOptions
 import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.chart.psych.PsychChartParser
+import com.brenninhotools.vconverter.script.HxImports
 import com.brenninhotools.vconverter.script.LuaPattern
 import com.brenninhotools.vconverter.script.LuaToHScript
 import com.brenninhotools.vconverter.script.PsychHScriptWrapper
+import com.brenninhotools.vconverter.script.ReflectCalls
 import com.brenninhotools.vconverter.script.ScriptConverter
 import com.brenninhotools.vconverter.script.ScriptScope
 import com.brenninhotools.vconverter.script.ScriptSource
@@ -160,6 +162,7 @@ class ScriptConversionTest {
         assertTrue(noteType.contains("function songUsesNoteType"))
         assertTrue(noteType.contains("super(\"test-ghost-note-note-type\""))
         bundle.files.forEach { assertNoLua(it.content) }
+        bundle.files.forEach { assertImported(it.content) }
     }
 
     @Test
@@ -205,6 +208,49 @@ class ScriptConversionTest {
         assertEquals("FlashCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Flash Camera"))
         assertEquals("PsychFocusCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Focus Camera"))
         assertEquals("Hey", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Hey!"))
+    }
+
+    @Test
+    fun importsEveryClassItUses() {
+        val code = HxImports.complete("import funkin.modding.module.Module;\n\nclass A extends Module\n{\n  function f(o:Dynamic)\n  {\n    var s = \"Reflect.field\";\n    return Reflect.field(o, \"x\") + Type.getClassName(null) + FlxColor.RED + Std.int(1) + FlxG.width;\n  }\n}")
+        assertTrue(code.contains("import Reflect;"))
+        assertTrue(code.contains("import Type;"))
+        assertTrue(code.contains("import flixel.util.FlxColor;"))
+        assertTrue(!code.contains("import Std;"))
+        assertTrue(!code.contains("import flixel.FlxG;"))
+        assertImported(code)
+    }
+
+    @Test
+    fun reflectCallsFollowReflectUtil() {
+        val v = ReflectCalls.toVSlice("Reflect.callMethod(null, cb, [1, \"a,b\"]);\nReflect.callMethod(game, Reflect.field(game, \"endSong\"), []);\nReflect.deleteField(o, \"k\");\nType.getClassName(Type.getClass(spr));\nType.typeof(x);")
+        assertTrue(v.text.contains("invokeFunction(cb, [1, \"a,b\"]);"))
+        assertTrue(v.text.contains("Reflect.callMethod(game, \"endSong\", []);"))
+        assertTrue(v.text.contains("Reflect.delete(o, \"k\");"))
+        assertTrue(v.text.contains("Reflect.getClassNameOf(spr);"))
+        assertEquals(setOf("Type.typeof"), v.unsupported)
+        val p = ReflectCalls.toPsych("Reflect.callMethod(obj, \"run\", []);\nReflect.getAnonymousField(o, \"x\");\nType.isFunction(f);\nReflect.getClassNameOf(o);")
+        assertTrue(p.contains("Reflect.callMethod(obj, Reflect.getProperty(obj, \"run\"), []);"))
+        assertTrue(p.contains("Reflect.field(o, \"x\");"))
+        assertTrue(p.contains("Reflect.isFunction(f);"))
+        assertTrue(p.contains("Type.getClassName(Type.getClass(o))"))
+    }
+
+    @Test
+    fun psychHScriptCallbacksBecomeDirectCalls() {
+        val code = PsychHScriptWrapper("TestHud", "test-hud", ScriptTarget(ScriptScope.GLOBAL)).convert("function onCreate() {\n  var cb = function(a) { debugPrint(a); };\n  Reflect.callMethod(null, cb, ['hi']);\n}").source
+        assertTrue(code.contains("invokeFunction(cb, ['hi'])"))
+        assertTrue(Regex("function invokeFunction\\(").findAll(code).count() == 1)
+        assertFalse(code.contains("Reflect.callMethod(null"))
+        assertImported(HxImports.complete(code))
+    }
+
+    private fun assertImported(code: String) {
+        val imported = Regex("^import\\s+([\\w.]+);", RegexOption.MULTILINE).findAll(code).map { it.groupValues[1].substringAfterLast('.') }.toSet()
+        val blanked = code.replace(Regex("\"(?:[^\"\\\\]|\\\\.)*\""), "\"\"")
+        listOf("Reflect", "Type", "StringTools", "FlxTextBorderStyle", "FlxColor").forEach { name ->
+            if (Regex("(?<![\\w.])$name\\.").containsMatchIn(blanked)) assertTrue("$name is used without import", name in imported)
+        }
     }
 
     private fun assertNoLua(code: String) {

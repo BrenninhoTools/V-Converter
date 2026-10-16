@@ -226,7 +226,10 @@ class PsychHScriptWrapper(
         return result
     }
 
-    fun convert(source: String): GeneratedScript {
+    fun convert(original: String): GeneratedScript {
+        val reflect = ReflectCalls.toVSlice(original)
+        val source = reflect.text
+        reflect.unsupported.forEach { issue(0, if (it.endsWith(".typeof")) "Type.typeof is blocked in V-Slice scripts." else "$it doesn't exist in V-Slice's Reflect (funkin.util.ReflectUtil); rewrite that part.") }
         val segs = segments(tokenize(source))
         val functions = segs.filter { it.kind == "function" }.map { it.name }.toSet()
         val fields = segs.filter { it.kind == "var" && it.name.isNotEmpty() }.map { it.name }.toSet()
@@ -299,19 +302,9 @@ class PsychHScriptWrapper(
         return GeneratedScript(className, moduleId, adaptReflect(text), issues.sortedBy { it.line }, callbacks.keys.toList(), emptySet())
     }
 
-    private fun adaptReflect(text: String): String {
-        var t = text.replace(Regex("Reflect\\.callMethod\\(\\s*([^,()]+?)\\s*,\\s*Reflect\\.(?:field|getProperty)\\(\\s*[^,()]+?\\s*,\\s*(\"[^\"]*\")\\s*\\)")) { m ->
-            "Reflect.callMethod(${m.groupValues[1]}, ${m.groupValues[2]}"
-        }
-        if (Regex("Reflect\\.callMethod\\([^,]+,\\s*(?!\")").containsMatchIn(t)) {
-            issue(0, "Reflect.callMethod in V-Slice takes the method name as a string (Reflect.callMethod(obj, \"name\", args)), not a function; check these calls.")
-        }
-        if (Regex("\\b(?:Reflect|Type)\\.typeof\\(").containsMatchIn(t)) issue(0, "Type.typeof is blocked in V-Slice scripts.")
-        if (Regex("\\bReflect\\.(?:field|setField|hasField|fields)\\(").containsMatchIn(t)) {
-            issue(0, "Reflect.field/setField/hasField/fields only work on anonymous objects in V-Slice; use Reflect.getProperty/setProperty for sprites and other objects.")
-        }
-        return t
-    }
+    private fun adaptReflect(text: String): String =
+        if (Regex("(?<![\\w.])invokeFunction\\s*\\(").containsMatchIn(text) && !Regex("function\\s+invokeFunction\\s*\\(").containsMatchIn(text)) ReflectCalls.insertMember(text, ReflectCalls.invokeMember)
+        else text
 
     private fun issue(line: Int, message: String) {
         if (issues.none { it.line == line && it.message == message }) issues += ScriptIssue(line, message)

@@ -67,7 +67,7 @@ object ScriptConverter {
 
     fun eventFiles(names: Collection<String>, scripted: Collection<String> = emptyList()): List<ScriptFile> =
         names.filter { it in PsychNativeLibrary.builtinEventNames && scripted.none { s -> eventId(s) == eventId(it) } }.distinct().sorted().map { name ->
-            ScriptFile("scripts/events/${eventClass(name)}.hxc", eventSource(name))
+            ScriptFile("scripts/events/${eventClass(name)}.hxc", HxImports.complete(eventSource(name)))
         }
 
     private fun eventSource(name: String): String {
@@ -225,10 +225,10 @@ class ${eventClass(name)} extends SongEvent
                 return@forEach
             }
             if (isEvent) {
-                files += ScriptFile("scripts/events/${eventClass(target.key)}.hxc", withForwarder(generated.source, target.key, moduleId))
+                files += ScriptFile("scripts/events/${eventClass(target.key)}.hxc", HxImports.complete(withForwarder(generated.source, target.key, moduleId)))
             } else {
                 val fileName = if (target.scope == ScriptScope.GLOBAL) keepFileName(source.path.substringAfterLast('/').substringBeforeLast('.')) else className
-                files += ScriptFile("$OUTPUT_FOLDER/$fileName.hxc", generated.source)
+                files += ScriptFile("$OUTPUT_FOLDER/$fileName.hxc", HxImports.complete(generated.source))
             }
             converted++
             hooks += generated.callbacks.size

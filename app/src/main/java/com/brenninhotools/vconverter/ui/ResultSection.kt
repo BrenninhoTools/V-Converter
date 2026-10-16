@@ -8,13 +8,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.R
 import com.brenninhotools.vconverter.ui.components.ChunkyButton
-import com.brenninhotools.vconverter.ui.components.CodePreview
+import com.brenninhotools.vconverter.ui.components.CodeFiles
 import com.brenninhotools.vconverter.ui.components.FunkinCard
 import com.brenninhotools.vconverter.ui.components.OutputFiles
 import com.brenninhotools.vconverter.ui.components.SaveActions
 import com.brenninhotools.vconverter.ui.components.ReportView
 import com.brenninhotools.vconverter.ui.components.SectionTitle
 import com.brenninhotools.vconverter.ui.components.StatusBanner
+
+private val CODE_EXTENSIONS = setOf("hxc", "hx", "lua", "json", "txt", "xml")
 
 @Composable
 fun ConvertSection(
@@ -44,7 +46,11 @@ fun ConvertSection(
         if (output != null) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ReportView(output.report, accent)
-                output.preview?.let { CodePreview(it) }
+                val code = output.files
+                    .filter { it.bytes == null && it.name.substringAfterLast('.').lowercase() in CODE_EXTENSIONS }
+                    .map { it.relativePath to it.content }
+                    .ifEmpty { listOfNotNull(output.preview?.let { "Preview" to it }) }
+                CodeFiles(code, accent)
                 OutputFiles(output.files.map { it.relativePath }, accent)
                 SaveActions(viewModel, accent, modFolderName, onSave)
             }
