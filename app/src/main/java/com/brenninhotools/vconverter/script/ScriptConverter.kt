@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.script
 
+import com.brenninhotools.vconverter.chart.PsychEventIds
 import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
@@ -32,12 +33,14 @@ object ScriptConverter {
         return cleaned.ifEmpty { "Mod" }.let { if (it.first().isDigit()) "M$it" else it }
     }
 
-    fun eventClass(name: String) = "PsychEvent_" + slug(name)
+    fun eventClass(name: String) = PsychEventIds.className(name)
+
+    fun eventId(name: String) = PsychEventIds.idFor(name)
 
     fun builtinEvents(): Set<String> = PsychNativeLibrary.builtinEventNames
 
-    fun eventFiles(names: Collection<String>): List<ScriptFile> =
-        names.filter { it in PsychNativeLibrary.builtinEventNames }.distinct().sorted().map { name ->
+    fun eventFiles(names: Collection<String>, scripted: Collection<String> = emptyList()): List<ScriptFile> =
+        names.filter { it in PsychNativeLibrary.builtinEventNames && scripted.none { s -> eventId(s) == eventId(it) } }.distinct().sorted().map { name ->
             ScriptFile("scripts/events/${eventClass(name)}.hxc", eventSource(name))
         }
 
@@ -45,7 +48,8 @@ object ScriptConverter {
         val body = PsychNativeLibrary.library.builtinEvents.getValue(name).lines()
             .filter { it.isNotBlank() }
             .joinToString("\n") { "      " + it.removePrefix("          ") }
-        val id = LuaToHScript.hxString(name)
+        val id = LuaToHScript.hxString(eventId(name))
+        val title = LuaToHScript.hxString(name)
         val draft = """
 class ${eventClass(name)} extends SongEvent
 {
@@ -71,7 +75,7 @@ $body
 
   override public function getTitle():String
   {
-    return $id;
+    return $title;
   }
 
   override public function getEventSchema():Dynamic
@@ -94,7 +98,53 @@ $body
     fun noteTypeMap(names: Collection<String>): Map<String, String> =
         names.filter { it.isNotBlank() }.associateBy { PsychToVSliceChart.noteKindFor(it) }
 
-    fun convert(modSlug: String, sources: List<ScriptSource>, noteTypes: Map<String, String>): ScriptBundle {
+    fun eventForwarder(name: String, moduleId: String): String {
+        val id = LuaToHScript.hxString(eventId(name))
+        val title = LuaToHScript.hxString(name)
+        return """
+class ${eventClass(name)} extends SongEvent
+{
+  public function new()
+  {
+    super($id);
+  }
+
+  override public function handleEvent(data:Dynamic):Void
+  {
+    if (data == null) return;
+    var handler:Dynamic = ModuleHandler.getModule(${LuaToHScript.hxString(moduleId)});
+    if (handler == null) return;
+    var raw:Dynamic = data.value;
+    var value1:Dynamic = raw == null ? "" : Reflect.field(raw, "value1");
+    var value2:Dynamic = raw == null ? "" : Reflect.field(raw, "value2");
+    handler.scriptCall("psychCallback", ["onEvent", [$title, value1 == null ? "" : value1, value2 == null ? "" : value2, data.time]]);
+  }
+
+  override public function getTitle():String
+  {
+    return $title;
+  }
+
+  override public function getEventSchema():Dynamic
+  {
+    return new SongEventSchema([
+      {name: "value1", title: "Value 1", type: "string", defaultValue: ""},
+      {name: "value2", title: "Value 2", type: "string", defaultValue: ""}
+    ]);
+  }
+}
+""".trimStart('\n')
+    }
+
+    private fun withForwarder(module: String, name: String, moduleId: String): String {
+        val lines = module.lines()
+        val existing = lines.takeWhile { !it.startsWith("class ") }.filter { it.startsWith("import ") }.toMutableSet()
+        val body = lines.dropWhile { !it.startsWith("class ") }.joinToString("\n").trimEnd()
+        existing += listOf("import funkin.data.event.SongEventSchema;", "import funkin.modding.module.ModuleHandler;", "import funkin.play.event.SongEvent;")
+        return existing.sorted().joinToString("\n") + "\n\n" + eventForwarder(name, moduleId) + "\n" + body + "\n"
+    }
+
+    fun convert(modSlug: String, sources: List<ScriptSource>, noteTypes: Map<String, String>, chartEvents: Collection<String> = emptyList()): ScriptBundle {
         val report = ReportBuilder()
         val files = mutableListOf<ScriptFile>()
         val usedNames = HashSet<String>()
@@ -113,14 +163,18 @@ $body
                 ScriptScope.EVENT -> "Event"
                 ScriptScope.NOTE_TYPE -> "NoteType"
             }
-            val base = "Psych${if (ext == "lua") "Lua" else "Hx"}_${modSlug}_${scopeName}_${slug(if (target.scope == ScriptScope.SONG) target.key + "_" + stem else stem)}"
+            val base = if (target.scope == ScriptScope.EVENT) eventClass(target.key.ifBlank { stem }) + "Handler"
+                else "Psych${if (ext == "lua") "Lua" else "Hx"}_${modSlug}_${scopeName}_${slug(if (target.scope == ScriptScope.SONG) target.key + "_" + stem else stem)}"
             var className = base
             var n = 2
             while (!usedNames.add(className.lowercase())) className = base + "_" + n++
-            val moduleId = "psych-" + className.removePrefix("Psych").lowercase().replace('_', '-')
+            val moduleId = if (target.scope == ScriptScope.EVENT) "psych-event-" + slug(modSlug).lowercase().replace('_', '-') + "-" + className.lowercase()
+                else "psych-" + className.removePrefix("Psych").lowercase().replace('_', '-')
             Triple(source, target, className to moduleId)
         }
         val siblings = planned.map { it.third.second }
+        val eventNames = (builtinEvents() + chartEvents + planned.filter { it.second.scope == ScriptScope.EVENT }.map { it.second.key })
+            .filter { it.isNotBlank() }.associateBy { eventId(it) }
         val noteTypeArray = noteTypes.entries.joinToString(", ", "[", "]") { (kind, name) ->
             "[${LuaToHScript.hxString(kind)}, ${LuaToHScript.hxString(name)}]"
         }
@@ -128,22 +182,29 @@ $body
         planned.forEach { (source, target, names) ->
             val (className, moduleId) = names
             val ext = source.path.substringAfterLast('.', "").lowercase()
+            val isEvent = target.scope == ScriptScope.EVENT && target.key.isNotBlank()
+            val ownEvent = if (isEvent) eventId(target.key) else null
             val generated = try {
                 if (ext == "lua") {
-                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray).convert(source.text)
+                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent).convert(source.text)
                 } else {
-                    PsychHScriptWrapper(className, moduleId, target, siblings, noteTypeArray).convert(source.text)
+                    PsychHScriptWrapper(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent).convert(source.text)
                 }
             } catch (e: Exception) {
                 report.warn("${source.path}: could not be converted (${e.message}).")
                 return@forEach
             }
-            val label = "${source.path} · ${target.scope.label}${if (target.key.isNotEmpty()) " \"${target.key}\"" else ""}"
+            val label = "${source.path} · ${target.scope.label}${if (target.key.isNotEmpty()) " \"${target.key}\"" else ""}" +
+                if (target.scope == ScriptScope.EVENT && target.key.isNotBlank()) " → scripts/events/${eventClass(target.key)}.hxc (id \"${eventId(target.key)}\")" else ""
             if (generated.source.isEmpty()) {
                 report.warn("${source.path}: ${generated.issues.firstOrNull()?.message ?: "could not be converted"}")
                 return@forEach
             }
-            files += ScriptFile("$OUTPUT_FOLDER/$className.hxc", generated.source)
+            if (isEvent) {
+                files += ScriptFile("scripts/events/${eventClass(target.key)}.hxc", withForwarder(generated.source, target.key, moduleId))
+            } else {
+                files += ScriptFile("$OUTPUT_FOLDER/$className.hxc", generated.source)
+            }
             converted++
             hooks += generated.callbacks.size
             apiUsed += generated.apiCalls
@@ -165,7 +226,8 @@ $body
             listOf(
                 "Each script became a V-Slice Module that only runs in its song, stage, event or note type.",
                 "The Psych functions a script uses are implemented inside its own module with V-Slice and Flixel code; no extra runtime is needed.",
-                "Psych events keep their names in the charts and reach onEvent in your scripts; built-in ones also get their own SongEvent script."
+                "Psych events get V-Slice ids (\"Flash Camera\" → \"FlashCamera\") in charts and scripts alike; your scripts still see the original names in onEvent.",
+                "custom_events scripts go to scripts/events/<Name>Event.hxc: a SongEvent (Chart Editor entry) plus a Module with the converted code."
             )
         )
         return ScriptBundle(files, report.build(), converted)

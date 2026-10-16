@@ -32,7 +32,9 @@ class LuaToHScript(
     private val moduleId: String,
     private val target: ScriptTarget,
     private val siblings: List<String> = emptyList(),
-    private val noteTypes: String = "[]"
+    private val noteTypes: String = "[]",
+    private val eventNames: Map<String, String> = emptyMap(),
+    private val ownEvent: String? = null
 ) {
     private val issues = mutableListOf<ScriptIssue>()
     private val helpers = linkedSetOf<String>()
@@ -1039,6 +1041,8 @@ class LuaToHScript(
                 moduleId = moduleId,
                 siblings = siblings,
                 noteTypes = noteTypes,
+                eventNames = eventNames,
+                ownEvent = ownEvent,
                 target = target,
                 prefix = "g_",
                 fields = fields,

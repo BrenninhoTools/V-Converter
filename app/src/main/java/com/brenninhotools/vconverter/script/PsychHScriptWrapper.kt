@@ -5,7 +5,9 @@ class PsychHScriptWrapper(
     private val moduleId: String,
     private val target: ScriptTarget,
     private val siblings: List<String> = emptyList(),
-    private val noteTypes: String = "[]"
+    private val noteTypes: String = "[]",
+    private val eventNames: Map<String, String> = emptyMap(),
+    private val ownEvent: String? = null
 ) {
     private enum class Kind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
@@ -277,6 +279,8 @@ class PsychHScriptWrapper(
                 moduleId = moduleId,
                 siblings = siblings,
                 noteTypes = noteTypes,
+                eventNames = eventNames,
+                ownEvent = ownEvent,
                 target = target,
                 prefix = "h_",
                 fields = fields.map { "h_$it" }.sorted(),

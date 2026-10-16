@@ -37,6 +37,7 @@ The **Mod** tab converts an entire Psych Engine mod in one go, from its folder o
 - `images/`, `songs/`, `music/`, `sounds/`, `fonts/`, `videos/`, `shaders/` copied as-is
 - Split vocals (`Voices-Player.ogg`, `Voices-Opponent.ogg` or a character's `vocals_file`) are wired through `playerVocals` / `opponentVocals`, so audio files keep their names
 - Character slots are inferred from how the charts use each character
+- Placeholder folders that hold nothing but a single text file (like a template's `readme.txt`) are left out automatically, in both directions
 - `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
 - Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/psych/*.hxc`
 
@@ -69,7 +70,7 @@ Drop that folder inside `data/songs/` of your V-Slice mod.
 - Stacked duplicate notes are removed
 - Stage ids mapped to the V-Slice ones (`stage` → `mainStage`, `spooky` → `spookyMansion`, …); `school`/`schoolEvil` or pixel arrow skins → `pixel` note style
 
-Other Psych events keep their own names in the chart (with `value1`/`value2`), so converted scripts still get them in `onEvent`. Built-in ones without a V-Slice event (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`) also get a real `SongEvent` script in `scripts/events/`, which adds them to the Chart Editor. Anything that can't be converted yet is listed in the in-app report.
+Other Psych events get a V-Slice style id (`Flash Camera` → `FlashCamera`, never clashing with built-in ids like `FocusCamera`), applied the same way in charts and scripts, while converted scripts still receive the original name in `onEvent`. `custom_events/*.lua`/`.hx` become `scripts/events/<Name>Event.hxc` holding a `SongEvent` (Chart Editor entry with Value 1/Value 2) and a `Module` with the converted code. Built-in Psych events without a V-Slice event (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`) get a `SongEvent` script there too. Anything that can't be converted yet is listed in the in-app report.
 
 ## Saving
 

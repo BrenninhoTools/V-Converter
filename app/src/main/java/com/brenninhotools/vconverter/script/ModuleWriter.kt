@@ -7,6 +7,8 @@ class ModuleSpec(
     val moduleId: String,
     val siblings: List<String>,
     val noteTypes: String,
+    val eventNames: Map<String, String>,
+    val ownEvent: String?,
     val target: ScriptTarget,
     val prefix: String,
     val fields: List<String>,
@@ -232,6 +234,7 @@ object ModuleWriter {
         out.line("if (!luaActive()) return;")
         out.line("var data:Dynamic = event.eventData;")
         out.line(FOCUS_MARK)
+        spec.ownEvent?.let { out.line("if (data.eventKind == ${LuaToHScript.hxString(it)}) return;") }
         run {
             if (has("onEvent")) {
                 out.line("ensureGame();")
@@ -275,7 +278,7 @@ object ModuleWriter {
 
         val draft = StringBuilder(out.toString())
         spec.tailLines.forEach { draft.append(if (it.isEmpty()) "\n" else "  $it\n") }
-        val embedded = PsychNativeLibrary.embed(draft.toString(), spec.noteTypes, spec.siblings)
+        val embedded = PsychNativeLibrary.embed(draft.toString(), spec.noteTypes, spec.siblings, spec.eventNames)
         val included = embedded.included
         var body = draft.toString()
         body = marker(body, INIT_MARK, if ("luaInitNoteTypes" in included) "luaInitNoteTypes();" else null)

@@ -41,6 +41,7 @@ class PsychApiLibrary extends Module
   var gfSection:Bool = false;
 
   var LUA_SIBLINGS:Array<String> = [];
+  var LUA_EVENT_NAMES:Array<Dynamic> = [];
 
   public function new()
   {
@@ -1513,7 +1514,7 @@ class PsychApiLibrary extends Module
   {
     for (e in chartEvents())
     {
-      if (e.eventKind == name) return true;
+      if (e.eventKind == name || luaEventName(e.eventKind) == name) return true;
     }
     return false;
   }
@@ -1553,10 +1554,17 @@ class PsychApiLibrary extends Module
       default:
         if (v != null && Reflect.isObject(v) && (Reflect.hasField(v, "value1") || Reflect.hasField(v, "value2")))
         {
-          return {name: data.eventKind, value1: Reflect.field(v, "value1"), value2: Reflect.field(v, "value2")};
+          return {name: luaEventName(data.eventKind), value1: Reflect.field(v, "value1"), value2: Reflect.field(v, "value2")};
         }
-        return {name: data.eventKind, value1: v == null ? "" : Std.string(v), value2: ""};
+        return {name: luaEventName(data.eventKind), value1: v == null ? "" : Std.string(v), value2: ""};
     }
+  }
+
+  function luaEventName(kind:Dynamic):String
+  {
+    var key:String = Std.string(kind);
+    for (pair in LUA_EVENT_NAMES) if (pair[0] == key) return pair[1];
+    return key;
   }
 
   function psychClose():Void {}

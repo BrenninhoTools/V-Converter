@@ -72,6 +72,9 @@ class ModConverter(
         report.stat("Files", written)
 
 
+        if (scan.placeholders.isNotEmpty()) {
+            report.section("Empty placeholder folders removed", scan.placeholders.map { (dir, file) -> "$dir/ (only ${file.substringAfterLast('/')})" })
+        }
         if (scan.ignored.isNotEmpty()) {
             report.section("Other files skipped", limited(scan.ignored.map(scan::relative)))
         }
@@ -262,8 +265,11 @@ class ModConverter(
             runCatching { ScriptSource(scan.relative(path), files.readText(path)) }.getOrNull()
         }
         sources.forEach { step("Script ${it.path.substringAfterLast('/')}") }
-        val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames))
-        val outputs = bundle.files + ScriptConverter.eventFiles(keptEventNames)
+        val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames), keptEventNames)
+        val scriptedEvents = sources.map { ScriptConverter.detectTarget(it.path) }.filter { it.scope == com.brenninhotools.vconverter.script.ScriptScope.EVENT }.map { it.key }
+        val outputs = bundle.files + ScriptConverter.eventFiles(keptEventNames, scriptedEvents)
+        val renamed = keptEventNames.filter { ScriptConverter.eventId(it) != it }
+        if (renamed.isNotEmpty()) report.section("Events renamed to V-Slice ids", renamed.map { "\"$it\" → \"${ScriptConverter.eventId(it)}\"" })
         outputs.forEach { file ->
             writer.writeText(file.path, file.content)
             written++

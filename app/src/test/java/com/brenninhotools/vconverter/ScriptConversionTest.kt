@@ -161,13 +161,42 @@ class ScriptConversionTest {
             "notes":[{"sectionBeats":4,"mustHitSection":true,"sectionNotes":[]}],
             "events":[[1000,[["Flash Camera","0.5",""],["Add Camera Zoom","0.1","0.05"]]]]}}"""
         val conversion = PsychToVSliceChart.convert(listOf(ChartSource("normal", PsychChartParser.parse(chart))), ConversionOptions())
-        val kept = conversion.chart.events.filter { it.kind == "Flash Camera" || it.kind == "Add Camera Zoom" }
+        val kept = conversion.chart.events.filter { it.kind == "FlashCamera" || it.kind == "AddCameraZoom" }
         assertEquals(2, kept.size)
-        assertEquals("0.5", kept.first { it.kind == "Flash Camera" }.value["value1"])
+        assertEquals("0.5", kept.first { it.kind == "FlashCamera" }.value["value1"])
         val events = ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys)
-        assertEquals(listOf("scripts/events/PsychEvent_Add_Camera_Zoom.hxc"), events.map { it.path })
+        assertEquals(listOf("scripts/events/AddCameraZoomEvent.hxc"), events.map { it.path })
         assertTrue(events.single().content.contains("extends SongEvent"))
+        assertTrue(events.single().content.contains("super(\"AddCameraZoom\")"))
+        assertTrue(events.single().content.contains("return \"Add Camera Zoom\";"))
         assertEquals(kept.size, conversion.report.keptPsychEvents)
         assertEquals(1, conversion.report.unsupportedEvents["Add Camera Zoom"])
+    }
+
+    @Test
+    fun customEventScriptGoesToScriptsEventsWithRenamedId() {
+        val bundle = ScriptConverter.convert(
+            "Test",
+            listOf(ScriptSource("custom_events/Flash Camera.lua", "function onEvent(name, v1, v2)\n  if name == 'Flash Camera' then cameraFlash('game', 'FFFFFF', tonumber(v1)) end\nend")),
+            emptyMap(),
+            listOf("Flash Camera")
+        )
+        val file = bundle.files.single()
+        assertEquals("scripts/events/FlashCameraEvent.hxc", file.path)
+        val text = file.content
+        assertTrue(text.contains("class FlashCameraEvent extends SongEvent"))
+        assertTrue(text.contains("super(\"FlashCamera\")"))
+        assertTrue(text.contains("return \"Flash Camera\";"))
+        assertTrue(text.contains("class FlashCameraEventHandler extends Module"))
+        assertTrue(text.contains("if (data.eventKind == \"FlashCamera\") return;"))
+        assertTrue(text.contains("[\"FlashCamera\", \"Flash Camera\"]"))
+        assertEquals(1, Regex("^import funkin.play.event.SongEvent;", RegexOption.MULTILINE).findAll(text).count())
+    }
+
+    @Test
+    fun eventIdsAvoidVSliceBuiltIns() {
+        assertEquals("FlashCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Flash Camera"))
+        assertEquals("PsychFocusCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Focus Camera"))
+        assertEquals("Hey", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Hey!"))
     }
 }

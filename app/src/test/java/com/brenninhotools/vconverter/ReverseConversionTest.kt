@@ -123,8 +123,8 @@ class ReverseConversionTest {
         assertEquals(2.2, back.speed, 0.001)
         val names = back.events.map { it.name }
         assertTrue("Change Scroll Speed" in names)
-        assertTrue("Custom Thing" in names)
-        assertEquals("a", back.events.first { it.name == "Custom Thing" }.value1)
+        assertTrue("CustomThing" in names)
+        assertEquals("a", back.events.first { it.name == "CustomThing" }.value1)
         assertEquals("stage", back.stage)
     }
 

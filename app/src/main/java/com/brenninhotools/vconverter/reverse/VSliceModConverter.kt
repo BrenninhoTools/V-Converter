@@ -26,7 +26,8 @@ data class VSliceModScan(
     val levels: List<String>,
     val scripts: List<String>,
     val assets: List<String>,
-    val ignored: List<String>
+    val ignored: List<String>,
+    val placeholders: Map<String, String> = emptyMap()
 ) {
     val isEmpty: Boolean get() = songs.isEmpty() && characters.isEmpty() && stages.isEmpty() && levels.isEmpty() && scripts.isEmpty()
 
@@ -46,7 +47,9 @@ object VSliceModScanner {
         val root = metaPath?.removeSuffix("_polymod_meta.json")
             ?: paths.firstNotNullOfOrNull { p -> Regex("^(.*?)(data/(songs|characters|stages|levels)/)").find(p)?.groupValues?.get(1) }
             ?: ""
-        val inRoot = paths.filter { it.startsWith(root) }
+        val placeholders = com.brenninhotools.vconverter.mod.Placeholders.find(paths, root)
+        val placeholderFiles = placeholders.values.toSet()
+        val inRoot = paths.filter { it.startsWith(root) && it !in placeholderFiles }
         val songs = LinkedHashMap<String, Triple<MutableMap<String, String>, MutableMap<String, String>, MutableList<String>>>()
         val characters = mutableListOf<String>()
         val stages = mutableListOf<String>()
@@ -94,7 +97,8 @@ object VSliceModScanner {
             levels = levels,
             scripts = scripts,
             assets = assets,
-            ignored = ignored
+            ignored = ignored,
+            placeholders = placeholders
         )
     }
 
@@ -153,6 +157,7 @@ class VSliceModConverter(
         report.stat("Weeks", scan.levels.size)
         report.stat("Scripts", scan.scripts.size)
         report.stat("Files", written)
+        if (scan.placeholders.isNotEmpty()) report.section("Empty placeholder folders removed", scan.placeholders.map { (dir, file) -> "$dir/ (only ${file.substringAfterLast('/')})" })
         if (scan.ignored.isNotEmpty()) report.section("Other files skipped", scan.ignored.take(40) + if (scan.ignored.size > 40) listOf("…and ${scan.ignored.size - 40} more") else emptyList())
         return ModConversionResult(written, report.build())
     }

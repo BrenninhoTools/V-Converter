@@ -77,6 +77,13 @@ fun ReverseModScreen(viewModel: ReverseModViewModel, modFolderName: String?, onC
                 if (scan.root.isNotEmpty()) {
                     Text("Mod root: ${scan.root}", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
                 }
+                if (scan.placeholders.isNotEmpty()) {
+                    Text(
+                        "${scan.placeholders.size} empty placeholder folder(s) will be left out: ${scan.placeholders.keys.joinToString { "$it/" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Funkin.Warning
+                    )
+                }
                 ReportView(
                     Report(
                         stats = listOf(

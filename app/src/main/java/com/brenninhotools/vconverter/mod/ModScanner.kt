@@ -20,7 +20,8 @@ data class ModScan(
     val menuCharacters: List<String>,
     val assets: List<String>,
     val scripts: List<String>,
-    val ignored: List<String>
+    val ignored: List<String>,
+    val placeholders: Map<String, String> = emptyMap()
 ) {
     val isEmpty: Boolean get() = songs.isEmpty() && characters.isEmpty() && stages.isEmpty() && weeks.isEmpty() && assets.isEmpty() && scripts.isEmpty()
 
@@ -36,7 +37,9 @@ object ModScanner {
     fun scan(files: ModFiles): ModScan {
         val roots = findRoots(files.paths)
         val root = roots.firstOrNull() ?: ""
-        val inside = files.paths.filter { it.startsWith(root) }
+        val placeholders = Placeholders.find(files.paths, root)
+        val placeholderFiles = placeholders.values.toSet()
+        val inside = files.paths.filter { it.startsWith(root) && it !in placeholderFiles }
 
         val charts = LinkedHashMap<String, MutableMap<String, String>>()
         val events = HashMap<String, String>()
@@ -113,7 +116,8 @@ object ModScanner {
             menuCharacters = menuCharacters.sorted(),
             assets = assets,
             scripts = scripts,
-            ignored = ignored
+            ignored = ignored,
+            placeholders = placeholders
         )
     }
 

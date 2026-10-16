@@ -72,6 +72,8 @@ class ModConversionTest {
                 "My Mod/stages/club.json" to stage,
                 "My Mod/weeks/weekdude.json" to week,
                 "My Mod/images/menucharacters/dude.json" to menuDude,
+                "My Mod/videos/put videos here.txt" to "placeholder",
+                "My Mod/shaders/readme.txt" to "placeholder",
                 "My Mod/scripts/thing.lua" to "function onCreate() makeLuaSprite('a', '', 0, 0) end"
             )
         )
@@ -101,6 +103,9 @@ class ModConversionTest {
         assertEquals("My Mod", JSONObject(File(out, "_polymod_meta.json").readText()).getString("title"))
         assertTrue(File(out, "scripts/psych/PsychLua_My_Mod_Global_thing.hxc").readText().contains("extends Module"))
         assertFalse(File(out, "scripts/psych").listFiles()!!.any { it.name.contains("Runtime") })
+        assertEquals(setOf("videos", "shaders"), scan.placeholders.keys)
+        assertFalse(File(out, "videos").exists())
+        assertFalse(File(out, "shaders").exists())
     }
 
     @Test

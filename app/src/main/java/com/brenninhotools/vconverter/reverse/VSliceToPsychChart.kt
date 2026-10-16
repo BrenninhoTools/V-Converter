@@ -25,6 +25,9 @@ object VSliceToPsychChart {
         "noanim" to "No Animation",
         "gf-sing" to "GF Sing"
     )
+    private val psychNames: Map<String, String> by lazy {
+        com.brenninhotools.vconverter.script.PsychNativeLibrary.builtinEventNames.associateBy { com.brenninhotools.vconverter.chart.PsychEventIds.idFor(it) }
+    }
     private val knownDifficulties = listOf("easy", "normal", "hard", "erect", "nightmare")
 
     fun formatToSongPath(name: String): String =
@@ -270,7 +273,7 @@ object VSliceToPsychChart {
                 else -> {
                     val obj = v as? JSONObject
                     if (obj != null && (obj.has("value1") || obj.has("value2"))) {
-                        add(event.time, event.kind, obj.value("value1").asText(), obj.value("value2").asText())
+                        add(event.time, psychNames[event.kind] ?: event.kind, obj.value("value1").asText(), obj.value("value2").asText())
                     } else {
                         add(event.time, event.kind, when (v) {
                             null -> ""

@@ -212,7 +212,7 @@ object PsychToVSliceChart {
                 report.skipEvent(event.name.ifBlank { "(unnamed)" })
                 if (keep && event.name.isNotBlank()) {
                     report.keptPsychEvents++
-                    result += VSliceEvent(event.time, event.name, linkedMapOf("value1" to event.value1, "value2" to event.value2))
+                    result += VSliceEvent(event.time, PsychEventIds.idFor(event.name), linkedMapOf("value1" to event.value1, "value2" to event.value2))
                 }
             } else {
                 report.convertedEvents++

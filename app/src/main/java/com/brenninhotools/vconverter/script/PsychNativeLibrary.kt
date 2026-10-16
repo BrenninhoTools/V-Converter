@@ -118,7 +118,7 @@ object PsychNativeLibrary {
         return depth
     }
 
-    fun embed(moduleText: String, noteTypes: String, siblings: List<String>): Embedded {
+    fun embed(moduleText: String, noteTypes: String, siblings: List<String>, eventNames: Map<String, String> = emptyMap()): Embedded {
         val lib = library
         val calls = Regex("psych\\(\"([^\"]+)\"").findAll(moduleText).map { it.groupValues[1] }.toSet()
         val usesVar = moduleText.contains("psychVar(")
@@ -159,6 +159,7 @@ object PsychNativeLibrary {
         lib.members.values.filter { it.isField && it.name in included }.forEach { member ->
             val text = when (member.name) {
                 "LUA_SIBLINGS" -> "  var LUA_SIBLINGS:Array<String> = [${siblings.joinToString(", ") { LuaToHScript.hxString(it) }}];"
+                "LUA_EVENT_NAMES" -> "  var LUA_EVENT_NAMES:Array<Dynamic> = [${eventNames.entries.joinToString(", ") { (id, name) -> "[${LuaToHScript.hxString(id)}, ${LuaToHScript.hxString(name)}]" }}];"
                 else -> member.text
             }
             body.append(text).append('\n')
