@@ -4,16 +4,16 @@ A remake of the V-Slice converter as a native Android app written in Kotlin. It 
 
 ## Status
 
-| Module | Status |
-| --- | --- |
-| Whole mod (folder / .zip / .rar / .7z) | ✅ Converter |
-| Charts | ✅ Converter |
-| Characters | ✅ Converter |
-| Stages | ✅ Converter |
-| Weeks → Levels | ✅ Converter |
-| Lua / HScript scripts | ✅ Converter (with a Psych API runtime) |
+| Module | Psych → V-Slice | V-Slice → Psych |
+| --- | --- | --- |
+| Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ |
+| Charts | ✅ | ✅ |
+| Characters | ✅ | ✅ |
+| Stages | ✅ | ✅ |
+| Weeks ↔ Levels | ✅ | ✅ |
+| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript |
 
-The app has two sections, switched at the top: **Converter** (Psych Engine → V-Slice) and **Generator** (new V-Slice content from scratch).
+The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). The Converter works both ways: pick **Psych → V-Slice** or **V-Slice → Psych** under the section switch.
 
 ## Generator
 
@@ -69,7 +69,7 @@ Drop that folder inside `data/songs/` of your V-Slice mod.
 - Stacked duplicate notes are removed
 - Stage ids mapped to the V-Slice ones (`stage` → `mainStage`, `spooky` → `spookyMansion`, …); `school`/`schoolEvil` or pixel arrow skins → `pixel` note style
 
-Other Psych events are kept in the chart as `PsychEvent` (name + both values), so converted scripts still get them in `onEvent`; the bundled runtime also performs the common built-in ones (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`). Anything that can't be converted yet is listed in the in-app report.
+Other Psych events keep their own names in the chart (with `value1`/`value2`), so converted scripts still get them in `onEvent`. Built-in ones without a V-Slice event (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`) also get a real `SongEvent` script in `scripts/events/`, which adds them to the Chart Editor. Anything that can't be converted yet is listed in the in-app report.
 
 ## Saving
 
@@ -120,9 +120,24 @@ The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice sc
 - **Psych HScript** (`.hx`) is wrapped into a module: imports are mapped (`states.PlayState` → `funkin.play.PlayState`, …), and `game.boyfriend`, `camFollow`, `defaultCamZoom`, `Conductor.songPosition`, `curBeat`, `ClientPrefs`… are rewritten to their V-Slice equivalents
 - Every script becomes a `Module` that only runs where Psych would run it: its song (`data/<song>/`), its stage (`stages/`), charts that use its event (`custom_events/`) or note type (`custom_notetypes/`), or everywhere (`scripts/`)
 - Psych callbacks are hooked to V-Slice events: `onCreate`, `onCreatePost`, `onUpdate`, `onBeatHit`, `onStepHit`, `onSectionHit`, `goodNoteHit`, `opponentNoteHit`, `noteMiss`, `noteMissPress`, `onEvent`, `onMoveCamera`, `onSpawnNote`, `onCountdownTick`, `onStartCountdown`, `onEndSong`, `onSongStart`, `onPause`, `onResume`, `onGameOver`, `onDestroy`, `onTimerCompleted`, `onTweenCompleted`, `onSoundFinished`; returning `Function_Stop` cancels the countdown and the song end like in Psych
-- A shared runtime module (`PsychLuaRuntime_<mod>.hxc`) implements the Psych Lua API on top of V-Slice: Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves and shared variables
+- No runtime or helper classes are added: each module carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
+- Every class, field and event the generated code touches was checked against the FunkinCrew/Funkin source
 
 The report lists, line by line, anything a script uses that has no V-Slice equivalent (`runHaxeCode`, videos, custom substates, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
+
+## V-Slice → Psych
+
+| Input | Output |
+| --- | --- |
+| `<song>-metadata.json` + `<song>-chart.json` | `data/<song>/<song>[-difficulty].json` (psych_v1): sections rebuilt from time changes (exact BPM changes), camera focus → `mustHitSection`/`gfSection`, note kinds → note types, `PlayAnimation`/`ScrollSpeed`/`ZoomCamera`/`FocusCamera` → Psych events |
+| Variations (`-erect`…) | Their own Psych song (`<song>-erect`) with their own audio, in a freeplay-only week |
+| `data/characters/<id>.json` (+ XML) | `characters/<id>.json`, positions and camera rebased exactly with the spritesheet |
+| `data/stages/<id>.json` | `stages/<id>.json` with stage-editor objects, layer order and character markers |
+| `data/levels/<id>.json` | `weeks/<id>.json` + `images/menucharacters/*.json` for custom props |
+| `.hxc` scripts | Psych HScript: modules → `scripts/`, songs → `data/<song>/`, stages → `stages/`, characters → `characters/`, song events → `custom_events/` (+ `.txt`), note kinds → `custom_notetypes/` |
+| Mod | `pack.json`/`pack.png`, `Voices-<char>.ogg` → `Voices-Player.ogg`/`Voices-Opponent.ogg`, assets copied |
+
+Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage positions and the on-screen character placement.
 
 ## Building
 

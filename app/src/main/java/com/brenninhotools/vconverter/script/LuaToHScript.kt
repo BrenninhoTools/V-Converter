@@ -30,8 +30,9 @@ data class GeneratedScript(
 class LuaToHScript(
     private val className: String,
     private val moduleId: String,
-    private val runtimeId: String,
-    private val target: ScriptTarget
+    private val target: ScriptTarget,
+    private val siblings: List<String> = emptyList(),
+    private val noteTypes: String = "[]"
 ) {
     private val issues = mutableListOf<ScriptIssue>()
     private val helpers = linkedSetOf<String>()
@@ -793,7 +794,7 @@ class LuaToHScript(
                 if (fn.name in PsychApi.notImplemented) {
                     issue(e.line, "Psych function '${fn.name}' has no V-Slice equivalent yet; the call does nothing.")
                 } else if (fn.name !in PsychApi.implemented) {
-                    issue(e.line, "Unknown function '${fn.name}' (not defined in this script); it is sent to the Psych runtime and does nothing if unsupported.")
+                    issue(e.line, "Unknown function '${fn.name}' (not defined in this script); it has no V-Slice implementation and does nothing.")
                 }
                 return "psych(${hxString(fn.name)}, [${args(e.args)}])"
             }
@@ -1036,7 +1037,8 @@ class LuaToHScript(
             ModuleSpec(
                 className = className,
                 moduleId = moduleId,
-                runtimeId = runtimeId,
+                siblings = siblings,
+                noteTypes = noteTypes,
                 target = target,
                 prefix = "g_",
                 fields = fields,

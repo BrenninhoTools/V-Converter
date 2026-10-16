@@ -49,6 +49,7 @@ class ModConverter(
     private val pathIndex: Map<String, String> = files.paths.associateBy { it.lowercase() }
     private var written = 0
     private var keptPsychEvents = 0
+    private val keptEventNames = sortedSetOf<String>()
     private var done = 0
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + scan.scripts.size + 2
 
@@ -165,6 +166,7 @@ class ModConverter(
                 writer.writeText("data/songs/${scanned.id}/${scanned.id}-chart.json", VSliceWriter.chartJson(conversion.chart))
                 written += 2
                 keptPsychEvents += conversion.report.keptPsychEvents
+                keptEventNames += conversion.report.unsupportedEvents.keys
                 conversion.report.warnings.forEach { report.warn("Song ${scanned.id}: $it") }
                 if (conversion.report.unsupportedEvents.isNotEmpty()) {
                     report.section(
@@ -261,7 +263,7 @@ class ModConverter(
         }
         sources.forEach { step("Script ${it.path.substringAfterLast('/')}") }
         val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames))
-        val outputs = if (bundle.converted == 0) ScriptConverter.runtimeFiles(slug, ScriptConverter.noteTypeMap(noteTypeNames)) else bundle.files
+        val outputs = bundle.files + ScriptConverter.eventFiles(keptEventNames)
         outputs.forEach { file ->
             writer.writeText(file.path, file.content)
             written++

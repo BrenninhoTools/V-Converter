@@ -5,43 +5,76 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.74"
-        android:scaleY="0.74"
-        android:translateY="1">
-        <path
-            android:fillColor="#59000000"
-            android:pathData="M47,28 H67 Q70,28 70,31 V52 H83 Q88,52 85,56 L60,84 Q57,87 54,84 L29,56 Q26,52 31,52 H44 V31 Q44,28 47,28 Z" />
-        <path
-            android:fillColor="#FF000000"
-            android:strokeColor="#FF000000"
-            android:strokeWidth="10"
-            android:strokeLineJoin="round"
-            android:pathData="M44,24 H64 Q67,24 67,27 V48 H80 Q85,48 82,52 L57,80 Q54,83 51,80 L26,52 Q23,48 28,48 H41 V27 Q41,24 44,24 Z" />
-        <path
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="3.5"
-            android:strokeLineJoin="round"
-            android:pathData="M44,24 H64 Q67,24 67,27 V48 H80 Q85,48 82,52 L57,80 Q54,83 51,80 L26,52 Q23,48 28,48 H41 V27 Q41,24 44,24 Z">
-            <aapt:attr name="android:fillColor">
-                <gradient
-                    android:type="linear"
-                    android:startX="54"
-                    android:startY="24"
-                    android:endX="54"
-                    android:endY="82">
-                    <item android:offset="0" android:color="#FF5CFFFF" />
-                    <item android:offset="1" android:color="#FF00C8E6" />
-                </gradient>
-            </aapt:attr>
-        </path>
-        <path
-            android:fillColor="#BFFFFFFF"
-            android:pathData="M46,29 Q46,28 47,28 H49 Q50,28 50,29 V46 Q50,47 49,47 H47 Q46,47 46,46 Z" />
-        <path
-            android:fillColor="#73FFFFFF"
-            android:pathData="M31,52 H36 L52,70 L50,72 Z" />
+    <group android:translateX="28.64" android:translateY="29.24" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="-90">
+            <path android:fillColor="#59000000" android:strokeColor="#59000000" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="56.64" android:translateY="29.24" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="0">
+            <path android:fillColor="#59000000" android:strokeColor="#59000000" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="28.64" android:translateY="57.24" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="180">
+            <path android:fillColor="#59000000" android:strokeColor="#59000000" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="56.64" android:translateY="57.24" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="90">
+            <path android:fillColor="#59000000" android:strokeColor="#59000000" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="27.04" android:translateY="27.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="-90">
+            <path android:strokeColor="#FF0B0614" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="linear" android:startX="12" android:startY="1" android:endX="12" android:endY="23">
+                        <item android:offset="0" android:color="#FFE37BC6" />
+                        <item android:offset="1" android:color="#FFC24B99" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <path android:fillColor="#47FFFFFF" android:pathData="M12,5.4 L18.4,11.8 L14.6,11.8 L14.6,20.4 L9.4,20.4 L9.4,11.8 L5.6,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="55.04" android:translateY="27.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="0">
+            <path android:strokeColor="#FF0B0614" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="linear" android:startX="12" android:startY="1" android:endX="12" android:endY="23">
+                        <item android:offset="0" android:color="#FF7DFF6E" />
+                        <item android:offset="1" android:color="#FF12FA05" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <path android:fillColor="#47FFFFFF" android:pathData="M12,5.4 L18.4,11.8 L14.6,11.8 L14.6,20.4 L9.4,20.4 L9.4,11.8 L5.6,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="27.04" android:translateY="55.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="180">
+            <path android:strokeColor="#FF0B0614" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="linear" android:startX="12" android:startY="1" android:endX="12" android:endY="23">
+                        <item android:offset="0" android:color="#FF8CF6FF" />
+                        <item android:offset="1" android:color="#FF00E5FF" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <path android:fillColor="#47FFFFFF" android:pathData="M12,5.4 L18.4,11.8 L14.6,11.8 L14.6,20.4 L9.4,20.4 L9.4,11.8 L5.6,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="55.04" android:translateY="55.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="90">
+            <path android:strokeColor="#FF0B0614" android:strokeWidth="3.2" android:strokeLineJoin="round" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="linear" android:startX="12" android:startY="1" android:endX="12" android:endY="23">
+                        <item android:offset="0" android:color="#FFFF8589" />
+                        <item android:offset="1" android:color="#FFF9393F" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <path android:fillColor="#47FFFFFF" android:pathData="M12,5.4 L18.4,11.8 L14.6,11.8 L14.6,20.4 L9.4,20.4 L9.4,11.8 L5.6,11.8 Z" />
+        </group>
     </group>
 </vector>

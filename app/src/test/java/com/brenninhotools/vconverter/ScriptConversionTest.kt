@@ -71,7 +71,7 @@ class ScriptConversionTest {
 
     @Test
     fun luaBecomesScopedModule() {
-        val result = LuaToHScript("PsychLua_Test_Stage_club", "psych-lua-test-stage-club", "psych-lua-runtime-test", ScriptTarget(ScriptScope.STAGE, "club")).convert(lua)
+        val result = LuaToHScript("PsychLua_Test_Stage_club", "psych-lua-test-stage-club", ScriptTarget(ScriptScope.STAGE, "club")).convert(lua)
         val code = result.source
         assertTrue(code.contains("class PsychLua_Test_Stage_club extends Module"))
         assertTrue(code.contains("super(\"psych-lua-test-stage-club\""))
@@ -88,7 +88,7 @@ class ScriptConversionTest {
 
     @Test
     fun unsupportedLuaIsReportedNotDropped() {
-        val result = LuaToHScript("A", "a", "r", ScriptTarget(ScriptScope.GLOBAL)).convert(
+        val result = LuaToHScript("A", "a", ScriptTarget(ScriptScope.GLOBAL)).convert(
             "function onCreate()\n  setmetatable({}, {})\n  runHaxeCode('trace(1)')\nend"
         )
         assertTrue(result.source.isNotEmpty())
@@ -120,7 +120,7 @@ class ScriptConversionTest {
                 if (curBeat % 2 == 0) game.defaultCamZoom += 0.01;
             }
         """.trimIndent()
-        val result = PsychHScriptWrapper("PsychHx_T_Global_hud", "psych-hx-t-global-hud", "r", ScriptTarget(ScriptScope.GLOBAL)).convert(source)
+        val result = PsychHScriptWrapper("PsychHx_T_Global_hud", "psych-hx-t-global-hud", ScriptTarget(ScriptScope.GLOBAL)).convert(source)
         val code = result.source
         assertTrue(code.contains("import flixel.text.FlxText;"))
         assertFalse(code.contains("backend.ClientPrefs"))
@@ -146,12 +146,13 @@ class ScriptConversionTest {
         assertTrue("PsychLua_Test_Song_bopeebo_script.hxc" in names)
         assertTrue("PsychLua_Test_Song_fresh_script.hxc" in names)
         assertTrue("PsychLua_Test_NoteType_Ghost_Note.hxc" in names)
-        assertTrue("PsychLuaRuntime_Test.hxc" in names)
-        assertTrue("PsychEventKind_Test.hxc" in names)
-        val runtime = bundle.files.first { it.path.endsWith("PsychLuaRuntime_Test.hxc") }.content
-        assertFalse(runtime.contains("__CLASS__"))
-        assertTrue(runtime.contains("psych-lua-runtime-test"))
-        assertTrue(runtime.contains("\"Ghost Note\""))
+        assertEquals(3, names.size)
+        val noteType = bundle.files.first { it.path.endsWith("NoteType_Ghost_Note.hxc") }.content
+        assertTrue(noteType.contains("\"Ghost Note\""))
+        assertTrue(noteType.contains("function songUsesNoteType"))
+        assertFalse(noteType.contains("scriptCall(\"psychCall\""))
+        val song = bundle.files.first { it.path.endsWith("Song_fresh_script.hxc") }.content
+        assertFalse(song.contains("function psych("))
     }
 
     @Test
@@ -160,8 +161,12 @@ class ScriptConversionTest {
             "notes":[{"sectionBeats":4,"mustHitSection":true,"sectionNotes":[]}],
             "events":[[1000,[["Flash Camera","0.5",""],["Add Camera Zoom","0.1","0.05"]]]]}}"""
         val conversion = PsychToVSliceChart.convert(listOf(ChartSource("normal", PsychChartParser.parse(chart))), ConversionOptions())
-        val kept = conversion.chart.events.filter { it.kind == "PsychEvent" }
-        assertEquals(setOf("Flash Camera", "Add Camera Zoom"), kept.map { it.value["name"] }.toSet())
+        val kept = conversion.chart.events.filter { it.kind == "Flash Camera" || it.kind == "Add Camera Zoom" }
+        assertEquals(2, kept.size)
+        assertEquals("0.5", kept.first { it.kind == "Flash Camera" }.value["value1"])
+        val events = ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys)
+        assertEquals(listOf("scripts/events/PsychEvent_Add_Camera_Zoom.hxc"), events.map { it.path })
+        assertTrue(events.single().content.contains("extends SongEvent"))
         assertEquals(kept.size, conversion.report.keptPsychEvents)
         assertEquals(1, conversion.report.unsupportedEvents["Add Camera Zoom"])
     }

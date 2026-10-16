@@ -3,8 +3,9 @@ package com.brenninhotools.vconverter.script
 class PsychHScriptWrapper(
     private val className: String,
     private val moduleId: String,
-    private val runtimeId: String,
-    private val target: ScriptTarget
+    private val target: ScriptTarget,
+    private val siblings: List<String> = emptyList(),
+    private val noteTypes: String = "[]"
 ) {
     private enum class Kind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
@@ -250,7 +251,6 @@ class PsychHScriptWrapper(
         }
 
         val tail = mutableListOf<String>()
-        tail += helperLines()
         segs.filter { it.kind == "function" }.forEach { seg ->
             tail += ""
             val head = rewrite(seg.head, functions, fields).trim()
@@ -261,6 +261,8 @@ class PsychHScriptWrapper(
             bodyLines.forEach { tail += "  " + it.drop(indent).trimEnd() }
             tail += "}"
         }
+
+        tail.addAll(0, usedHelpers((boot + tail).joinToString("\n")))
 
         val callbacks = LinkedHashMap<String, CallbackRef>()
         val arities = segs.filter { it.kind == "function" }.associate { seg ->
@@ -273,7 +275,8 @@ class PsychHScriptWrapper(
             ModuleSpec(
                 className = className,
                 moduleId = moduleId,
-                runtimeId = runtimeId,
+                siblings = siblings,
+                noteTypes = noteTypes,
                 target = target,
                 prefix = "h_",
                 fields = fields.map { "h_$it" }.sorted(),
@@ -395,6 +398,32 @@ class PsychHScriptWrapper(
         val mapped = gameMembers[member]
         if (member in unsupportedMembers) issue(line, "PlayState.$member has no direct V-Slice equivalent.")
         sb.append(base).append('.').append(mapped ?: member)
+    }
+
+    private fun usedHelpers(code: String): List<String> {
+        val blocks = LinkedHashMap<String, String>()
+        var name: String? = null
+        val current = StringBuilder()
+        helperLines().forEach { line ->
+            val m = Regex("^function ([A-Za-z_][A-Za-z0-9_]*)").find(line)
+            if (m != null) {
+                name?.let { blocks[it] = current.toString() }
+                name = m.groupValues[1]
+                current.setLength(0)
+            }
+            if (name != null) current.append(line).append('\n')
+        }
+        name?.let { blocks[it] = current.toString() }
+        val included = LinkedHashSet<String>()
+        val queue = ArrayDeque(listOf(code))
+        while (queue.isNotEmpty()) {
+            val text = queue.removeFirst()
+            blocks.keys.filter { it !in included && Regex("\\b$it\\(").containsMatchIn(text) }.forEach {
+                included += it
+                queue += blocks.getValue(it)
+            }
+        }
+        return blocks.filterKeys { it in included }.values.flatMap { (it.trimEnd() + "\n").lines() }
     }
 
     private fun helperLines(): List<String> = """

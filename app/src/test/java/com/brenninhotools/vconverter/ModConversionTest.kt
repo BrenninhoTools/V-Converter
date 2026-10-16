@@ -100,8 +100,7 @@ class ModConversionTest {
         assertTrue(File(out, "songs/dad-battle/Voices-dude.ogg").exists())
         assertEquals("My Mod", JSONObject(File(out, "_polymod_meta.json").readText()).getString("title"))
         assertTrue(File(out, "scripts/psych/PsychLua_My_Mod_Global_thing.hxc").readText().contains("extends Module"))
-        assertTrue(File(out, "scripts/psych/PsychLuaRuntime_My_Mod.hxc").exists())
-        assertTrue(File(out, "scripts/psych/PsychEventKind_My_Mod.hxc").exists())
+        assertFalse(File(out, "scripts/psych").listFiles()!!.any { it.name.contains("Runtime") })
     }
 
     @Test

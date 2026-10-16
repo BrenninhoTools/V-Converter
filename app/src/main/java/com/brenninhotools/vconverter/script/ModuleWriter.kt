@@ -5,7 +5,8 @@ data class CallbackRef(val arity: Int?, val isMethod: Boolean)
 class ModuleSpec(
     val className: String,
     val moduleId: String,
-    val runtimeId: String,
+    val siblings: List<String>,
+    val noteTypes: String,
     val target: ScriptTarget,
     val prefix: String,
     val fields: List<String>,
@@ -61,28 +62,11 @@ object ModuleWriter {
         PsychApi.constants.forEach { (name, value) -> out.line("var $name:String = ${LuaToHScript.hxString(value)};") }
         out.line("var luaGame:Dynamic = null;")
         out.line("var luaClosed:Bool = false;")
-        out.line("var luaRuntimeModule:Dynamic = null;")
         spec.fields.forEach { out.line("var $it:Dynamic = null;") }
         out.line("")
         out.open("public function new()")
         out.line("super(${LuaToHScript.hxString(spec.moduleId)}, 1100);")
-        out.close()
-        out.line("")
-        out.open("function luaRuntime():Dynamic")
-        out.line("if (luaRuntimeModule == null) luaRuntimeModule = ModuleHandler.getModule(${LuaToHScript.hxString(spec.runtimeId)});")
-        out.line("return luaRuntimeModule;")
-        out.close()
-        out.line("")
-        out.open("function psych(name:String, args:Array<Dynamic>):Dynamic")
-        out.line("var runtime:Dynamic = luaRuntime();")
-        out.line("if (runtime == null) return null;")
-        out.line("return runtime.scriptCall(\"psychCall\", [this, name, args]);")
-        out.close()
-        out.line("")
-        out.open("function psychVar(name:String):Dynamic")
-        out.line("var runtime:Dynamic = luaRuntime();")
-        out.line("if (runtime == null) return null;")
-        out.line("return runtime.scriptCall(\"psychVariable\", [name]);")
+        out.line(INIT_MARK)
         out.close()
         out.line("")
         out.open("function luaInScope():Bool")
@@ -103,7 +87,6 @@ object ModuleWriter {
         out.line("luaGame = game;")
         out.line("luaClosed = false;")
         spec.fields.forEach { out.line("$it = null;") }
-        out.line("psych(\"registerScript\", []);")
         spec.bootLines.forEach { out.line(it) }
         if (has("onCreate")) out.line(invoke("onCreate") + ";")
         if (has("onCreatePost")) out.line(invoke("onCreatePost") + ";")
@@ -199,16 +182,16 @@ object ModuleWriter {
             out.line("super.onNoteHit(event);")
             out.line("if (!luaActive()) return;")
             out.line("var data:Dynamic = event.note.noteData;")
-            out.line("var kind:Dynamic = psych(\"noteTypeName\", [data.kind]);")
-            out.line("var dir:Int = data.getDirection();")
+            out.line("var kind:Dynamic = noteTypeName(data.kind);")
+            out.line("var dir:Int = data.data % 4;")
             if (has("goodNoteHitPre") || has("goodNoteHit")) {
-                out.open("if (data.getMustHitNote())")
+                out.open("if (data.data < 4)")
                 if (has("goodNoteHitPre")) out.line(invoke("goodNoteHitPre", *noteArgs("dir")) + ";")
                 if (has("goodNoteHit")) out.line(invoke("goodNoteHit", *noteArgs("dir")) + ";")
                 out.close()
             }
             if (has("opponentNoteHitPre") || has("opponentNoteHit")) {
-                out.open("if (!data.getMustHitNote())")
+                out.open("if (data.data >= 4)")
                 if (has("opponentNoteHitPre")) out.line(invoke("opponentNoteHitPre", *noteArgs("dir")) + ";")
                 if (has("opponentNoteHit")) out.line(invoke("opponentNoteHit", *noteArgs("dir")) + ";")
                 out.close()
@@ -221,8 +204,8 @@ object ModuleWriter {
             out.line("super.onNoteMiss(event);")
             out.line("if (!luaActive()) return;")
             out.line("var data:Dynamic = event.note.noteData;")
-            out.line("var kind:Dynamic = psych(\"noteTypeName\", [data.kind]);")
-            out.line(invoke("noteMiss", *noteArgs("data.getDirection()")) + ";")
+            out.line("var kind:Dynamic = noteTypeName(data.kind);")
+            out.line(invoke("noteMiss", *noteArgs("data.data % 4")) + ";")
             out.close()
         }
         if (has("noteMissPress")) {
@@ -239,18 +222,20 @@ object ModuleWriter {
             out.line("super.onNoteIncoming(event);")
             out.line("if (!luaActive()) return;")
             out.line("var data:Dynamic = event.note.noteData;")
-            out.line("var kind:Dynamic = psych(\"noteTypeName\", [data.kind]);")
-            out.line(invoke("onSpawnNote", *noteArgs("data.getDirection()")) + ";")
+            out.line("var kind:Dynamic = noteTypeName(data.kind);")
+            out.line(invoke("onSpawnNote", *noteArgs("data.data % 4")) + ";")
             out.close()
         }
-        if (has("onEvent") || has("onMoveCamera")) {
-            out.line("")
-            out.open("override public function onSongEvent(event:SongEventScriptEvent):Void")
-            out.line("super.onSongEvent(event);")
-            out.line("if (!luaActive()) return;")
-            out.line("var data:Dynamic = event.eventData;")
+        out.line("")
+        out.open("override public function onSongEvent(event:SongEventScriptEvent):Void")
+        out.line("super.onSongEvent(event);")
+        out.line("if (!luaActive()) return;")
+        out.line("var data:Dynamic = event.eventData;")
+        out.line(FOCUS_MARK)
+        run {
             if (has("onEvent")) {
-                out.line("var info:Dynamic = psych(\"psychEventInfo\", [data]);")
+                out.line("ensureGame();")
+                out.line("var info:Dynamic = psychEventInfo(data);")
                 out.line("if (info != null) " + invoke("onEvent", "info.name", "info.value1", "info.value2", "data.time") + ";")
             }
             if (has("onMoveCamera")) {
@@ -281,17 +266,39 @@ object ModuleWriter {
         out.line("")
         out.open("override public function onStateChangeBegin(event:StateChangeScriptEvent):Void")
         out.line("super.onStateChangeBegin(event);")
+        out.line(CLEANUP_MARK)
         out.open("if (luaGame != null)")
         if (has("onDestroy")) out.line("if (!luaClosed) " + invoke("onDestroy") + ";")
         out.line("luaGame = null;")
         out.close()
         out.close()
 
-        val text = StringBuilder(out.toString())
-        spec.tailLines.forEach { text.append(if (it.isEmpty()) "\n" else "  $it\n") }
+        val draft = StringBuilder(out.toString())
+        spec.tailLines.forEach { draft.append(if (it.isEmpty()) "\n" else "  $it\n") }
+        val embedded = PsychNativeLibrary.embed(draft.toString(), spec.noteTypes, spec.siblings)
+        val included = embedded.included
+        var body = draft.toString()
+        body = marker(body, INIT_MARK, if ("luaInitNoteTypes" in included) "luaInitNoteTypes();" else null)
+        body = marker(body, FOCUS_MARK, if ("luaTrackFocus" in included) "luaTrackFocus(data);" else null)
+        body = marker(body, CLEANUP_MARK, if ("luaCleanup" in included) "luaCleanup();" else null)
+        val imports = embedded.imports.filter { it !in baseImports && it !in spec.imports }
+        val importBlock = imports.joinToString("") { "import $it;\n" }
+        val classIndex = body.indexOf("\nclass ")
+        body = body.substring(0, classIndex).trimEnd('\n') + "\n" + importBlock + "\n" + body.substring(classIndex + 1)
+        val text = StringBuilder(body)
+        if (embedded.members.isNotBlank()) text.append('\n').append(embedded.members).append('\n')
         text.append("}\n")
         return text.toString().replace(Regex("\n{3,}"), "\n\n")
     }
+
+    private const val INIT_MARK = "@@LUA_INIT@@"
+    private const val FOCUS_MARK = "@@LUA_FOCUS@@"
+    private const val CLEANUP_MARK = "@@LUA_CLEANUP@@"
+
+    private fun marker(text: String, mark: String, replacement: String?): String =
+        text.lines().mapNotNull { line ->
+            if (line.trim() != mark) line else replacement?.let { line.substringBefore(mark) + it }
+        }.joinToString("\n")
 
     private fun simple(out: Out, spec: ModuleSpec, callback: String, method: String, eventType: String, call: () -> String) {
         if (!spec.callbacks.containsKey(callback)) return
@@ -307,7 +314,7 @@ object ModuleWriter {
         ScriptScope.GLOBAL -> "return true;"
         ScriptScope.SONG -> "return game.currentSong != null && game.currentSong.id == ${LuaToHScript.hxString(target.key)};"
         ScriptScope.STAGE -> "return game.currentStageId == ${LuaToHScript.hxString(target.key)};"
-        ScriptScope.EVENT -> "return psych(\"songUsesEvent\", [${LuaToHScript.hxString(target.key)}]) == true;"
-        ScriptScope.NOTE_TYPE -> "return psych(\"songUsesNoteType\", [${LuaToHScript.hxString(target.key)}]) == true;"
+        ScriptScope.EVENT -> "return ensureGame() && songUsesEvent(${LuaToHScript.hxString(target.key)});"
+        ScriptScope.NOTE_TYPE -> "return ensureGame() && songUsesNoteType(${LuaToHScript.hxString(target.key)});"
     }
 }

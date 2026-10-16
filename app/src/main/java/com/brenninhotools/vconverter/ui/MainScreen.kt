@@ -78,6 +78,15 @@ import com.brenninhotools.vconverter.ui.generator.SongGenViewModel
 import com.brenninhotools.vconverter.ui.generator.StageGenScreen
 import com.brenninhotools.vconverter.ui.generator.StageGenViewModel
 import androidx.compose.runtime.remember
+import androidx.compose.animation.AnimatedVisibility
+import com.brenninhotools.vconverter.ui.reverse.ReverseChartsViewModel
+import com.brenninhotools.vconverter.ui.reverse.ReverseCharactersViewModel
+import com.brenninhotools.vconverter.ui.reverse.ReverseModScreen
+import com.brenninhotools.vconverter.ui.reverse.ReverseModViewModel
+import com.brenninhotools.vconverter.ui.reverse.ReverseScreen
+import com.brenninhotools.vconverter.ui.reverse.ReverseScriptsViewModel
+import com.brenninhotools.vconverter.ui.reverse.ReverseStagesViewModel
+import com.brenninhotools.vconverter.ui.reverse.ReverseWeeksViewModel
 
 interface AppTab {
     val label: String
@@ -97,14 +106,15 @@ enum class Tab(
     @DrawableRes override val icon: Int,
     override val accent: Color,
     override val title: String,
-    override val description: String
+    override val description: String,
+    val reverseDescription: String
 ) : AppTab {
-    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "Whole mod", "A full Psych mod from a folder, .zip, .rar or .7z."),
-    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down, "Charts", "Psych charts and events.json into one V-Slice song."),
-    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left, "Characters", "Character JSON + spritesheet XML, pixel-exact offsets."),
-    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up, "Stages", "Stage layouts, cameras and editor props."),
-    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right, "Weeks", "Story weeks into V-Slice levels with menu props."),
-    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender, "Scripts", "Lua and HScript into V-Slice modules.")
+    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "Whole mod", "A full Psych mod from a folder, .zip, .rar or .7z.", "A full V-Slice mod from a folder, .zip, .rar or .7z."),
+    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down, "Charts", "Psych charts and events.json into one V-Slice song.", "V-Slice metadata + chart into Psych difficulty charts."),
+    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left, "Characters", "Character JSON + spritesheet XML, pixel-exact offsets.", "V-Slice characters back to Psych, exact with the XML."),
+    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up, "Stages", "Stage layouts, cameras and editor props.", "V-Slice stages into Psych stage editor files."),
+    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right, "Weeks", "Story weeks into V-Slice levels with menu props.", "V-Slice levels into Psych weeks and menu characters."),
+    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender, "Scripts", "Lua and HScript into V-Slice modules.", ".hxc scripts into Psych HScript (.hx).")
 }
 
 enum class GenTab(
@@ -137,6 +147,13 @@ fun MainScreen() {
     val genStage: StageGenViewModel = viewModel()
     val genLevel: LevelGenViewModel = viewModel()
     val genScript: ScriptGenViewModel = viewModel()
+    val revMod: ReverseModViewModel = viewModel()
+    val revCharts: ReverseChartsViewModel = viewModel()
+    val revCharacters: ReverseCharactersViewModel = viewModel()
+    val revStages: ReverseStagesViewModel = viewModel()
+    val revWeeks: ReverseWeeksViewModel = viewModel()
+    val revScripts: ReverseScriptsViewModel = viewModel()
+    var reverse by rememberSaveable { mutableStateOf(false) }
 
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }
     var converterTab by rememberSaveable { mutableStateOf(Tab.MOD) }
@@ -144,7 +161,14 @@ fun MainScreen() {
     var pendingSave by remember { mutableStateOf<AppTab?>(null) }
     val tab: AppTab = if (section == Section.CONVERTER) converterTab else generatorTab
 
-    fun converterFor(target: AppTab): BaseConverterViewModel = when (target) {
+    fun converterFor(target: AppTab): BaseConverterViewModel = if (reverse && target is Tab) when (target) {
+        Tab.MOD -> revMod
+        Tab.CHARTS -> revCharts
+        Tab.CHARACTERS -> revCharacters
+        Tab.STAGES -> revStages
+        Tab.WEEKS -> revWeeks
+        Tab.SCRIPTS -> revScripts
+    } else when (target) {
         Tab.MOD -> mod
         Tab.CHARTS -> charts
         Tab.CHARACTERS -> characters
@@ -188,7 +212,9 @@ fun MainScreen() {
                 folderName = folderName,
                 onPickFolder = { folderPicker.launch(null) },
                 section = section,
-                onSection = { section = it }
+                onSection = { section = it },
+                reverse = reverse,
+                onReverse = { reverse = it }
             )
         },
         bottomBar = {
@@ -201,23 +227,31 @@ fun MainScreen() {
         }
     ) { padding ->
         AnimatedContent(
-            targetState = tab,
+            targetState = tab to (reverse && section == Section.CONVERTER),
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .imePadding(),
             label = "tab"
-        ) { current ->
+        ) { (current, isReverse) ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                TabHero(current)
+                TabHero(current, isReverse)
                 Spacer(Modifier.size(16.dp))
-                when (current) {
+                if (isReverse) when (current) {
+                    Tab.MOD -> ReverseModScreen(revMod, folderName, save)
+                    Tab.CHARTS -> ReverseScreen(revCharts, Funkin.Down, "Songs", "Add V-Slice songs", "Pick a song's <song>-metadata.json and <song>-chart.json (and -erect variants). Variations become their own Psych songs. Archives work too.", R.drawable.ic_tab_chart, folderName, save)
+                    Tab.CHARACTERS -> ReverseScreen(revCharacters, Funkin.Left, "Characters", "Add V-Slice characters", "Pick data/characters/*.json with their spritesheet .xml (images/…) for exact positions. Archives work too.", R.drawable.ic_tab_character, folderName, save)
+                    Tab.STAGES -> ReverseScreen(revStages, Funkin.Up, "Stages", "Add V-Slice stages", "Pick data/stages/*.json. Props, layers, scroll and animations become Psych stage objects.", R.drawable.ic_tab_stage, folderName, save)
+                    Tab.WEEKS -> ReverseScreen(revWeeks, Funkin.Right, "Levels", "Add V-Slice levels", "Pick data/levels/*.json, plus the songs' -metadata.json files for names, icons and difficulties.", R.drawable.ic_tab_week, folderName, save)
+                    Tab.SCRIPTS -> ReverseScreen(revScripts, Funkin.Lavender, "Scripts", "Add .hxc scripts", "Pick V-Slice .hxc scripts. Modules, songs, stages, characters, song events and note kinds become Psych HScript files in the right folders.", R.drawable.ic_tab_script, folderName, save)
+                    else -> Unit
+                } else when (current) {
                     Tab.MOD -> ModScreen(mod, folderName, save)
                     Tab.CHARTS -> ChartsScreen(charts, folderName, save)
                     Tab.CHARACTERS -> CharactersScreen(characters, folderName, save)
@@ -238,7 +272,14 @@ fun MainScreen() {
 }
 
 @Composable
-private fun Header(folderName: String?, onPickFolder: () -> Unit, section: Section, onSection: (Section) -> Unit) {
+private fun Header(
+    folderName: String?,
+    onPickFolder: () -> Unit,
+    section: Section,
+    onSection: (Section) -> Unit,
+    reverse: Boolean,
+    onReverse: (Boolean) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -253,13 +294,20 @@ private fun Header(folderName: String?, onPickFolder: () -> Unit, section: Secti
             Column(modifier = Modifier.weight(1f)) {
                 Text("V-CONVERTER", style = MaterialTheme.typography.headlineSmall, color = Funkin.Text)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Psych Engine", style = MaterialTheme.typography.labelMedium, color = Funkin.Left)
-                    Text("  →  ", style = MaterialTheme.typography.labelMedium, color = Funkin.Muted)
-                    Text("V-Slice", style = MaterialTheme.typography.labelMedium, color = Funkin.Down)
+                    if (section == Section.GENERATOR) {
+                        Text("New V-Slice content", style = MaterialTheme.typography.labelMedium, color = Funkin.Warning)
+                    } else {
+                        Text(if (reverse) "V-Slice" else "Psych Engine", style = MaterialTheme.typography.labelMedium, color = if (reverse) Funkin.Down else Funkin.Left)
+                        Text("  →  ", style = MaterialTheme.typography.labelMedium, color = Funkin.Muted)
+                        Text(if (reverse) "Psych Engine" else "V-Slice", style = MaterialTheme.typography.labelMedium, color = if (reverse) Funkin.Left else Funkin.Down)
+                    }
                 }
             }
         }
         SectionSwitch(section, onSection)
+        AnimatedVisibility(visible = section == Section.CONVERTER) {
+            DirectionSwitch(reverse, onReverse)
+        }
         val shape = RoundedCornerShape(14.dp)
         Row(
             modifier = Modifier
@@ -296,7 +344,7 @@ private fun Header(folderName: String?, onPickFolder: () -> Unit, section: Secti
 }
 
 @Composable
-private fun TabHero(tab: AppTab) {
+private fun TabHero(tab: AppTab, reverse: Boolean) {
     val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
@@ -320,7 +368,7 @@ private fun TabHero(tab: AppTab) {
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
-            Text(tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+            Text(if (reverse && tab is Tab) tab.reverseDescription else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
         }
     }
 }
@@ -413,6 +461,51 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
                 Icon(painterResource(item.icon), contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(item.label.uppercase(), style = MaterialTheme.typography.labelLarge, color = content)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DirectionSwitch(reverse: Boolean, onChange: (Boolean) -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Funkin.Surface)
+            .border(1.5.dp, Funkin.Outline, shape)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        listOf(false to ("Psych" to "V-Slice"), true to ("V-Slice" to "Psych")).forEach { (value, names) ->
+            val active = value == reverse
+            val fill by animateColorAsState(if (active) Funkin.SurfaceHigh else Color.Transparent, label = "direction")
+            val inner = RoundedCornerShape(11.dp)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(inner)
+                    .background(fill)
+                    .then(if (active) Modifier.border(1.5.dp, Funkin.Down.copy(alpha = 0.7f), inner) else Modifier)
+                    .clickable { onChange(value) },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val (from, to) = names
+                val fromColor = if (from == "Psych") Funkin.Left else Funkin.Down
+                val toColor = if (to == "Psych") Funkin.Left else Funkin.Down
+                Text(from.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (active) fromColor else Funkin.Muted)
+                Icon(
+                    painterResource(R.drawable.ic_swap),
+                    contentDescription = null,
+                    tint = if (active) Funkin.Text else Funkin.Muted,
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .size(14.dp)
+                )
+                Text(to.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (active) toColor else Funkin.Muted)
             }
         }
     }

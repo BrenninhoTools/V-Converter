@@ -12,12 +12,13 @@ import funkin.PlayerSettings;
 import funkin.Preferences;
 import funkin.audio.FunkinSound;
 import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import funkin.play.PlayStatePlaylist;
 import haxe.ds.StringMap;
 import openfl.display.BlendMode;
 
-class __CLASS__ extends Module
+class PsychApiLibrary extends Module
 {
   var game:Dynamic = null;
   var scripts:Array<Dynamic> = [];
@@ -39,9 +40,16 @@ class __CLASS__ extends Module
   var mustHitSection:Bool = false;
   var gfSection:Bool = false;
 
+  var LUA_SIBLINGS:Array<String> = [];
+
   public function new()
   {
-    super("__MODULE_ID__", 1000);
+    super("psych-api-library", 1000);
+    luaInitNoteTypes();
+  }
+
+  function luaInitNoteTypes():Void
+  {
     var builtIn:Array<Dynamic> = [["alt", "Alt Animation"], ["hey", "Hey!"], ["hurt", "Hurt Note"], ["noanim", "No Animation"], ["gf-sing", "GF Sing"]];
     var custom:Array<Dynamic> = __NOTE_TYPES__;
     for (pair in builtIn) noteTypeNames.set(pair[0], pair[1]);
@@ -54,7 +62,7 @@ class __CLASS__ extends Module
     if (current == null) return false;
     if (current == game) return true;
     game = current;
-    scripts = [];
+    scripts = luaSiblingModules();
     sprites = new StringMap();
     texts = new StringMap();
     tweens = new StringMap();
@@ -71,9 +79,27 @@ class __CLASS__ extends Module
     return true;
   }
 
-  override public function onStateChangeBegin(event:StateChangeScriptEvent):Void
+  function luaSiblingModules():Array<Dynamic>
   {
-    super.onStateChangeBegin(event);
+    var result:Array<Dynamic> = [];
+    for (id in LUA_SIBLINGS)
+    {
+      var m:Dynamic = ModuleHandler.getModule(id);
+      if (m != null) result.push(m);
+    }
+    return result;
+  }
+
+  public function luaOwnObject(name:String):Dynamic
+  {
+    if (sprites.exists(name)) return sprites.get(name);
+    if (texts.exists(name)) return texts.get(name);
+    if (vars.exists(name)) return vars.get(name);
+    return null;
+  }
+
+  function luaCleanup():Void
+  {
     for (key in timers.keys()) safeCancel(timers.get(key));
     for (key in tweens.keys()) safeCancel(tweens.get(key));
     for (key in sounds.keys()) safeStop(sounds.get(key));
@@ -81,10 +107,8 @@ class __CLASS__ extends Module
     scripts = [];
   }
 
-  override public function onSongEvent(event:SongEventScriptEvent):Void
+  function luaTrackFocus(data:Dynamic):Void
   {
-    super.onSongEvent(event);
-    var data:Dynamic = event.eventData;
     if (data == null || data.eventKind != "FocusCamera") return;
     var target:Dynamic = data.value != null && Reflect.isObject(data.value) ? Reflect.field(data.value, "char") : data.value;
     mustHitSection = target == 0;
@@ -154,6 +178,7 @@ class __CLASS__ extends Module
     if (target == null) return null;
     try
     {
+      if (target == this) return psychCallback(name, args);
       return target.scriptCall("psychCallback", [name, args]);
     }
     catch (e:Dynamic)
@@ -194,9 +219,6 @@ class __CLASS__ extends Module
   {
     switch (name)
     {
-      case "registerScript":
-        if (scripts.indexOf(owner) < 0) scripts.push(owner);
-        return null;
       case "makeLuaSprite": return makeLuaSprite(a[0], a[1], num(a[2], 0), num(a[3], 0));
       case "makeAnimatedLuaSprite": return makeAnimatedLuaSprite(a[0], a[1], num(a[2], 0), num(a[3], 0), arg(a, 4, "sparrow"));
       case "makeGraphic", "luaSpriteMakeGraphic": return makeGraphic(a[0], num(a[1], 256), num(a[2], 256), arg(a, 3, "FFFFFF"));
@@ -422,7 +444,7 @@ class __CLASS__ extends Module
       case "close":
         try
         {
-          owner.scriptCall("psychClose", []);
+          psychClose();
         }
         catch (e:Dynamic) {}
         return true;
@@ -614,6 +636,16 @@ class __CLASS__ extends Module
     if (sprites.exists(name)) return sprites.get(name);
     if (texts.exists(name)) return texts.get(name);
     if (vars.exists(name)) return vars.get(name);
+    for (s in scripts)
+    {
+      if (s == this) continue;
+      try
+      {
+        var shared:Dynamic = s.scriptCall("luaOwnObject", [name]);
+        if (shared != null) return shared;
+      }
+      catch (e:Dynamic) {}
+    }
     switch (name)
     {
       case "boyfriend", "bf", "boyfriendGroup": return character("boyfriend");
@@ -1481,7 +1513,7 @@ class __CLASS__ extends Module
   {
     for (e in chartEvents())
     {
-      if (e.eventKind == "PsychEvent" && e.value != null && Reflect.field(e.value, "name") == name) return true;
+      if (e.eventKind == name) return true;
     }
     return false;
   }
@@ -1513,13 +1545,24 @@ class __CLASS__ extends Module
     var v:Dynamic = data.value;
     switch (data.eventKind)
     {
-      case "PsychEvent": return {name: Reflect.field(v, "name"), value1: Reflect.field(v, "value1"), value2: Reflect.field(v, "value2")};
       case "PlayAnimation": return {name: "Play Animation", value1: Reflect.field(v, "anim"), value2: Reflect.field(v, "target")};
       case "ScrollSpeed": return {name: "Change Scroll Speed", value1: Std.string(Reflect.field(v, "scroll")), value2: ""};
       case "FocusCamera":
         if (Reflect.field(v, "char") == -1) return {name: "Camera Follow Pos", value1: Std.string(Reflect.field(v, "x")), value2: Std.string(Reflect.field(v, "y"))};
         return null;
-      default: return null;
+      default:
+        if (v != null && Reflect.isObject(v) && (Reflect.hasField(v, "value1") || Reflect.hasField(v, "value2")))
+        {
+          return {name: data.eventKind, value1: Reflect.field(v, "value1"), value2: Reflect.field(v, "value2")};
+        }
+        return {name: data.eventKind, value1: v == null ? "" : Std.string(v), value2: ""};
     }
+  }
+
+  function psychClose():Void {}
+
+  function psychCallback(name:String, args:Array<Dynamic>):Dynamic
+  {
+    return null;
   }
 }

@@ -32,25 +32,63 @@ object ScriptConverter {
         return cleaned.ifEmpty { "Mod" }.let { if (it.first().isDigit()) "M$it" else it }
     }
 
-    fun runtimeClass(modSlug: String) = "PsychLuaRuntime_$modSlug"
+    fun eventClass(name: String) = "PsychEvent_" + slug(name)
 
-    fun runtimeId(modSlug: String) = "psych-lua-runtime-${modSlug.lowercase()}"
+    fun builtinEvents(): Set<String> = PsychNativeLibrary.builtinEventNames
 
-    fun runtimeFiles(modSlug: String, noteTypes: Map<String, String>): List<ScriptFile> {
-        val noteTypeArray = noteTypes.entries.joinToString(", ", "[", "]") { (kind, name) ->
-            "[${LuaToHScript.hxString(kind)}, ${LuaToHScript.hxString(name)}]"
+    fun eventFiles(names: Collection<String>): List<ScriptFile> =
+        names.filter { it in PsychNativeLibrary.builtinEventNames }.distinct().sorted().map { name ->
+            ScriptFile("scripts/events/${eventClass(name)}.hxc", eventSource(name))
         }
-        val runtime = resource("PsychLuaRuntime.hxc")
-            .replace("__CLASS__", runtimeClass(modSlug))
-            .replace("__MODULE_ID__", runtimeId(modSlug))
-            .replace("__NOTE_TYPES__", noteTypeArray)
-        val event = resource("PsychEventKind.hxc")
-            .replace("__CLASS__", "PsychEventKind_$modSlug")
-            .replace("__RUNTIME_ID__", runtimeId(modSlug))
-        return listOf(
-            ScriptFile("$OUTPUT_FOLDER/${runtimeClass(modSlug)}.hxc", runtime),
-            ScriptFile("$OUTPUT_FOLDER/PsychEventKind_$modSlug.hxc", event)
-        )
+
+    private fun eventSource(name: String): String {
+        val body = PsychNativeLibrary.library.builtinEvents.getValue(name).lines()
+            .filter { it.isNotBlank() }
+            .joinToString("\n") { "      " + it.removePrefix("          ") }
+        val id = LuaToHScript.hxString(name)
+        val draft = """
+class ${eventClass(name)} extends SongEvent
+{
+  public function new()
+  {
+    super($id);
+  }
+
+  override public function handleEvent(data:Dynamic):Void
+  {
+    if (data == null || !ensureGame()) return;
+    var raw:Dynamic = data.value;
+    var value1:Dynamic = raw == null ? "" : Reflect.field(raw, "value1");
+    var value2:Dynamic = raw == null ? "" : Reflect.field(raw, "value2");
+    if (value1 == null) value1 = "";
+    if (value2 == null) value2 = "";
+    try
+    {
+$body
+    }
+    catch (e:Dynamic) {}
+  }
+
+  override public function getTitle():String
+  {
+    return $id;
+  }
+
+  override public function getEventSchema():Dynamic
+  {
+    return new SongEventSchema([
+      {name: "value1", title: "Value 1", type: "string", defaultValue: ""},
+      {name: "value2", title: "Value 2", type: "string", defaultValue: ""}
+    ]);
+  }
+""".trimStart('\n')
+        val embedded = PsychNativeLibrary.embed(draft, "[]", emptyList())
+        val stubs = StringBuilder()
+        val all = draft + embedded.members
+        if (Regex("\\bpsychCallback\\(").containsMatchIn(all)) stubs.append("\n  function psychCallback(name:String, args:Array<Dynamic>):Dynamic\n  {\n    return null;\n  }\n")
+        if (Regex("\\bpsychClose\\(").containsMatchIn(all)) stubs.append("\n  function psychClose():Void {}\n")
+        val imports = (listOf("funkin.data.event.SongEventSchema", "funkin.play.event.SongEvent") + embedded.imports).distinct().sorted()
+        return imports.joinToString("") { "import $it;\n" } + "\n" + draft + "\n" + embedded.members + "\n" + stubs + "}\n"
     }
 
     fun noteTypeMap(names: Collection<String>): Map<String, String> =
@@ -64,7 +102,7 @@ object ScriptConverter {
         var hooks = 0
         val apiUsed = sortedSetOf<String>()
 
-        sources.forEach { source ->
+        val planned = sources.map { source ->
             val target = source.target ?: detectTarget(source.path)
             val stem = source.path.substringAfterLast('/').substringBeforeLast('.')
             val ext = source.path.substringAfterLast('.', "").lowercase()
@@ -80,11 +118,21 @@ object ScriptConverter {
             var n = 2
             while (!usedNames.add(className.lowercase())) className = base + "_" + n++
             val moduleId = "psych-" + className.removePrefix("Psych").lowercase().replace('_', '-')
+            Triple(source, target, className to moduleId)
+        }
+        val siblings = planned.map { it.third.second }
+        val noteTypeArray = noteTypes.entries.joinToString(", ", "[", "]") { (kind, name) ->
+            "[${LuaToHScript.hxString(kind)}, ${LuaToHScript.hxString(name)}]"
+        }
+
+        planned.forEach { (source, target, names) ->
+            val (className, moduleId) = names
+            val ext = source.path.substringAfterLast('.', "").lowercase()
             val generated = try {
                 if (ext == "lua") {
-                    LuaToHScript(className, moduleId, runtimeId(modSlug), target).convert(source.text)
+                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray).convert(source.text)
                 } else {
-                    PsychHScriptWrapper(className, moduleId, runtimeId(modSlug), target).convert(source.text)
+                    PsychHScriptWrapper(className, moduleId, target, siblings, noteTypeArray).convert(source.text)
                 }
             } catch (e: Exception) {
                 report.warn("${source.path}: could not be converted (${e.message}).")
@@ -105,7 +153,6 @@ object ScriptConverter {
             report.section(label, lines)
         }
 
-        if (converted > 0 || noteTypes.isNotEmpty()) files += runtimeFiles(modSlug, noteTypes)
         report.stat("Scripts", converted)
         report.stat("Callbacks", hooks)
         report.stat("API calls", apiUsed.size)
@@ -117,8 +164,8 @@ object ScriptConverter {
             "How it runs",
             listOf(
                 "Each script became a V-Slice Module that only runs in its song, stage, event or note type.",
-                "${runtimeClass(modSlug)} implements the Psych Lua API (sprites, texts, tweens, timers, sounds, properties) on top of V-Slice.",
-                "Psych events without a V-Slice equivalent are kept in charts as \"PsychEvent\" and reach onEvent in your scripts."
+                "The Psych functions a script uses are implemented inside its own module with V-Slice and Flixel code; no extra runtime is needed.",
+                "Psych events keep their names in the charts and reach onEvent in your scripts; built-in ones also get their own SongEvent script."
             )
         )
         return ScriptBundle(files, report.build(), converted)

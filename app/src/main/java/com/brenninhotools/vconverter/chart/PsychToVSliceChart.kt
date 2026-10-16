@@ -38,7 +38,7 @@ object PsychToVSliceChart {
     private const val FOCUS_OPPONENT = 1
     private const val FOCUS_GIRLFRIEND = 2
 
-    private val stageIds = mapOf(
+    val stageIds = mapOf(
         "stage" to "mainStage",
         "spooky" to "spookyMansion",
         "philly" to "phillyTrain",
@@ -50,7 +50,7 @@ object PsychToVSliceChart {
         "tank" to "tankmanBattlefield"
     )
 
-    private val noteKinds = mapOf(
+    val noteKinds = mapOf(
         "alt animation" to "alt",
         "hey!" to "hey",
         "hurt note" to "hurt",
@@ -212,7 +212,7 @@ object PsychToVSliceChart {
                 report.skipEvent(event.name.ifBlank { "(unnamed)" })
                 if (keep && event.name.isNotBlank()) {
                     report.keptPsychEvents++
-                    result += VSliceEvent(event.time, "PsychEvent", linkedMapOf("name" to event.name, "value1" to event.value1, "value2" to event.value2))
+                    result += VSliceEvent(event.time, event.name, linkedMapOf("value1" to event.value1, "value2" to event.value2))
                 }
             } else {
                 report.convertedEvents++

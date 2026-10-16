@@ -65,7 +65,7 @@ class ConversionReport {
             )
         )
         builder.section(
-            if (keptPsychEvents > 0) "Kept as PsychEvent (handled by the Psych runtime and converted scripts)" else "Skipped events (no V-Slice equivalent yet)",
+            if (keptPsychEvents > 0) "Kept with their Psych names (scripts and generated SongEvents handle them)" else "Skipped events (no V-Slice equivalent yet)",
             unsupportedEvents.map { (name, count) -> "$name ×$count" }
         )
         builder.section(

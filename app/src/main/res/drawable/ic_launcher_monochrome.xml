@@ -4,17 +4,24 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.74"
-        android:scaleY="0.74"
-        android:translateY="1">
-        <path
-            android:fillColor="#FF000000"
-            android:strokeColor="#FF000000"
-            android:strokeWidth="6"
-            android:strokeLineJoin="round"
-            android:pathData="M44,24 H64 Q67,24 67,27 V48 H80 Q85,48 82,52 L57,80 Q54,83 51,80 L26,52 Q23,48 28,48 H41 V27 Q41,24 44,24 Z" />
+    <group android:translateX="27.04" android:translateY="27.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="-90">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="55.04" android:translateY="27.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="0">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="27.04" android:translateY="55.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="180">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
+    </group>
+    <group android:translateX="55.04" android:translateY="55.04" android:scaleX="1.08" android:scaleY="1.08">
+        <group android:pivotX="12" android:pivotY="12" android:rotation="90">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M12,1.2 L22.6,11.8 Q23.6,12.8 22.2,12.8 L16.6,12.8 L16.6,21.6 Q16.6,23 15.2,23 L8.8,23 Q7.4,23 7.4,21.6 L7.4,12.8 L1.8,12.8 Q0.4,12.8 1.4,11.8 Z" />
+        </group>
     </group>
 </vector>
