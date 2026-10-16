@@ -1420,7 +1420,7 @@ class PsychApiLibrary extends Module
     {
       var value:Dynamic = notify(s, name, args);
       if (value != null) result = value;
-      if (!ignoreStops && value == "##PSYCHLUA_FUNCTIONSTOP") return value;
+      if (!ignoreStops && value == CANCEL) return value;
     }
     return result;
   }

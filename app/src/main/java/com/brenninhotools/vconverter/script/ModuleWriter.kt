@@ -60,8 +60,6 @@ object ModuleWriter {
         (baseImports + spec.imports).distinct().forEach { out.line("import $it;") }
         out.line("")
         out.open("class ${spec.className} extends Module")
-        out.line("var LUA_STOP:String = ${LuaToHScript.hxString(PsychApi.constants.getValue("Function_Stop"))};")
-        PsychApi.constants.forEach { (name, value) -> out.line("var $name:String = ${LuaToHScript.hxString(value)};") }
         out.line("var luaGame:Dynamic = null;")
         out.line("var luaClosed:Bool = false;")
         spec.fields.forEach { out.line("var $it:Dynamic = null;") }
@@ -128,7 +126,7 @@ object ModuleWriter {
         out.line("super.onCountdownStart(event);")
         out.line("if (!luaBoot()) return;")
         if (has("onStartCountdown")) {
-            out.open("if (${invoke("onStartCountdown")} == LUA_STOP)")
+            out.open("if (${invoke("onStartCountdown")} == CANCEL)")
             out.line("event.cancel();")
             out.line("return;")
             out.close()
@@ -171,7 +169,7 @@ object ModuleWriter {
             out.open("override public function onSongEnd(event:ScriptEvent):Void")
             out.line("super.onSongEnd(event);")
             out.line("if (!luaActive()) return;")
-            out.line("if (${invoke("onEndSong")} == LUA_STOP) event.cancel();")
+            out.line("if (${invoke("onEndSong")} == CANCEL) event.cancel();")
             out.close()
         }
         val noteArgs: (String) -> Array<String> = { dir ->
@@ -254,7 +252,7 @@ object ModuleWriter {
             out.open("override public function onPause(event:PauseScriptEvent):Void")
             out.line("super.onPause(event);")
             out.line("if (!luaActive()) return;")
-            out.line("if (${invoke("onPause")} == LUA_STOP) event.cancel();")
+            out.line("if (${invoke("onPause")} == CANCEL) event.cancel();")
             out.close()
         }
         simple(out, spec, "onResume", "onResume", "ScriptEvent") { invoke("onResume") }
@@ -263,7 +261,7 @@ object ModuleWriter {
             out.open("override public function onGameOver(event:ScriptEvent):Void")
             out.line("super.onGameOver(event);")
             out.line("if (!luaActive()) return;")
-            out.line("if (${invoke("onGameOver")} == LUA_STOP) event.cancel();")
+            out.line("if (${invoke("onGameOver")} == CANCEL) event.cancel();")
             out.close()
         }
         out.line("")
@@ -280,7 +278,7 @@ object ModuleWriter {
         spec.tailLines.forEach { draft.append(if (it.isEmpty()) "\n" else "  $it\n") }
         val embedded = PsychNativeLibrary.embed(draft.toString(), spec.noteTypes, spec.siblings, spec.eventNames)
         val included = embedded.included
-        var body = draft.toString()
+        var body = embedded.moduleText
         body = marker(body, INIT_MARK, if ("luaInitNoteTypes" in included) "luaInitNoteTypes();" else null)
         body = marker(body, FOCUS_MARK, if ("luaTrackFocus" in included) "luaTrackFocus(data);" else null)
         body = marker(body, CLEANUP_MARK, if ("luaCleanup" in included) "luaCleanup();" else null)
@@ -291,7 +289,7 @@ object ModuleWriter {
         val text = StringBuilder(body)
         if (embedded.members.isNotBlank()) text.append('\n').append(embedded.members).append('\n')
         text.append("}\n")
-        return text.toString().replace(Regex("\n{3,}"), "\n\n")
+        return Naturalizer.module(text.toString()).replace(Regex("\n{3,}"), "\n\n")
     }
 
     private const val INIT_MARK = "@@LUA_INIT@@"

@@ -431,26 +431,9 @@ class PsychHScriptWrapper(
     }
 
     private fun helperLines(): List<String> = """
-function debugPrint(?a:Dynamic, ?b:Dynamic, ?c:Dynamic, ?d:Dynamic, ?e:Dynamic):Void
-{
-  var values:Array<Dynamic> = [a, b, c, d, e];
-  while (values.length > 0 && values[values.length - 1] == null) values.pop();
-  psych("debugPrint", values);
-}
-
-function setVar(name:String, value:Dynamic):Dynamic
-{
-  return psych("setVar", [name, value]);
-}
-
-function getVar(name:String):Dynamic
-{
-  return psych("getVar", [name]);
-}
-
 function removeVar(name:String):Dynamic
 {
-  return psych("setVar", [name, null]);
+  return setVar(name, null);
 }
 
 function add(obj:Dynamic):Dynamic

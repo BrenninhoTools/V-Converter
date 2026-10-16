@@ -71,11 +71,18 @@ class ScriptConversionTest {
 
     @Test
     fun luaBecomesScopedModule() {
-        val result = LuaToHScript("PsychLua_Test_Stage_club", "psych-lua-test-stage-club", ScriptTarget(ScriptScope.STAGE, "club")).convert(lua)
+        val result = LuaToHScript("TestClubStage", "test-club-stage", ScriptTarget(ScriptScope.STAGE, "club")).convert(lua)
         val code = result.source
-        assertTrue(code.contains("class PsychLua_Test_Stage_club extends Module"))
-        assertTrue(code.contains("super(\"psych-lua-test-stage-club\""))
-        assertTrue(code.contains("psych(\"makeLuaSprite\""))
+        assertTrue(code.contains("class TestClubStage extends Module"))
+        assertTrue(code.contains("super(\"test-club-stage\""))
+        assertTrue(code.contains("makeSprite(\"bg\", \"stageback\", -600, -200)"))
+        assertTrue(code.contains("function makeSprite(?a0:Dynamic, ?a1:Dynamic, ?a2:Dynamic, ?a3:Dynamic)"))
+        assertTrue(code.contains("var count:Dynamic"))
+        assertTrue(code.contains("function goodNoteHit("))
+        assertTrue(code.contains("function onBeatHitScript("))
+        assertTrue(code.contains("return CANCEL;"))
+        assertTrue(code.contains("var CANCEL:String = \"cancel\";"))
+        assertNoLua(code)
         assertTrue(code.contains("currentStageId"))
         assertTrue(code.contains("override public function onBeatHit"))
         assertTrue(code.contains("override public function onNoteHit"))
@@ -120,8 +127,11 @@ class ScriptConversionTest {
                 if (curBeat % 2 == 0) game.defaultCamZoom += 0.01;
             }
         """.trimIndent()
-        val result = PsychHScriptWrapper("PsychHx_T_Global_hud", "psych-hx-t-global-hud", ScriptTarget(ScriptScope.GLOBAL)).convert(source)
+        val result = PsychHScriptWrapper("THudModule", "t-hud-module", ScriptTarget(ScriptScope.GLOBAL)).convert(source)
         val code = result.source
+        assertNoLua(code)
+        assertTrue(code.contains("label = new FlxText("))
+        assertTrue(code.contains("function onCreatePostScript()") || code.contains("function onCreatePost()"))
         assertTrue(code.contains("import flixel.text.FlxText;"))
         assertFalse(code.contains("backend.ClientPrefs"))
         assertTrue(code.contains("currentStage.getBoyfriend().alpha = 0.5"))
@@ -143,16 +153,13 @@ class ScriptConversionTest {
         )
         assertEquals(3, bundle.converted)
         val names = bundle.files.map { it.path.substringAfterLast('/') }
-        assertTrue("PsychLua_Test_Song_bopeebo_script.hxc" in names)
-        assertTrue("PsychLua_Test_Song_fresh_script.hxc" in names)
-        assertTrue("PsychLua_Test_NoteType_Ghost_Note.hxc" in names)
-        assertEquals(3, names.size)
-        val noteType = bundle.files.first { it.path.endsWith("NoteType_Ghost_Note.hxc") }.content
+        assertEquals(listOf("TestBopeeboScript.hxc", "TestFreshScript.hxc", "TestGhostNoteNoteType.hxc"), names)
+        assertTrue(bundle.files.all { it.path.startsWith("scripts/modules/") })
+        val noteType = bundle.files.first { it.path.endsWith("TestGhostNoteNoteType.hxc") }.content
         assertTrue(noteType.contains("\"Ghost Note\""))
         assertTrue(noteType.contains("function songUsesNoteType"))
-        assertFalse(noteType.contains("scriptCall(\"psychCall\""))
-        val song = bundle.files.first { it.path.endsWith("Song_fresh_script.hxc") }.content
-        assertFalse(song.contains("function psych("))
+        assertTrue(noteType.contains("super(\"test-ghost-note-note-type\""))
+        bundle.files.forEach { assertNoLua(it.content) }
     }
 
     @Test
@@ -198,5 +205,13 @@ class ScriptConversionTest {
         assertEquals("FlashCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Flash Camera"))
         assertEquals("PsychFocusCamera", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Focus Camera"))
         assertEquals("Hey", com.brenninhotools.vconverter.chart.PsychEventIds.idFor("Hey!"))
+    }
+
+    private fun assertNoLua(code: String) {
+        val blanked = code.replace(Regex("\"(?:[^\"\\\\]|\\\\.)*\""), "\"\"")
+        listOf("\\blua[A-Z]\\w*", "\\bLua\\w*", "\\bLUA_\\w*", "\\bFunction_\\w+", "\\bpsych\\w*\\(", "\\b[glh]_[A-Za-z]\\w*", "PSYCHLUA").forEach { pattern ->
+            val hit = Regex(pattern).find(blanked)
+            assertTrue("Found Lua leftover '${hit?.value}'", hit == null)
+        }
     }
 }

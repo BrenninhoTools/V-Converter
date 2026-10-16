@@ -12,7 +12,7 @@ data class ScriptFile(val path: String, val content: String)
 data class ScriptBundle(val files: List<ScriptFile>, val report: Report, val converted: Int)
 
 object ScriptConverter {
-    const val OUTPUT_FOLDER = "scripts/psych"
+    const val OUTPUT_FOLDER = "scripts/modules"
 
     fun detectTarget(path: String): ScriptTarget {
         val parts = path.replace('\\', '/').split('/').filter { it.isNotEmpty() }
@@ -27,6 +27,18 @@ object ScriptConverter {
             else -> ScriptTarget(ScriptScope.GLOBAL)
         }
     }
+
+    fun pascal(text: String): String {
+        val joined = text.split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }.joinToString("") { it.replaceFirstChar { c -> c.uppercaseChar() } }
+        return when {
+            joined.isEmpty() -> "Script"
+            joined.first().isDigit() -> "S$joined"
+            else -> joined
+        }
+    }
+
+    fun kebab(className: String): String =
+        className.replace(Regex("([a-z0-9])([A-Z])"), "$1-$2").replace(Regex("([A-Z]+)([A-Z][a-z])"), "$1-$2").lowercase()
 
     fun slug(text: String): String {
         val cleaned = text.replace(Regex("[^A-Za-z0-9]+"), "_").trim('_')
@@ -92,7 +104,7 @@ $body
         if (Regex("\\bpsychCallback\\(").containsMatchIn(all)) stubs.append("\n  function psychCallback(name:String, args:Array<Dynamic>):Dynamic\n  {\n    return null;\n  }\n")
         if (Regex("\\bpsychClose\\(").containsMatchIn(all)) stubs.append("\n  function psychClose():Void {}\n")
         val imports = (listOf("funkin.data.event.SongEventSchema", "funkin.play.event.SongEvent") + embedded.imports).distinct().sorted()
-        return imports.joinToString("") { "import $it;\n" } + "\n" + draft + "\n" + embedded.members + "\n" + stubs + "}\n"
+        return Naturalizer.module(imports.joinToString("") { "import $it;\n" } + "\n" + embedded.moduleText + "\n" + embedded.members + "\n" + stubs + "}\n")
     }
 
     fun noteTypeMap(names: Collection<String>): Map<String, String> =
@@ -117,7 +129,7 @@ class ${eventClass(name)} extends SongEvent
     var raw:Dynamic = data.value;
     var value1:Dynamic = raw == null ? "" : Reflect.field(raw, "value1");
     var value2:Dynamic = raw == null ? "" : Reflect.field(raw, "value2");
-    handler.scriptCall("psychCallback", ["onEvent", [$title, value1 == null ? "" : value1, value2 == null ? "" : value2, data.time]]);
+    handler.scriptCall("callback", ["onEvent", [$title, value1 == null ? "" : value1, value2 == null ? "" : value2, data.time]]);
   }
 
   override public function getTitle():String
@@ -156,20 +168,18 @@ class ${eventClass(name)} extends SongEvent
             val target = source.target ?: detectTarget(source.path)
             val stem = source.path.substringAfterLast('/').substringBeforeLast('.')
             val ext = source.path.substringAfterLast('.', "").lowercase()
-            val scopeName = when (target.scope) {
-                ScriptScope.GLOBAL -> "Global"
-                ScriptScope.SONG -> "Song"
-                ScriptScope.STAGE -> "Stage"
-                ScriptScope.EVENT -> "Event"
-                ScriptScope.NOTE_TYPE -> "NoteType"
+            val prefix = pascal(modSlug)
+            val base = when (target.scope) {
+                ScriptScope.EVENT -> eventClass(target.key.ifBlank { stem }) + "Handler"
+                ScriptScope.GLOBAL -> prefix + pascal(stem) + "Module"
+                ScriptScope.SONG -> prefix + pascal(target.key) + pascal(stem).removePrefix(pascal(target.key)).ifEmpty { "Script" }
+                ScriptScope.STAGE -> prefix + pascal(target.key) + "Stage"
+                ScriptScope.NOTE_TYPE -> prefix + pascal(target.key) + "NoteType"
             }
-            val base = if (target.scope == ScriptScope.EVENT) eventClass(target.key.ifBlank { stem }) + "Handler"
-                else "Psych${if (ext == "lua") "Lua" else "Hx"}_${modSlug}_${scopeName}_${slug(if (target.scope == ScriptScope.SONG) target.key + "_" + stem else stem)}"
             var className = base
             var n = 2
-            while (!usedNames.add(className.lowercase())) className = base + "_" + n++
-            val moduleId = if (target.scope == ScriptScope.EVENT) "psych-event-" + slug(modSlug).lowercase().replace('_', '-') + "-" + className.lowercase()
-                else "psych-" + className.removePrefix("Psych").lowercase().replace('_', '-')
+            while (!usedNames.add(className.lowercase())) className = base + n++
+            val moduleId = kebab(className)
             Triple(source, target, className to moduleId)
         }
         val siblings = planned.map { it.third.second }

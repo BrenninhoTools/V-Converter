@@ -587,7 +587,7 @@ class LuaToHScript(
         is Expr.Table -> table(e)
         is Expr.Unary -> when (e.op) {
             "not" -> "!(${cond(e.operand)})"
-            "-" -> "-(${expr(e.operand)})"
+            "-" -> if (e.operand is Expr.Num || e.operand is Expr.Name) "-${expr(e.operand)}" else "-(${expr(e.operand)})"
             "#" -> {
                 helpers += "luaLen"
                 "luaLen(${expr(e.operand)})"
@@ -710,7 +710,7 @@ class LuaToHScript(
             if ("g_${e.name}" !in methodNames) usedFields += "g_${e.name}"
             return "g_${e.name}"
         }
-        PsychApi.constants[e.name]?.let { return hxString(it) }
+        if (e.name in PsychApi.constants) return if (e.name == "Function_Continue") "CONTINUE" else "CANCEL"
         return when (e.name) {
             "self" -> "self"
             "math", "string", "table", "os", "bit", "coroutine", "io" -> {

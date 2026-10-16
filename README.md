@@ -39,7 +39,7 @@ The **Mod** tab converts an entire Psych Engine mod in one go, from its folder o
 - Character slots are inferred from how the charts use each character
 - Placeholder folders that hold nothing but a single text file (like a template's `readme.txt`) are left out automatically, in both directions
 - `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
-- Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/psych/*.hxc`
+- Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/modules/*.hxc`
 
 Every other tab also accepts archives and picks the files it needs from them.
 
@@ -82,7 +82,7 @@ Pick your V-Slice mod folder once (it is remembered). Converted files go straigh
 <mod>/data/characters/<id>.json
 <mod>/data/stages/<id>.json
 <mod>/data/levels/<id>.json
-<mod>/scripts/psych/<Class>.hxc
+<mod>/scripts/modules/<Class>.hxc
 ```
 
 ## Characters
@@ -121,7 +121,7 @@ The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice sc
 - **Psych HScript** (`.hx`) is wrapped into a module: imports are mapped (`states.PlayState` → `funkin.play.PlayState`, …), and `game.boyfriend`, `camFollow`, `defaultCamZoom`, `Conductor.songPosition`, `curBeat`, `ClientPrefs`… are rewritten to their V-Slice equivalents
 - Every script becomes a `Module` that only runs where Psych would run it: its song (`data/<song>/`), its stage (`stages/`), charts that use its event (`custom_events/`) or note type (`custom_notetypes/`), or everywhere (`scripts/`)
 - Psych callbacks are hooked to V-Slice events: `onCreate`, `onCreatePost`, `onUpdate`, `onBeatHit`, `onStepHit`, `onSectionHit`, `goodNoteHit`, `opponentNoteHit`, `noteMiss`, `noteMissPress`, `onEvent`, `onMoveCamera`, `onSpawnNote`, `onCountdownTick`, `onStartCountdown`, `onEndSong`, `onSongStart`, `onPause`, `onResume`, `onGameOver`, `onDestroy`, `onTimerCompleted`, `onTweenCompleted`, `onSoundFinished`; returning `Function_Stop` cancels the countdown and the song end like in Psych
-- No runtime or helper classes are added: each module carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
+- The output is plain V-Slice HScript: no Lua-style leftovers (no `Function_*` constants, no `psych("…")` dispatch, no `g_`/`l_` prefixes). Script names keep their own names (`onUpdate` becomes `onUpdateScript` where it would clash with a `Module` method), and Psych calls become real functions such as `makeSprite(...)`. No runtime or helper classes are added: each module carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
 - Every class, field and event the generated code touches was checked against the FunkinCrew/Funkin source
 
 The report lists, line by line, anything a script uses that has no V-Slice equivalent (`runHaxeCode`, videos, custom substates, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
