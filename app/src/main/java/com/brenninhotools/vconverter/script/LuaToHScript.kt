@@ -34,7 +34,8 @@ class LuaToHScript(
     private val siblings: List<String> = emptyList(),
     private val noteTypes: String = "[]",
     private val eventNames: Map<String, String> = emptyMap(),
-    private val ownEvent: String? = null
+    private val ownEvent: String? = null,
+    private val skipLines: Set<Int> = emptySet()
 ) {
     private val issues = mutableListOf<ScriptIssue>()
     private val helpers = linkedSetOf<String>()
@@ -108,6 +109,12 @@ class LuaToHScript(
         val callbacks = methodNames.keys.filter { it.startsWith("g_") }.map { it.removePrefix("g_") }.filter { it in PsychApi.callbacks }
         val sourceCode = assemble(boot, methods.toString(), callbacks)
         return GeneratedScript(className, moduleId, sourceCode, issues.sortedBy { it.line }, callbacks, apiCalls)
+    }
+
+    private fun fullySkipped(stat: Stat): Boolean = skipLines.isNotEmpty() && when (stat) {
+        is Stat.CallStat -> stat.line in skipLines
+        is Stat.If -> stat.branches.all { (_, body) -> body.all(::fullySkipped) } && (stat.otherwise?.all(::fullySkipped) ?: true)
+        else -> false
     }
 
     private fun issue(line: Int, message: String) {
@@ -372,7 +379,7 @@ class LuaToHScript(
                     stat.targets.forEachIndexed { i, t -> assign(t, temps[i], code) }
                 }
             }
-            is Stat.CallStat -> code.line("${expr(stat.call)};")
+            is Stat.CallStat -> if (stat.line !in skipLines) code.line("${expr(stat.call)};")
             is Stat.Do -> {
                 code.line("{")
                 code.nested { block(stat.body, this, loop = false) }
@@ -388,7 +395,7 @@ class LuaToHScript(
                 block(stat.body, code, loop = true, continueLabel = loopLabel(stat.body))
                 code.close(" while (!(${cond(stat.condition)}));")
             }
-            is Stat.If -> {
+            is Stat.If -> if (!fullySkipped(stat)) {
                 stat.branches.forEachIndexed { i, (c, body) ->
                     if (i == 0) code.open("if (${cond(c)})") else code.open("else if (${cond(c)})")
                     block(body, code, loop = false)
@@ -1031,6 +1038,7 @@ class LuaToHScript(
         val dispatch = LinkedHashMap<String, Int?>()
         methodNames.filterKeys { it.startsWith("g_") }.forEach { (method, arity) -> dispatch[method.removePrefix("g_")] = arity }
         assignedGlobals.filter { "g_$it" !in methodNames && "g_$it" in usedFields }.forEach { dispatch[it] = null }
+        if (dispatch.values.any { it == null }) helpers += "luaInvoke"
         val fields = usedFields.filter { it !in methodNames }.sorted()
         val tail = mutableListOf<String>()
         Helpers.emit(helpers) { tail += it }

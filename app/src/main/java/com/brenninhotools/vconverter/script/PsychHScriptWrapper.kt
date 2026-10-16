@@ -296,7 +296,21 @@ class PsychHScriptWrapper(
         if (functions.any { it in setOf("goodNoteHit", "opponentNoteHit", "noteMiss", "onSpawnNote") }) {
             issue(0, "Note callbacks receive V-Slice NoteSprite objects; fields like note.noteData or note.noteType differ from Psych's Note and may need edits.")
         }
-        return GeneratedScript(className, moduleId, text, issues.sortedBy { it.line }, callbacks.keys.toList(), emptySet())
+        return GeneratedScript(className, moduleId, adaptReflect(text), issues.sortedBy { it.line }, callbacks.keys.toList(), emptySet())
+    }
+
+    private fun adaptReflect(text: String): String {
+        var t = text.replace(Regex("Reflect\\.callMethod\\(\\s*([^,()]+?)\\s*,\\s*Reflect\\.(?:field|getProperty)\\(\\s*[^,()]+?\\s*,\\s*(\"[^\"]*\")\\s*\\)")) { m ->
+            "Reflect.callMethod(${m.groupValues[1]}, ${m.groupValues[2]}"
+        }
+        if (Regex("Reflect\\.callMethod\\([^,]+,\\s*(?!\")").containsMatchIn(t)) {
+            issue(0, "Reflect.callMethod in V-Slice takes the method name as a string (Reflect.callMethod(obj, \"name\", args)), not a function; check these calls.")
+        }
+        if (Regex("\\b(?:Reflect|Type)\\.typeof\\(").containsMatchIn(t)) issue(0, "Type.typeof is blocked in V-Slice scripts.")
+        if (Regex("\\bReflect\\.(?:field|setField|hasField|fields)\\(").containsMatchIn(t)) {
+            issue(0, "Reflect.field/setField/hasField/fields only work on anonymous objects in V-Slice; use Reflect.getProperty/setProperty for sprites and other objects.")
+        }
+        return t
     }
 
     private fun issue(line: Int, message: String) {

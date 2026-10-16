@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.io.OutputFile
+import com.brenninhotools.vconverter.stage.LuaStageExtractor
 import com.brenninhotools.vconverter.stage.PsychStage
 import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
@@ -21,7 +22,9 @@ data class PickedStage(
     val key: String,
     val fileName: String,
     val id: String,
-    val stage: PsychStage
+    val stage: PsychStage,
+    val lua: String? = null,
+    val fromJson: Boolean = true
 )
 
 class StagesViewModel(application: Application) : BaseConverterViewModel(application) {
@@ -33,10 +36,23 @@ class StagesViewModel(application: Application) : BaseConverterViewModel(applica
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {
-            val loaded = load(uris, { it.extension == "json" && it.isUnder("stages") }) { file ->
-                PickedStage(file.path, file.name, file.name.substringBeforeLast('.'), PsychStageParser.parse(file.readText()))
+            val loaded = load(uris, { (it.extension == "json" || it.extension == "lua") && it.isUnder("stages") }) { file ->
+                val stem = file.name.substringBeforeLast('.')
+                when (file.extension) {
+                    "lua" -> PickedStage(file.path, file.name, stem, LuaStageExtractor.defaultStage(), file.readText(), fromJson = false)
+                    else -> PickedStage(file.path, file.name, stem, PsychStageParser.parse(file.readText()))
+                }
             }
-            stages = stages.filterNot { old -> loaded.items.any { it.key == old.key } } + loaded.items
+            var merged = stages.filterNot { old -> loaded.items.any { it.key == old.key } }
+            loaded.items.forEach { item ->
+                val twin = merged.indexOfFirst { it.id.equals(item.id, ignoreCase = true) }
+                merged = when {
+                    twin < 0 -> merged + item
+                    item.lua != null -> merged.mapIndexed { i, s -> if (i == twin) s.copy(lua = item.lua) else s }
+                    else -> merged.mapIndexed { i, s -> if (i == twin) item.copy(lua = s.lua) else s }
+                }
+            }
+            stages = merged
             invalidate()
             loadStatus(loaded, "stage(s)")
         }
@@ -71,7 +87,11 @@ class StagesViewModel(application: Application) : BaseConverterViewModel(applica
                 val result = withContext(Dispatchers.Default) {
                     val combined = ReportBuilder()
                     val files = snapshot.map { (item, id) ->
-                        val converted = PsychToVSliceStage.convert(StageSource(id, item.stage))
+                        val props = item.lua?.let { LuaStageExtractor.extract(it) }
+                        val stage = props?.let { LuaStageExtractor.merge(item.stage, it) } ?: item.stage
+                        props?.notes?.let { if (it.isNotEmpty()) combined.section("$id · Lua stage", it) }
+                        if (!item.fromJson) combined.warn("$id: no stage .json was added; default character positions were used.")
+                        val converted = PsychToVSliceStage.convert(StageSource(id, stage))
                         converted.report.stats.firstOrNull { it.label == "Props" }?.let { combined.stat("$id props", it.value) }
                         converted.report.sections.forEach { combined.section("$id · ${it.title}", it.lines) }
                         converted.report.warnings.forEach { combined.warn("$id: $it") }

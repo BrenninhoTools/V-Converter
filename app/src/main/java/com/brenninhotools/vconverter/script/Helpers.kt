@@ -12,7 +12,7 @@ function luaTrue(v:Dynamic):Bool
         "luaIsArray" to Helper(emptyList(), """
 function luaIsArray(t:Dynamic):Bool
 {
-  return t != null && Reflect.getClassNameOf(t) == "Array";
+  return t != null && Std.isOfType(t, Array);
 }"""),
         "luaIsTable" to Helper(listOf("luaIsArray"), """
 function luaIsTable(t:Dynamic):Bool
@@ -61,7 +61,7 @@ function luaSet(t:Dynamic, k:Dynamic, v:Dynamic):Void
 function luaLen(t:Dynamic):Int
 {
   if (t == null) return 0;
-  if (Reflect.getClassNameOf(t) == "String") return ("" + t).length;
+  if (Std.isOfType(t, String)) return ("" + t).length;
   if (luaIsArray(t))
   {
     var list:Array<Dynamic> = t;
@@ -151,17 +151,35 @@ function luaType(v:Dynamic):String
   if (v == null) return "nil";
   if (v == true || v == false) return "boolean";
   if (Reflect.isFunction(v)) return "function";
-  if (Reflect.getClassNameOf(v) == "String") return "string";
+  if (Std.isOfType(v, String)) return "string";
   if (luaIsArray(v) || luaIsTable(v)) return "table";
   if (!Reflect.isObject(v)) return "number";
   return "userdata";
 }"""),
-        "luaPcall" to Helper(emptyList(), """
+        "luaInvoke" to Helper(emptyList(), """
+function luaInvoke(f:Dynamic, args:Array<Dynamic>):Dynamic
+{
+  if (f == null) return null;
+  var a:Array<Dynamic> = args == null ? [] : args;
+  switch (a.length)
+  {
+    case 0: return f();
+    case 1: return f(a[0]);
+    case 2: return f(a[0], a[1]);
+    case 3: return f(a[0], a[1], a[2]);
+    case 4: return f(a[0], a[1], a[2], a[3]);
+    case 5: return f(a[0], a[1], a[2], a[3], a[4]);
+    case 6: return f(a[0], a[1], a[2], a[3], a[4], a[5]);
+    case 7: return f(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+    default: return f(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+  }
+}"""),
+        "luaPcall" to Helper(listOf("luaInvoke"), """
 function luaPcall(f:Dynamic, args:Array<Dynamic>):Bool
 {
   try
   {
-    Reflect.callMethod(null, f, args);
+    luaInvoke(f, args);
     return true;
   }
   catch (e:Dynamic)
@@ -459,12 +477,12 @@ function luaPatternToRegex(pattern:Dynamic):String
   }
   return out;
 }"""),
-        "luaSelfCall" to Helper(listOf("luaGet"), """
+        "luaSelfCall" to Helper(listOf("luaGet", "luaInvoke"), """
 function luaSelfCall(target:Dynamic, name:String, args:Array<Dynamic>):Dynamic
 {
   var f:Dynamic = luaGet(target, name);
   if (f == null) return null;
-  return Reflect.callMethod(target, f, [target].concat(args));
+  return luaInvoke(f, [target].concat(args));
 }""")
     )
 

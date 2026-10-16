@@ -101,7 +101,7 @@ class ModConversionTest {
         assertTrue(File(out, "data/stages/club.json").exists())
         assertTrue(File(out, "songs/dad-battle/Voices-dude.ogg").exists())
         assertEquals("My Mod", JSONObject(File(out, "_polymod_meta.json").readText()).getString("title"))
-        assertTrue(File(out, "scripts/modules/MyModThingModule.hxc").readText().contains("extends Module"))
+        assertTrue(File(out, "scripts/modules/thing.hxc").readText().contains("extends Module"))
         assertEquals(setOf("videos", "shaders"), scan.placeholders.keys)
         assertFalse(File(out, "videos").exists())
         assertFalse(File(out, "shaders").exists())

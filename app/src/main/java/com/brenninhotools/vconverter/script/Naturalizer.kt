@@ -40,6 +40,7 @@ object Naturalizer {
         "luaToNumber" to "asNumber",
         "luaType" to "typeOf",
         "luaPcall" to "tryCall",
+        "luaInvoke" to "invokeFunction",
         "luaAssert" to "check",
         "luaInsert" to "insertAt",
         "luaRemove" to "removeAt",
@@ -114,6 +115,7 @@ object Naturalizer {
             while (target in functions) target += "_"
             t = t.replace(Regex("(?<![.\\w])${Regex.escape(name)}(?=\\s*\\()"), target)
         }
+        t = t.lines().filter { it.trim() != "null;" }.joinToString("\n")
         return addConstants(t)
     }
 

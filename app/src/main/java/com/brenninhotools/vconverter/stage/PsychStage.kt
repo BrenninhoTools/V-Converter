@@ -36,7 +36,8 @@ data class PsychStageObject(
     val flipY: Boolean,
     val filters: Int,
     val animations: List<PsychStageAnimation>,
-    val firstAnimation: String
+    val firstAnimation: String,
+    val blend: String = ""
 )
 
 data class PsychStage(

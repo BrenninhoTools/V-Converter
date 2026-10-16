@@ -106,7 +106,7 @@ object ModuleWriter {
                 val callArgs = (0 until arity).joinToString(", ") { "args[$it]" }
                 out.line("case ${LuaToHScript.hxString(name)}: return $p$name($callArgs);")
             } else {
-                out.line("case ${LuaToHScript.hxString(name)}: return $p$name != null && Reflect.isFunction($p$name) ? Reflect.callMethod(null, $p$name, args) : null;")
+                out.line("case ${LuaToHScript.hxString(name)}: return $p$name != null && Reflect.isFunction($p$name) ? luaInvoke($p$name, args) : null;")
             }
         }
         if (spec.setters.isNotEmpty()) {

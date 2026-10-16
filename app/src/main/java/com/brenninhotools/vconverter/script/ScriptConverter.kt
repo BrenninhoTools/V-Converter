@@ -5,7 +5,7 @@ import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
 
-data class ScriptSource(val path: String, val text: String, val target: ScriptTarget? = null)
+data class ScriptSource(val path: String, val text: String, val target: ScriptTarget? = null, val skipLines: Set<Int> = emptySet())
 
 data class ScriptFile(val path: String, val content: String)
 
@@ -36,6 +36,20 @@ object ScriptConverter {
             else -> joined
         }
     }
+
+    private val takenNames = setOf(
+        "Module", "ModuleHandler", "PlayState", "FlxG", "FlxSprite", "FlxText", "FlxTween", "FlxEase", "FlxTimer", "Conductor", "Paths",
+        "Preferences", "Highscore", "PlayerSettings", "PlayStatePlaylist", "FunkinSound", "StringMap", "SongEvent", "SongEventSchema",
+        "Std", "Math", "String", "Array", "Reflect", "Type", "Assets", "Constants"
+    )
+
+    fun keepName(stem: String): String {
+        val cleaned = stem.replace(Regex("[^A-Za-z0-9_]"), "_").ifEmpty { "Script" }
+        val name = (if (cleaned.first().isDigit()) "S$cleaned" else cleaned).replaceFirstChar { it.uppercaseChar() }
+        return if (name in takenNames) name + "Script" else name
+    }
+
+    fun keepFileName(stem: String): String = stem.replace(Regex("[^A-Za-z0-9_-]"), "_").ifEmpty { "script" }
 
     fun kebab(className: String): String =
         className.replace(Regex("([a-z0-9])([A-Z])"), "$1-$2").replace(Regex("([A-Z]+)([A-Z][a-z])"), "$1-$2").lowercase()
@@ -171,7 +185,7 @@ class ${eventClass(name)} extends SongEvent
             val prefix = pascal(modSlug)
             val base = when (target.scope) {
                 ScriptScope.EVENT -> eventClass(target.key.ifBlank { stem }) + "Handler"
-                ScriptScope.GLOBAL -> prefix + pascal(stem) + "Module"
+                ScriptScope.GLOBAL -> keepName(stem)
                 ScriptScope.SONG -> prefix + pascal(target.key) + pascal(stem).removePrefix(pascal(target.key)).ifEmpty { "Script" }
                 ScriptScope.STAGE -> prefix + pascal(target.key) + "Stage"
                 ScriptScope.NOTE_TYPE -> prefix + pascal(target.key) + "NoteType"
@@ -179,7 +193,7 @@ class ${eventClass(name)} extends SongEvent
             var className = base
             var n = 2
             while (!usedNames.add(className.lowercase())) className = base + n++
-            val moduleId = kebab(className)
+            val moduleId = if (target.scope == ScriptScope.GLOBAL && className == base) stem else kebab(className)
             Triple(source, target, className to moduleId)
         }
         val siblings = planned.map { it.third.second }
@@ -196,7 +210,7 @@ class ${eventClass(name)} extends SongEvent
             val ownEvent = if (isEvent) eventId(target.key) else null
             val generated = try {
                 if (ext == "lua") {
-                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent).convert(source.text)
+                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent, source.skipLines).convert(source.text)
                 } else {
                     PsychHScriptWrapper(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent).convert(source.text)
                 }
@@ -213,7 +227,8 @@ class ${eventClass(name)} extends SongEvent
             if (isEvent) {
                 files += ScriptFile("scripts/events/${eventClass(target.key)}.hxc", withForwarder(generated.source, target.key, moduleId))
             } else {
-                files += ScriptFile("$OUTPUT_FOLDER/$className.hxc", generated.source)
+                val fileName = if (target.scope == ScriptScope.GLOBAL) keepFileName(source.path.substringAfterLast('/').substringBeforeLast('.')) else className
+                files += ScriptFile("$OUTPUT_FOLDER/$fileName.hxc", generated.source)
             }
             converted++
             hooks += generated.callbacks.size

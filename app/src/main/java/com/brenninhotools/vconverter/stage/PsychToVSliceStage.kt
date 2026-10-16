@@ -133,6 +133,7 @@ object PsychToVSliceStage {
             entry.put("scroll", JSONArray(listOf(obj.scroll.x.toJsonNumber(), obj.scroll.y.toJsonNumber())))
         }
         if (obj.alpha != 1.0) entry.put("alpha", obj.alpha.toJsonNumber())
+        if (obj.blend.isNotEmpty() && obj.blend != "normal") entry.put("blend", obj.blend)
         if (obj.angle != 0.0) entry.put("angle", obj.angle.toJsonNumber())
 
         if (obj.type == "animatedSprite" && obj.animations.isNotEmpty()) {

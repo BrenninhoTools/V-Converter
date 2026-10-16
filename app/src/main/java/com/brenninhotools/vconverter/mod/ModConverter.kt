@@ -18,6 +18,7 @@ import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.script.ScriptConverter
 import com.brenninhotools.vconverter.script.ScriptSource
 import com.brenninhotools.vconverter.core.json.value
+import com.brenninhotools.vconverter.stage.LuaStageExtractor
 import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
 import com.brenninhotools.vconverter.stage.StageSource
@@ -50,6 +51,7 @@ class ModConverter(
     private var written = 0
     private var keptPsychEvents = 0
     private val keptEventNames = sortedSetOf<String>()
+    private val stageSkipLines = HashMap<String, Set<Int>>()
     private var done = 0
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + scan.scripts.size + 2
 
@@ -122,11 +124,24 @@ class ModConverter(
 
     private fun convertStages(): Set<String> {
         val ids = LinkedHashSet<String>()
-        scan.stages.forEach { path ->
-            val id = path.substringAfterLast('/').substringBeforeLast('.')
+        val luaStages = scan.scripts.filter {
+            val rel = scan.relative(it).lowercase()
+            rel.startsWith("stages/") && rel.endsWith(".lua") && rel.count { c -> c == '/' } == 1
+        }.associateBy { it.substringAfterLast('/').substringBeforeLast('.') }
+        val jsonStages = scan.stages.associateBy { it.substringAfterLast('/').substringBeforeLast('.') }
+        (jsonStages.keys + luaStages.keys).distinct().forEach { id ->
+            val path = jsonStages[id]
             step("Stage $id")
             try {
-                val result = PsychToVSliceStage.convert(StageSource(id, PsychStageParser.parse(files.readText(path))))
+                var stage = if (path != null) PsychStageParser.parse(files.readText(path)) else LuaStageExtractor.defaultStage()
+                luaStages[id]?.let { lua ->
+                    val props = LuaStageExtractor.extract(files.readText(lua))
+                    stage = LuaStageExtractor.merge(stage, props)
+                    stageSkipLines[id] = props.removedLines
+                    if (props.notes.isNotEmpty()) report.section("Stage $id · stages/$id.lua", props.notes)
+                }
+                if (path == null) report.warn("Stage $id has no stages/$id.json; default character positions were used.")
+                val result = PsychToVSliceStage.convert(StageSource(id, stage))
                 writer.writeText("data/stages/$id.json", result.json)
                 written++
                 ids += id
@@ -262,7 +277,12 @@ class ModConverter(
         if (scriptFiles.isEmpty() && !keptEvents) return
         val slug = ScriptConverter.slug(info.title.ifBlank { "Mod" })
         val sources = scriptFiles.mapNotNull { path ->
-            runCatching { ScriptSource(scan.relative(path), files.readText(path)) }.getOrNull()
+            runCatching {
+                val rel = scan.relative(path)
+                val stem = rel.substringAfterLast('/').substringBeforeLast('.')
+                val skip = if (rel.lowercase().startsWith("stages/") && rel.lowercase().endsWith(".lua")) stageSkipLines[stem] ?: emptySet() else emptySet()
+                ScriptSource(rel, files.readText(path), skipLines = skip)
+            }.getOrNull()
         }
         sources.forEach { step("Script ${it.path.substringAfterLast('/')}") }
         val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames), keptEventNames)

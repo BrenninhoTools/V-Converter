@@ -310,9 +310,8 @@ class PsychApiLibrary extends Module
       case "getVar": return vars.get(Std.string(a[0]));
       case "callMethod":
         var target:Dynamic = resolve(a[0]);
-        var method:Dynamic = target != null ? Reflect.getProperty(target, Std.string(a[1])) : null;
-        if (method == null) return null;
-        return Reflect.callMethod(target, method, a[2] == null ? [] : a[2]);
+        if (target == null) return null;
+        return Reflect.callMethod(target, Std.string(a[1]), a[2] == null ? [] : a[2]);
       case "doTweenX": return tween(a[0], a[1], {x: num(a[2], 0)}, num(a[3], 1), a[4]);
       case "doTweenY": return tween(a[0], a[1], {y: num(a[2], 0)}, num(a[3], 1), a[4]);
       case "doTweenAlpha": return tween(a[0], a[1], {alpha: num(a[2], 1)}, num(a[3], 1), a[4]);
@@ -679,7 +678,7 @@ class PsychApiLibrary extends Module
     var base:Dynamic = bracket == 0 ? target : Reflect.getProperty(target, part.substr(0, bracket));
     var index:Int = Std.parseInt(part.substring(bracket + 1, part.indexOf("]")));
     if (base == null) return null;
-    var members:Dynamic = Reflect.getClassNameOf(base) == "Array" ? base : Reflect.getProperty(base, "members");
+    var members:Dynamic = Std.isOfType(base, Array) ? base : Reflect.getProperty(base, "members");
     return members == null ? null : members[index];
   }
 
@@ -702,7 +701,7 @@ class PsychApiLibrary extends Module
   function resolve(path:Dynamic):Dynamic
   {
     if (path == null) return null;
-    if (Reflect.getClassNameOf(path) != "String") return path;
+    if (!Std.isOfType(path, String)) return path;
     var parts:Array<String> = Std.string(path).split(".");
     var current:Dynamic = root(parts.shift());
     for (part in parts) current = step(current, part);
@@ -825,7 +824,7 @@ class PsychApiLibrary extends Module
     }
     var target:Dynamic = resolve(name);
     if (target == null) return null;
-    if (Reflect.getClassNameOf(target) == "Array") return target[index];
+    if (Std.isOfType(target, Array)) return target[index];
     var members:Dynamic = Reflect.getProperty(target, "members");
     return members == null ? null : members[index];
   }
@@ -854,7 +853,7 @@ class PsychApiLibrary extends Module
   function color(value:Dynamic):Int
   {
     if (value == null) return 0xFFFFFFFF;
-    if (Reflect.getClassNameOf(value) != "String") return Std.int(value);
+    if (!Std.isOfType(value, String)) return Std.int(value);
     var text:String = strTrim(Std.string(value)).toLowerCase();
     switch (text)
     {
@@ -942,7 +941,7 @@ class PsychApiLibrary extends Module
   {
     var result:Array<Int> = [];
     if (value == null) return result;
-    if (Reflect.getClassNameOf(value) == "Array")
+    if (Std.isOfType(value, Array))
     {
       var list:Array<Dynamic> = value;
       for (v in list) result.push(Std.int(num(v, 0)));
