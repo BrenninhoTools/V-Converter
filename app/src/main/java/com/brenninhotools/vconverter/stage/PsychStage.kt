@@ -37,7 +37,8 @@ data class PsychStageObject(
     val filters: Int,
     val animations: List<PsychStageAnimation>,
     val firstAnimation: String,
-    val blend: String = ""
+    val blend: String = "",
+    val danceEvery: Int = 0
 )
 
 data class PsychStage(

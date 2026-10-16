@@ -1,19 +1,19 @@
 # V-Converter
 
-A remake of the V-Slice converter as a native Android app written in Kotlin. It converts Friday Night Funkin' content from **Psych Engine** to **V-Slice** (the current base game).
+A remake of the V-Slice converter as a native Android app written in Kotlin. It converts Friday Night Funkin' content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), and from V-Slice back to Psych.
 
 ## Status
 
-| Module | Psych → V-Slice | V-Slice → Psych |
-| --- | --- | --- |
-| Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ |
-| Charts | ✅ | ✅ |
-| Characters | ✅ | ✅ |
-| Stages | ✅ | ✅ |
-| Weeks ↔ Levels | ✅ | ✅ |
-| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript |
+| Module | Psych → V-Slice | V-Slice → Psych | Codename → V-Slice |
+| --- | --- | --- | --- |
+| Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ | ✅ |
+| Charts | ✅ | ✅ | ✅ |
+| Characters | ✅ | ✅ | ✅ |
+| Stages | ✅ | ✅ | ✅ |
+| Weeks ↔ Levels | ✅ | ✅ | ✅ |
+| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript | ✅ Codename HScript → `.hxc` |
 
-The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). The Converter works both ways: pick **Psych → V-Slice** or **V-Slice → Psych** under the section switch.
+The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) in the bridge at the top of each tab.
 
 ## Generator
 
@@ -140,6 +140,19 @@ The report lists, line by line, anything a script uses that has no V-Slice equiv
 
 Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage positions and the on-screen character placement.
 
+## Codename → V-Slice
+
+| Input | Output |
+| --- | --- |
+| `songs/<song>/charts/<diff>.json` + `meta.json` + `events.json` | `<song>-metadata.json` + `<song>-chart.json`: player/opponent strumlines → lanes 0-3/4-7, note types → note kinds (`Alt Anim Note` → `alt` with a generated `NoteKind`), `BPM Change`/`Time Signature Change` → time changes, `Camera Movement`/`Camera Position` → `FocusCamera`, `Camera Zoom` → `ZoomCamera`, `Scroll Speed Change` → `ScrollSpeed`, `Camera Modulo Change` → `SetCameraBop`, `Play Animation` → `PlayAnimation` |
+| Variants (`charts/<variant>/`, `meta-<variant>.json`) | V-Slice variations with their own `Inst-<variant>` audio |
+| Other events (`Camera Flash`, `Add Camera Zoom`, `Camera Bop`, `HScript Call`, custom `data/events/*.json`) | Kept in the chart with named values, plus a `SongEvent` in `scripts/events/` (with a working implementation for the built-in ones) |
+| `data/characters/<id>.xml` (+ spritesheet XML) | `data/characters/<id>.json`: offsets multiplied by the scale (Codename scales them, V-Slice does not), characters used on the other side mirrored like Codename does at runtime, `<id>-dead`/`gameOverChar` animations merged in for game over |
+| `data/stages/<id>.xml` | `data/stages/<id>.json`: sprites, boxes, `high-memory` content, beat sprites (`danceEvery`), layer order and character spots; scaled sprites without `updateHitbox` are moved to where Codename draws them |
+| `data/weeks/weeks/*.xml` + `data/weeks/characters/*.xml` | `data/levels/*.json` with menu props |
+| `.hx` scripts | V-Slice modules scoped like Codename runs them (song, stage, stage extension, character, event, note type, global). `create`/`update`/`beatHit`/`onPlayerHit`/`onEvent`… become module events with Codename-style event objects; `boyfriend`, `camHUD`, `curBeat`, `Conductor.crochet`, stage sprites by name and so on are mapped to the V-Slice API |
+| Mod | `_polymod_meta.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
+
 ## Building
 
 ```
@@ -156,3 +169,4 @@ The UI uses [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open
 
 - [FunkinCrew/Funkin](https://github.com/FunkinCrew/Funkin)
 - [ShadowMario/FNF-PsychEngine](https://github.com/ShadowMario/FNF-PsychEngine)
+- [CodenameCrew/CodenameEngine](https://github.com/CodenameCrew/CodenameEngine)

@@ -28,6 +28,7 @@ data class VSliceMetadata(
     val timeChanges: List<VSliceTimeChange>,
     val previewStart: Int = 0,
     val previewEnd: Int = 15000,
+    val songVariations: List<String> = emptyList(),
     val generatedBy: String
 )
 

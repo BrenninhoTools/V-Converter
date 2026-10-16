@@ -155,7 +155,7 @@ object PsychToVSliceStage {
                 animations.put(animEntry)
             }
             entry.put("animType", "sparrow")
-            entry.put("danceEvery", 0)
+            entry.put("danceEvery", obj.danceEvery)
             entry.put("animations", animations)
             entry.put("startingAnimation", obj.firstAnimation.ifBlank { obj.animations.first().anim })
         }

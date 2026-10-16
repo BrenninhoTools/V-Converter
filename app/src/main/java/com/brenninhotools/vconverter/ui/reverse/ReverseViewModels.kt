@@ -41,6 +41,10 @@ abstract class ReverseViewModel(application: Application) : BaseConverterViewMod
 
     abstract val noun: String
 
+    open val engine: String = "V-Slice"
+
+    protected open fun read(file: ImportedFile): String = file.readText()
+
     protected abstract fun accept(file: ImportedFile): Boolean
 
     protected abstract fun classify(file: ImportedFile, text: String): PickedText
@@ -52,7 +56,7 @@ abstract class ReverseViewModel(application: Application) : BaseConverterViewMod
     fun add(uris: List<Uri>) {
         if (uris.isEmpty()) return
         runTask {
-            val loaded = load(uris, ::accept) { file -> classify(file, file.readText()) }
+            val loaded = load(uris, ::accept) { file -> classify(file, read(file)) }
             files = files.filterNot { old -> loaded.items.any { it.key == old.key } } + loaded.items
             invalidate()
             loadStatus(loaded, "file(s)")
@@ -79,7 +83,7 @@ abstract class ReverseViewModel(application: Application) : BaseConverterViewMod
         runTask {
             try {
                 val snapshot = files
-                require(snapshot.isNotEmpty()) { "Add at least one V-Slice $noun." }
+                require(snapshot.isNotEmpty()) { "Add at least one $engine $noun." }
                 output = withContext(Dispatchers.Default) { build(snapshot) }
                 download = null
                 status = null

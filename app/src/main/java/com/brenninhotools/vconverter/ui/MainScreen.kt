@@ -87,6 +87,13 @@ import com.brenninhotools.vconverter.ui.generator.StageGenScreen
 import com.brenninhotools.vconverter.ui.generator.StageGenViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
+import com.brenninhotools.vconverter.ui.codename.CodenameCharactersViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameChartsViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameModScreen
+import com.brenninhotools.vconverter.ui.codename.CodenameModViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameScriptsViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameStagesViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameWeeksViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseChartsViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseCharactersViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseModScreen
@@ -115,14 +122,49 @@ enum class Tab(
     override val accent: Color,
     override val title: String,
     override val description: String,
-    val reverseDescription: String
+    val reverseDescription: String,
+    val codenameDescription: String
 ) : AppTab {
-    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "Whole mod", "A full Psych mod from a folder, .zip, .rar or .7z.", "A full V-Slice mod from a folder, .zip, .rar or .7z."),
-    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down, "Charts", "Psych charts and events.json into one V-Slice song.", "V-Slice metadata + chart into Psych difficulty charts."),
-    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left, "Characters", "Character JSON + spritesheet XML, pixel-exact offsets.", "V-Slice characters back to Psych, exact with the XML."),
-    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up, "Stages", "Stage layouts, cameras and editor props.", "V-Slice stages into Psych stage editor files."),
-    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right, "Weeks", "Story weeks into V-Slice levels with menu props.", "V-Slice levels into Psych weeks and menu characters."),
-    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender, "Scripts", "Lua and HScript into V-Slice modules.", ".hxc scripts into Psych HScript (.hx).")
+    MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "Whole mod", "A full Psych mod from a folder, .zip, .rar or .7z.", "A full V-Slice mod from a folder, .zip, .rar or .7z.", "A full Codename mod from a folder, .zip, .rar or .7z."),
+    CHARTS("Charts", R.drawable.ic_tab_chart, Funkin.Down, "Charts", "Psych charts and events.json into one V-Slice song.", "V-Slice metadata + chart into Psych difficulty charts.", "Codename strumline charts, meta.json and events into V-Slice songs."),
+    CHARACTERS("Chars", R.drawable.ic_tab_character, Funkin.Left, "Characters", "Character JSON + spritesheet XML, pixel-exact offsets.", "V-Slice characters back to Psych, exact with the XML.", "Character XML + spritesheet XML, scaled offsets and game over merged."),
+    STAGES("Stages", R.drawable.ic_tab_stage, Funkin.Up, "Stages", "Stage layouts, cameras and editor props.", "V-Slice stages into Psych stage editor files.", "Stage XML sprites, boxes and character spots into V-Slice props."),
+    WEEKS("Weeks", R.drawable.ic_tab_week, Funkin.Right, "Weeks", "Story weeks into V-Slice levels with menu props.", "V-Slice levels into Psych weeks and menu characters.", "Week XMLs and menu characters into V-Slice levels."),
+    SCRIPTS("Scripts", R.drawable.ic_tab_script, Funkin.Lavender, "Scripts", "Lua and HScript into V-Slice modules.", ".hxc scripts into Psych HScript (.hx).", "Codename HScript (.hx) into V-Slice modules and song events.");
+
+    fun describe(direction: Direction): String = when (direction) {
+        Direction.PSYCH_TO_VSLICE -> description
+        Direction.VSLICE_TO_PSYCH -> reverseDescription
+        Direction.CODENAME_TO_VSLICE -> codenameDescription
+    }
+}
+
+enum class Engine(val label: String, val title: String, val detail: String, val color: Color) {
+    PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Funkin.Left),
+    CODENAME("CODENAME", "Codename Engine", "XML · HScript", Funkin.Orange),
+    VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Funkin.Down)
+}
+
+enum class Direction(val from: Engine, val to: Engine) {
+    PSYCH_TO_VSLICE(Engine.PSYCH, Engine.VSLICE),
+    VSLICE_TO_PSYCH(Engine.VSLICE, Engine.PSYCH),
+    CODENAME_TO_VSLICE(Engine.CODENAME, Engine.VSLICE);
+
+    val label: String get() = "${from.title} to ${to.title}"
+    val canSwap: Boolean get() = this != CODENAME_TO_VSLICE
+    fun swapped(): Direction = when (this) {
+        PSYCH_TO_VSLICE -> VSLICE_TO_PSYCH
+        VSLICE_TO_PSYCH -> PSYCH_TO_VSLICE
+        CODENAME_TO_VSLICE -> CODENAME_TO_VSLICE
+    }
+
+    companion object {
+        fun from(engine: Engine): Direction = when (engine) {
+            Engine.PSYCH -> PSYCH_TO_VSLICE
+            Engine.VSLICE -> VSLICE_TO_PSYCH
+            Engine.CODENAME -> CODENAME_TO_VSLICE
+        }
+    }
 }
 
 enum class GenTab(
@@ -161,7 +203,13 @@ fun MainScreen() {
     val revStages: ReverseStagesViewModel = viewModel()
     val revWeeks: ReverseWeeksViewModel = viewModel()
     val revScripts: ReverseScriptsViewModel = viewModel()
-    var reverse by rememberSaveable { mutableStateOf(false) }
+    val cnMod: CodenameModViewModel = viewModel()
+    val cnCharts: CodenameChartsViewModel = viewModel()
+    val cnCharacters: CodenameCharactersViewModel = viewModel()
+    val cnStages: CodenameStagesViewModel = viewModel()
+    val cnWeeks: CodenameWeeksViewModel = viewModel()
+    val cnScripts: CodenameScriptsViewModel = viewModel()
+    var direction by rememberSaveable { mutableStateOf(Direction.PSYCH_TO_VSLICE) }
 
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }
     var converterTab by rememberSaveable { mutableStateOf(Tab.MOD) }
@@ -169,13 +217,20 @@ fun MainScreen() {
     var pendingSave by remember { mutableStateOf<AppTab?>(null) }
     val tab: AppTab = if (section == Section.CONVERTER) converterTab else generatorTab
 
-    fun converterFor(target: AppTab): BaseConverterViewModel = if (reverse && target is Tab) when (target) {
+    fun converterFor(target: AppTab): BaseConverterViewModel = if (direction == Direction.VSLICE_TO_PSYCH && target is Tab) when (target) {
         Tab.MOD -> revMod
         Tab.CHARTS -> revCharts
         Tab.CHARACTERS -> revCharacters
         Tab.STAGES -> revStages
         Tab.WEEKS -> revWeeks
         Tab.SCRIPTS -> revScripts
+    } else if (direction == Direction.CODENAME_TO_VSLICE && target is Tab) when (target) {
+        Tab.MOD -> cnMod
+        Tab.CHARTS -> cnCharts
+        Tab.CHARACTERS -> cnCharacters
+        Tab.STAGES -> cnStages
+        Tab.WEEKS -> cnWeeks
+        Tab.SCRIPTS -> cnScripts
     } else when (target) {
         Tab.MOD -> mod
         Tab.CHARTS -> charts
@@ -221,7 +276,7 @@ fun MainScreen() {
                 onPickFolder = { folderPicker.launch(null) },
                 section = section,
                 onSection = { section = it },
-                reverse = reverse
+                direction = direction
             )
         },
         bottomBar = {
@@ -234,14 +289,14 @@ fun MainScreen() {
         }
     ) { padding ->
         AnimatedContent(
-            targetState = tab to (reverse && section == Section.CONVERTER),
+            targetState = tab to (if (section == Section.CONVERTER) direction else Direction.PSYCH_TO_VSLICE),
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .imePadding(),
             label = "tab"
-        ) { (current, isReverse) ->
+        ) { (current, currentDirection) ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -249,12 +304,19 @@ fun MainScreen() {
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 if (current is Tab) {
-                    EngineBridge(isReverse) { reverse = it }
+                    EngineBridge(currentDirection) { direction = it }
                     Spacer(Modifier.size(12.dp))
                 }
-                TabHero(current, isReverse)
+                TabHero(current, currentDirection)
                 Spacer(Modifier.size(16.dp))
-                if (isReverse) when (current) {
+                if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
+                    Tab.MOD -> CodenameModScreen(cnMod, folderName, save)
+                    Tab.CHARTS -> ReverseScreen(cnCharts, Funkin.Down, "Songs", "Add Codename charts", "Pick songs/<song>/charts/*.json with meta.json and events.json (variants live in charts/<variant>/). Archives keep the folders, so several songs work at once.", R.drawable.ic_tab_chart, folderName, save, buttonText = "Convert to V-Slice")
+                    Tab.CHARACTERS -> ReverseScreen(cnCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) for exact positions. Add <name>-dead.xml to merge the game over animations.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to V-Slice")
+                    Tab.STAGES -> ReverseScreen(cnStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Add the stage images (.png and spritesheet .xml) so scaled sprites keep their exact spot.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to V-Slice")
+                    Tab.WEEKS -> ReverseScreen(cnWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml plus data/weeks/characters/*.xml for the menu characters.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to V-Slice")
+                    Tab.SCRIPTS -> ReverseScreen(cnScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts get the right scope.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to V-Slice")
+                } else if (currentDirection == Direction.VSLICE_TO_PSYCH) when (current) {
                     Tab.MOD -> ReverseModScreen(revMod, folderName, save)
                     Tab.CHARTS -> ReverseScreen(revCharts, Funkin.Down, "Songs", "Add V-Slice songs", "Pick a song's <song>-metadata.json and <song>-chart.json (and -erect variants). Variations become their own Psych songs. Archives work too.", R.drawable.ic_tab_chart, folderName, save)
                     Tab.CHARACTERS -> ReverseScreen(revCharacters, Funkin.Left, "Characters", "Add V-Slice characters", "Pick data/characters/*.json with their spritesheet .xml (images/…) for exact positions. Archives work too.", R.drawable.ic_tab_character, folderName, save)
@@ -288,7 +350,7 @@ private fun Header(
     onPickFolder: () -> Unit,
     section: Section,
     onSection: (Section) -> Unit,
-    reverse: Boolean
+    direction: Direction
 ) {
     Column(
         modifier = Modifier
@@ -303,12 +365,12 @@ private fun Header(
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("V-CONVERTER", style = MaterialTheme.typography.titleLarge, color = Funkin.Text, maxLines = 1)
-                AnimatedContent(targetState = section to reverse, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "subtitle") { (current, isReverse) ->
+                AnimatedContent(targetState = section to direction, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "subtitle") { (current, currentDirection) ->
                     if (current == Section.GENERATOR) {
                         Text("New V-Slice content", style = MaterialTheme.typography.labelSmall, color = Funkin.Warning, maxLines = 1)
                     } else {
                         Text(
-                            if (isReverse) "V-Slice to Psych Engine" else "Psych Engine to V-Slice",
+                            currentDirection.label,
                             style = MaterialTheme.typography.labelSmall,
                             color = Funkin.Muted,
                             maxLines = 1
@@ -354,7 +416,7 @@ private fun FolderChip(folderName: String?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TabHero(tab: AppTab, reverse: Boolean) {
+private fun TabHero(tab: AppTab, direction: Direction) {
     val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
@@ -391,7 +453,7 @@ private fun TabHero(tab: AppTab, reverse: Boolean) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
                 Spacer(Modifier.height(2.dp))
-                Text(if (reverse && tab is Tab) tab.reverseDescription else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+                Text(if (tab is Tab) tab.describe(direction) else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
             }
         }
     }
@@ -491,42 +553,77 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
 }
 
 @Composable
-private fun EngineBridge(reverse: Boolean, onChange: (Boolean) -> Unit) {
-    val turn by animateFloatAsState(if (reverse) 180f else 0f, animationSpec = spring(dampingRatio = 0.55f, stiffness = 300f), label = "swap")
-    val from = if (reverse) Engine.VSLICE else Engine.PSYCH
-    val to = if (reverse) Engine.PSYCH else Engine.VSLICE
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            EngineCard("From", from, Modifier.weight(1f)) { onChange(!reverse) }
-            EngineCard("To", to, Modifier.weight(1f)) { onChange(!reverse) }
-        }
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(Funkin.Ink)
-                .padding(4.dp)
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(from.color, to.color)))
-                .border(2.5.dp, Funkin.Ink, CircleShape)
-                .clickable { onChange(!reverse) },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painterResource(R.drawable.ic_swap),
-                contentDescription = "Swap direction",
-                tint = Funkin.Ink,
+private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
+    val turn by animateFloatAsState(if (direction.from == Engine.VSLICE) 180f else 0f, animationSpec = spring(dampingRatio = 0.55f, stiffness = 300f), label = "swap")
+    val from = direction.from
+    val to = direction.to
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EngineCard("From", from, Modifier.weight(1f)) {
+                    val engines = Engine.entries
+                    onChange(Direction.from(engines[(engines.indexOf(from) + 1) % engines.size]))
+                }
+                EngineCard("To", to, Modifier.weight(1f)) { if (direction.canSwap) onChange(direction.swapped()) }
+            }
+            Box(
                 modifier = Modifier
-                    .size(20.dp)
-                    .rotate(turn)
-            )
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Funkin.Ink)
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(from.color, to.color)))
+                    .border(2.5.dp, Funkin.Ink, CircleShape)
+                    .clickable(enabled = direction.canSwap) { onChange(direction.swapped()) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(if (direction.canSwap) R.drawable.ic_swap else R.drawable.ic_arrow_forward),
+                    contentDescription = if (direction.canSwap) "Swap direction" else null,
+                    tint = Funkin.Ink,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(if (direction.canSwap) turn else 0f)
+                )
+            }
         }
+        SourcePicker(direction.from) { onChange(Direction.from(it)) }
     }
 }
 
-private enum class Engine(val label: String, val detail: String, val color: Color) {
-    PSYCH("PSYCH", "Lua · HScript · JSON", Funkin.Left),
-    VSLICE("V-SLICE", "Polymod · .hxc", Funkin.Down)
+@Composable
+private fun SourcePicker(selected: Engine, onSelect: (Engine) -> Unit) {
+    val outer = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(outer)
+            .background(Funkin.Surface)
+            .border(1.5.dp, Funkin.Outline, outer)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("SOURCE", style = MaterialTheme.typography.labelSmall, color = Funkin.Muted, modifier = Modifier.padding(horizontal = 8.dp))
+        Engine.entries.forEach { engine ->
+            val active = engine == selected
+            val fill by animateColorAsState(if (active) engine.color else Color.Transparent, label = "source")
+            val content by animateColorAsState(if (active) Funkin.Ink else Funkin.Muted, label = "sourceText")
+            val shape = RoundedCornerShape(11.dp)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(32.dp)
+                    .clip(shape)
+                    .background(fill)
+                    .clickable { onSelect(engine) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(engine.label, style = MaterialTheme.typography.labelMedium, color = content, maxLines = 1)
+            }
+        }
+    }
 }
 
 @Composable

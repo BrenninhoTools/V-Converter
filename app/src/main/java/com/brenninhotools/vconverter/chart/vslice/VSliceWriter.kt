@@ -22,7 +22,7 @@ object VSliceWriter {
         metadata.difficulties.forEach { ratings.put(it, 0) }
 
         val playData = JSONObject()
-            .put("songVariations", JSONArray())
+            .put("songVariations", JSONArray(metadata.songVariations))
             .put("difficulties", JSONArray(metadata.difficulties))
             .put("characters", characters)
             .put("stage", metadata.stage)

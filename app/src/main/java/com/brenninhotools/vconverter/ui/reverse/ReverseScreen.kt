@@ -30,7 +30,8 @@ fun ReverseScreen(
     @DrawableRes icon: Int,
     modFolderName: String?,
     onSave: () -> Unit,
-    footnote: String? = null
+    footnote: String? = null,
+    buttonText: String = "Convert to Psych"
 ) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.add(it) }
     val busy = viewModel.busy
@@ -79,7 +80,7 @@ fun ReverseScreen(
             onConvert = viewModel::convert,
             onSave = onSave,
             modFolderName = modFolderName,
-            buttonText = "Convert to Psych"
+            buttonText = buttonText
         )
     }
 }
@@ -92,11 +93,15 @@ private fun kindLabel(kind: String): String = when (kind) {
     "stage" -> "Stage"
     "level" -> "Level"
     "script" -> "Script"
+    "events" -> "Events"
+    "event" -> "Event"
+    "image" -> "Image"
+    "menu" -> "Menu character"
     else -> kind
 }
 
 private fun kindColor(kind: String, accent: Color): Color = when (kind) {
-    "metadata" -> Funkin.Warning
-    "atlas" -> Funkin.Up
+    "metadata", "events", "event" -> Funkin.Warning
+    "atlas", "image", "menu" -> Funkin.Up
     else -> accent
 }
