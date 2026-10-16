@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.ui
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
@@ -7,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.R
 import com.brenninhotools.vconverter.ui.components.ChunkyButton
+import com.brenninhotools.vconverter.ui.components.CodePreview
 import com.brenninhotools.vconverter.ui.components.FunkinCard
 import com.brenninhotools.vconverter.ui.components.OutputFiles
 import com.brenninhotools.vconverter.ui.components.SaveActions
@@ -22,14 +24,17 @@ fun ConvertSection(
     canConvert: Boolean,
     onConvert: () -> Unit,
     onSave: () -> Unit,
-    modFolderName: String?
+    modFolderName: String?,
+    title: String = "Convert",
+    buttonText: String = "Convert to V-Slice",
+    @DrawableRes buttonIcon: Int = R.drawable.ic_swap
 ) {
     FunkinCard(accent = if (viewModel.output != null) accent else null) {
-        SectionTitle("Convert", accent, step)
+        SectionTitle(title, accent, step)
         ChunkyButton(
-            text = "Convert to V-Slice",
+            text = buttonText,
             accent = accent,
-            icon = R.drawable.ic_swap,
+            icon = buttonIcon,
             enabled = canConvert && !viewModel.busy,
             loading = viewModel.busy && viewModel.output == null,
             onClick = onConvert
@@ -39,6 +44,7 @@ fun ConvertSection(
         if (output != null) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ReportView(output.report, accent)
+                output.preview?.let { CodePreview(it) }
                 OutputFiles(output.files.map { it.relativePath }, accent)
                 SaveActions(viewModel, accent, modFolderName, onSave)
             }

@@ -13,6 +13,21 @@ A remake of the V-Slice converter as a native Android app written in Kotlin. It 
 | Weeks → Levels | ✅ Converter |
 | Lua / HScript scripts | ✅ Converter (with a Psych API runtime) |
 
+The app has two sections, switched at the top: **Converter** (Psych Engine → V-Slice) and **Generator** (new V-Slice content from scratch).
+
+## Generator
+
+| Tab | Creates |
+| --- | --- |
+| Mod | `_polymod_meta.json`, `_polymod_icon.png` and an optional starter module script |
+| Song | `<song>-metadata.json` and empty `<song>-chart.json` (BPM, time signature, difficulties incl. an `erect` variation, characters, stage, note style), plus `Inst.ogg` / `Voices*.ogg` |
+| Character | `data/characters/<id>.json` from a Sparrow XML, guessing `idle`, `singLEFT`…, misses and `danceLeft`/`danceRight` from frame prefixes |
+| Stage | `data/stages/<id>.json` from your images (positions, scroll, scale, in front/behind), with the base game character positions |
+| Level | `data/levels/<id>.json` with songs, background color, title image and base or custom menu characters |
+| Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
+
+Every tab can download the result as a `.zip` or write it into the mod folder.
+
 ## Whole mod
 
 The **Mod** tab converts an entire Psych Engine mod in one go, from its folder or from a `.zip`, `.rar` (RAR4 and RAR5) or `.7z` archive. The mod root is found automatically even when the archive wraps it in extra folders.

@@ -6,9 +6,22 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import java.io.IOException
+import com.brenninhotools.vconverter.mod.ModWriter
 
-data class OutputFile(val directories: List<String>, val name: String, val content: String) {
+class OutputFile(val directories: List<String>, val name: String, val content: String, val bytes: ByteArray? = null) {
     val relativePath: String get() = (directories + name).joinToString("/")
+
+    fun writeTo(writer: ModWriter) {
+        val data = bytes
+        if (data != null) writer.copy(relativePath) { data.inputStream() } else writer.writeText(relativePath, content)
+    }
+
+    companion object {
+        fun of(path: String, text: String?, bytes: ByteArray?): OutputFile {
+            val clean = path.trim('/')
+            return OutputFile(clean.substringBeforeLast('/', "").split('/').filter { it.isNotEmpty() }, clean.substringAfterLast('/'), text ?: "", bytes)
+        }
+    }
 }
 
 object DocumentIO {
@@ -21,6 +34,10 @@ object DocumentIO {
         }
         return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
     }
+
+    fun readBytes(context: Context, uri: Uri): ByteArray =
+        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IOException("Could not open ${displayName(context, uri)}")
 
     fun readText(context: Context, uri: Uri): String =
         context.contentResolver.openInputStream(uri)?.use { it.bufferedReader(Charsets.UTF_8).readText() }
@@ -44,7 +61,7 @@ object DocumentIO {
         }
         val writer = TreeModWriter(context, treeUri)
         return files.map { file ->
-            writer.writeText(file.relativePath, file.content)
+            file.writeTo(writer)
             file.relativePath
         }
     }

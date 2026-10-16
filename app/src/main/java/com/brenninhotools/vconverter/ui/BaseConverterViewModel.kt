@@ -31,7 +31,8 @@ sealed interface StatusMessage {
 
 data class ConvertedOutput(
     val files: List<OutputFile>,
-    val report: Report
+    val report: Report,
+    val preview: String? = null
 )
 
 abstract class BaseConverterViewModel(application: Application) : AndroidViewModel(application) {
@@ -64,7 +65,7 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
 
     protected open fun writeDownload(writer: ModWriter) {
         val result = output ?: throw IllegalStateException("Convert something first.")
-        result.files.forEach { writer.writeText(it.relativePath, it.content) }
+        result.files.forEach { it.writeTo(writer) }
     }
 
     fun download(picked: Uri?) {

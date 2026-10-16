@@ -24,7 +24,7 @@ object PsychToVSliceLevel {
     private const val PSYCH_Y = 70.0
     private const val DEFAULT_BACKGROUND = "#F9CF51"
 
-    private val basePropDefinitions = mapOf(
+    val basePropDefinitions = mapOf(
         "dad" to """{"assetPath":"storymenu/props/dad","scale":1.0,"offsets":[100,60],"animations":[{"name":"idle","prefix":"idle0","frameRate":24}]}""",
         "bf" to """{"assetPath":"storymenu/props/bf","scale":1.0,"offsets":[150,80],"animations":[{"name":"idle","prefix":"idle0","frameRate":24},{"name":"confirm","prefix":"confirm0","frameRate":24}]}""",
         "gf" to """{"assetPath":"storymenu/props/gf","scale":1.0,"offsets":[200,80],"animations":[{"name":"danceLeft","prefix":"idle0","frameIndices":[30,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]},{"name":"danceRight","prefix":"idle0","frameIndices":[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]}]}"""
