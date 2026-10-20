@@ -35,7 +35,14 @@ import com.brenninhotools.vconverter.ui.theme.Funkin
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> Unit) {
+fun ModScreen(
+    viewModel: ModViewModel,
+    modFolderName: String?,
+    onConvert: () -> Unit,
+    intro: String = "Convert a whole Psych Engine mod at once: songs, characters, stages, weeks, Lua/HScript scripts, images and audio.",
+    infoNote: String = "Written to _polymod_meta.json. pack.png becomes the mod icon.",
+    convertNote: String = "Download the converted mod as a .zip (unzip it into V-Slice's mods folder), or write it straight into an empty mod folder."
+) {
     val accent = Funkin.Pink
     val busy = viewModel.busy
     val progress by viewModel.progress.collectAsState()
@@ -50,7 +57,7 @@ fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> 
         FunkinCard {
             SectionTitle("Psych mod", accent, 1)
             Text(
-                "Convert a whole Psych Engine mod at once: songs, characters, stages, weeks, Lua/HScript scripts, images and audio.",
+                intro,
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )
@@ -118,7 +125,7 @@ fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> 
                 FunkinTextField(viewModel.description, { viewModel.description = it }, "Description", accent, enabled = !busy)
                 FunkinTextField(viewModel.author, { viewModel.author = it }, "Author", accent, enabled = !busy)
                 Text(
-                    "Written to _polymod_meta.json. pack.png becomes the mod icon.",
+                    infoNote,
                     style = MaterialTheme.typography.bodySmall,
                     color = Funkin.Muted
                 )
@@ -128,7 +135,7 @@ fun ModScreen(viewModel: ModViewModel, modFolderName: String?, onConvert: () -> 
         FunkinCard(accent = if (viewModel.result != null) accent else null) {
             SectionTitle("Convert", accent, 3)
             Text(
-                "Download the converted mod as a .zip (unzip it into V-Slice's mods folder), or write it straight into an empty mod folder.",
+                convertNote,
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )

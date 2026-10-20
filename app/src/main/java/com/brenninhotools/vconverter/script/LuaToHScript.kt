@@ -27,27 +27,39 @@ data class GeneratedScript(
     val apiCalls: Set<String>
 )
 
-class LuaToHScript(
-    private val className: String,
-    private val moduleId: String,
-    private val target: ScriptTarget,
-    private val siblings: List<String> = emptyList(),
-    private val noteTypes: String = "[]",
-    private val eventNames: Map<String, String> = emptyMap(),
-    private val ownEvent: String? = null,
-    private val skipLines: Set<Int> = emptySet()
-) {
-    private val issues = mutableListOf<ScriptIssue>()
-    private val helpers = linkedSetOf<String>()
-    private val apiCalls = linkedSetOf<String>()
-    private val assignedGlobals = linkedSetOf<String>()
-    private val chunkLocals = linkedSetOf<String>()
-    private val methodNames = linkedMapOf<String, Int>()
-    private val usedFields = linkedSetOf<String>()
+abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
+    protected val issues = mutableListOf<ScriptIssue>()
+    protected val helpers = linkedSetOf<String>()
+    protected val apiCalls = linkedSetOf<String>()
+    protected val assignedGlobals = linkedSetOf<String>()
+    protected val chunkLocals = linkedSetOf<String>()
+    protected val methodNames = linkedMapOf<String, Int>()
+    protected val usedFields = linkedSetOf<String>()
+    protected val functionStack = ArrayDeque<String?>()
     private val scopes = ArrayDeque<MutableMap<String, String>>()
     private val loopContinueLabels = ArrayDeque<String?>()
     private var varargDepth = 0
     private var temp = 0
+
+    protected class Transpiled(val boot: Code, val methods: String, val chunk: List<Stat>)
+
+    protected open fun emitName(key: String): String = key
+
+    protected open fun localName(luaName: String): String =
+        if (luaName in reserved || luaName.startsWith("lua") || luaName.startsWith("psych") || luaName.startsWith("__")) "v_$luaName" else luaName
+
+    protected abstract fun constantRef(name: String, line: Int): String
+
+    protected abstract fun variableRef(name: String, line: Int): String
+
+    protected abstract fun apiCall(name: String, args: List<Expr>, line: Int): String
+
+    protected abstract fun printCall(args: List<Expr>, line: Int): String
+
+    protected open fun returnStatement(stat: Stat.Return, code: Code) {
+        if (stat.values.size > 1) issue(stat.line, "Only the first returned value is kept.")
+        code.line(if (stat.values.isEmpty()) "return null;" else "return ${expr(stat.values[0])};")
+    }
 
     companion object {
         private const val VARARGS = 8
@@ -81,12 +93,12 @@ class LuaToHScript(
         }
     }
 
-    fun convert(source: String): GeneratedScript {
+    protected fun transpile(source: String): Transpiled? {
         val chunk = try {
             LuaParser.parse(source)
         } catch (e: LuaSyntaxException) {
             issues += ScriptIssue(e.line, "Lua syntax error: ${e.message?.substringAfter(": ")}")
-            return GeneratedScript(className, moduleId, "", issues, emptyList(), emptySet())
+            return null
         }
 
         analyze(chunk)
@@ -105,11 +117,10 @@ class LuaToHScript(
             }
         }
         scopes.removeLast()
-
-        val callbacks = methodNames.keys.filter { it.startsWith("g_") }.map { it.removePrefix("g_") }.filter { it in PsychApi.callbacks }
-        val sourceCode = assemble(boot, methods.toString(), callbacks)
-        return GeneratedScript(className, moduleId, sourceCode, issues.sortedBy { it.line }, callbacks, apiCalls)
+        return Transpiled(boot, methods.toString(), chunk)
     }
+
+    protected fun globalMethods(): List<String> = methodNames.keys.filter { it.startsWith("g_") }.map { it.removePrefix("g_") }
 
     private fun fullySkipped(stat: Stat): Boolean = skipLines.isNotEmpty() && when (stat) {
         is Stat.CallStat -> stat.line in skipLines
@@ -117,7 +128,7 @@ class LuaToHScript(
         else -> false
     }
 
-    private fun issue(line: Int, message: String) {
+    protected fun issue(line: Int, message: String) {
         if (issues.none { it.line == line && it.message == message }) issues += ScriptIssue(line, message)
     }
 
@@ -239,7 +250,7 @@ class LuaToHScript(
         }
     }
 
-    private class Code {
+    protected class Code {
         private val sb = StringBuilder()
         private var indent = 0
 
@@ -271,8 +282,8 @@ class LuaToHScript(
 
     private fun tmp(prefix: String): String = "__$prefix${++temp}"
 
-    private fun declareLocal(luaName: String): String {
-        val safe = if (luaName in reserved || luaName.startsWith("lua") || luaName.startsWith("psych") || luaName.startsWith("__")) "v_$luaName" else luaName
+    protected fun declareLocal(luaName: String): String {
+        val safe = localName(luaName)
         scopes.last()[luaName] = safe
         return safe
     }
@@ -300,14 +311,16 @@ class LuaToHScript(
     private fun method(name: String, func: Expr.Func): String {
         val code = Code()
         scopes.addLast(mutableMapOf())
+        functionStack.addLast(name)
         if (func.isVararg) varargDepth++
         val parameters = params(func)
         code.nested {
-            open("function $name($parameters)")
+            open("function ${emitName(name)}($parameters)")
             block(func.body, this, loop = false)
             close()
         }
         if (func.isVararg) varargDepth--
+        functionStack.removeLast()
         scopes.removeLast()
         return "\n" + code.toString()
     }
@@ -333,7 +346,7 @@ class LuaToHScript(
                     val value = values.getOrNull(i) ?: "null"
                     if (chunkLevel) {
                         usedFields += "l_$n"
-                        code.line("l_$n = $value;")
+                        code.line("${emitName("l_$n")} = $value;")
                     } else {
                         val target = declareLocal(n)
                         code.line("var $target = $value;")
@@ -344,7 +357,7 @@ class LuaToHScript(
             is Stat.LocalFunction -> {
                 if (chunkLevel) {
                     usedFields += "l_${stat.name}"
-                    code.line("l_${stat.name} = ${expr(stat.function)};")
+                    code.line("${emitName("l_${stat.name}")} = ${expr(stat.function)};")
                 } else {
                     val n = declareLocal(stat.name)
                     code.line("var $n = null;")
@@ -409,10 +422,7 @@ class LuaToHScript(
             }
             is Stat.NumericFor -> numericFor(stat, code)
             is Stat.GenericFor -> genericFor(stat, code)
-            is Stat.Return -> {
-                if (stat.values.size > 1) issue(stat.line, "Only the first returned value is kept.")
-                code.line(if (stat.values.isEmpty()) "return null;" else "return ${expr(stat.values[0])};")
-            }
+            is Stat.Return -> returnStatement(stat, code)
             is Stat.Break -> code.line("break;")
             is Stat.Goto -> {
                 if (loopContinueLabels.lastOrNull() == stat.label) code.line("continue;")
@@ -523,10 +533,10 @@ class LuaToHScript(
         lookupLocal(name.name)?.let { return it }
         if (name.name in chunkLocals) {
             usedFields += "l_${name.name}"
-            return "l_${name.name}"
+            return emitName("l_${name.name}")
         }
         usedFields += "g_${name.name}"
-        return "g_${name.name}"
+        return emitName("g_${name.name}")
     }
 
     private fun assign(target: Expr, value: String, code: Code) {
@@ -555,8 +565,11 @@ class LuaToHScript(
         is Expr.Paren -> isBoolExpr(e.inner)
         is Expr.Unary -> e.op == "not"
         is Expr.Binary -> e.op in comparison || ((e.op == "and" || e.op == "or") && isBoolExpr(e.left) && isBoolExpr(e.right))
+        is Expr.Call -> boolCall(e)
         else -> false
     }
+
+    protected open fun boolCall(call: Expr.Call): Boolean = false
 
     private fun cond(e: Expr): String = when {
         e is Expr.Paren -> cond(e.inner)
@@ -623,12 +636,14 @@ class LuaToHScript(
     private fun function(func: Expr.Func): String {
         val code = Code()
         scopes.addLast(mutableMapOf())
+        functionStack.addLast(null)
         if (func.isVararg) varargDepth++
         val parameters = params(func)
         code.open("function($parameters)")
         block(func.body, code, loop = false)
         code.close()
         if (func.isVararg) varargDepth--
+        functionStack.removeLast()
         scopes.removeLast()
         return code.lines().joinToString("\n")
     }
@@ -711,13 +726,13 @@ class LuaToHScript(
         lookupLocal(e.name)?.let { return it }
         if (e.name in chunkLocals) {
             usedFields += "l_${e.name}"
-            return "l_${e.name}"
+            return emitName("l_${e.name}")
         }
         if (e.name in assignedGlobals) {
             if ("g_${e.name}" !in methodNames) usedFields += "g_${e.name}"
-            return "g_${e.name}"
+            return emitName("g_${e.name}")
         }
-        if (e.name in PsychApi.constants) return if (e.name == "Function_Continue") "CONTINUE" else "CANCEL"
+        if (e.name in PsychApi.constants) return constantRef(e.name, e.line)
         return when (e.name) {
             "self" -> "self"
             "math", "string", "table", "os", "bit", "coroutine", "io" -> {
@@ -733,7 +748,7 @@ class LuaToHScript(
                     issue(e.line, "Psych function '${e.name}' used as a value is not supported.")
                     "null"
                 } else {
-                    "psychVar(${hxString(e.name)})"
+                    variableRef(e.name, e.line)
                 }
             }
         }
@@ -771,7 +786,7 @@ class LuaToHScript(
         return "luaGet(${expr(e.target)}, ${expr(key)})"
     }
 
-    private fun args(list: List<Expr>): String = list.joinToString(", ") { arg ->
+    protected fun args(list: List<Expr>): String = list.joinToString(", ") { arg ->
         if (arg is Expr.Vararg && varargDepth > 0) (0 until VARARGS).joinToString(", ") { "va$it" } else expr(arg)
     }
 
@@ -800,12 +815,7 @@ class LuaToHScript(
             stdCall(fn.name, e.args, e.line)?.let { return it }
             if (fn.name in PsychApi.implemented || fn.name in PsychApi.notImplemented || fn.name !in PsychApi.variables) {
                 apiCalls += fn.name
-                if (fn.name in PsychApi.notImplemented) {
-                    issue(e.line, "Psych function '${fn.name}' has no V-Slice equivalent yet; the call does nothing.")
-                } else if (fn.name !in PsychApi.implemented) {
-                    issue(e.line, "Unknown function '${fn.name}' (not defined in this script); it has no V-Slice implementation and does nothing.")
-                }
-                return "psych(${hxString(fn.name)}, [${args(e.args)}])"
+                return apiCall(fn.name, e.args, e.line)
             }
         }
         if (fn is Expr.Field) {
@@ -820,7 +830,7 @@ class LuaToHScript(
         return when (name) {
             "print" -> {
                 apiCalls += "debugPrint"
-                "psych(\"debugPrint\", [${args(a)}])"
+                printCall(a, line)
             }
             "tostring" -> {
                 helpers += "luaToString"
@@ -1026,6 +1036,43 @@ class LuaToHScript(
         helpers += "luaGet"
         return "luaSelfCall(${expr(e.target)}, ${hxString(e.name)}, [$callArgs])"
     }
+}
+
+class LuaToHScript(
+    private val className: String,
+    private val moduleId: String,
+    private val target: ScriptTarget,
+    private val siblings: List<String> = emptyList(),
+    private val noteTypes: String = "[]",
+    private val eventNames: Map<String, String> = emptyMap(),
+    private val ownEvent: String? = null,
+    skipLines: Set<Int> = emptySet()
+) : LuaTranspiler(skipLines) {
+    companion object {
+        fun hxString(value: String): String = LuaTranspiler.hxString(value)
+    }
+
+    fun convert(source: String): GeneratedScript {
+        val result = transpile(source) ?: return GeneratedScript(className, moduleId, "", issues, emptyList(), emptySet())
+        val callbacks = globalMethods().filter { it in PsychApi.callbacks }
+        val sourceCode = assemble(result.boot, result.methods, callbacks)
+        return GeneratedScript(className, moduleId, sourceCode, issues.sortedBy { it.line }, callbacks, apiCalls)
+    }
+
+    override fun constantRef(name: String, line: Int): String = if (name == "Function_Continue") "CONTINUE" else "CANCEL"
+
+    override fun variableRef(name: String, line: Int): String = "psychVar(${hxString(name)})"
+
+    override fun apiCall(name: String, args: List<Expr>, line: Int): String {
+        if (name in PsychApi.notImplemented) {
+            issue(line, "Psych function '$name' has no V-Slice equivalent yet; the call does nothing.")
+        } else if (name !in PsychApi.implemented) {
+            issue(line, "Unknown function '$name' (not defined in this script); it has no V-Slice implementation and does nothing.")
+        }
+        return "psych(${hxString(name)}, [${args(args)}])"
+    }
+
+    override fun printCall(args: List<Expr>, line: Int): String = "psych(\"debugPrint\", [${args(args)}])"
 
     private fun assemble(boot: Code, methods: String, callbacks: List<String>): String {
         val callbackRefs = LinkedHashMap<String, CallbackRef>()

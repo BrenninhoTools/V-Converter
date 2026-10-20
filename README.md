@@ -1,19 +1,19 @@
 # V-Converter
 
-A remake of the V-Slice converter as a native Android app written in Kotlin. It converts Friday Night Funkin' content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), and from V-Slice back to Psych.
+A remake of the V-Slice converter as a native Android app written in Kotlin. It converts Friday Night Funkin' content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
 
 ## Status
 
-| Module | Psych → V-Slice | V-Slice → Psych | Codename → V-Slice |
-| --- | --- | --- | --- |
-| Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ | ✅ |
-| Charts | ✅ | ✅ | ✅ |
-| Characters | ✅ | ✅ | ✅ |
-| Stages | ✅ | ✅ | ✅ |
-| Weeks ↔ Levels | ✅ | ✅ | ✅ |
-| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript | ✅ Codename HScript → `.hxc` |
+| Module | Psych → V-Slice | V-Slice → Psych | Codename → V-Slice | Codename → Psych | Psych → Codename |
+| --- | --- | --- | --- | --- | --- |
+| Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Charts | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Characters | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Stages | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Weeks ↔ Levels | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript | ✅ Codename HScript → `.hxc` | ✅ Codename HScript → Psych HScript | ✅ Lua / HScript → Codename HScript |
 
-The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) in the bridge at the top of each tab.
+The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target.
 
 ## Generator
 
@@ -152,6 +152,32 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `data/weeks/weeks/*.xml` + `data/weeks/characters/*.xml` | `data/levels/*.json` with menu props |
 | `.hx` scripts | V-Slice modules scoped like Codename runs them (song, stage, stage extension, character, event, note type, global). `create`/`update`/`beatHit`/`onPlayerHit`/`onEvent`… become module events with Codename-style event objects; `boyfriend`, `camHUD`, `curBeat`, `Conductor.crochet`, stage sprites by name and so on are mapped to the V-Slice API |
 | Mod | `_polymod_meta.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
+
+## Codename → Psych
+
+| Input | Output |
+| --- | --- |
+| `songs/<song>/charts/<diff>.json` + `meta.json` + `events.json` | `data/<song>/<song>-<diff>.json` (Psych 1.0 format): strumlines → sections with `mustHitSection`/`gfSection` from `Camera Movement`, girlfriend strumlines → `GF Sing` notes or a hidden note type, note types renamed (`Alt Anim Note` → `Alt Animation`…), `BPM Change`/`Time Signature Change` → section BPM and beats, `Add Camera Zoom`, `Play Animation`, `Scroll Speed Change` → Psych events |
+| Other events (`Camera Position`, `Camera Zoom`, `Camera Bop`, `Camera Flash`, `Camera Modulo Change`, `HScript Call`, custom ones) | `custom_events/<name>.hx` + `.txt`, with working Psych implementations for the built-in ones and the parameters packed into the two values |
+| Variants | Their own Psych songs (`<song>-<variant>`), audio included |
+| `data/characters/<id>.xml` | `characters/<id>.json`: offsets divided back from the scale, `holdTime` → `sing_duration`, camera offsets per side; character scripts converted |
+| `data/stages/<id>.xml` | `stages/<id>.json` with objects, layers and character spots, plus `stages/<id>.hx` for beat dancers, blends, scroll/scale tweaks, `high-memory` content and stage extensions |
+| `data/weeks/weeks/*.xml` + `data/weeks/characters/*.xml` | `weeks/*.json`, `weeks/weekList.txt`, `images/menucharacters/*.json`; songs outside every week go to a hidden-story freeplay week |
+| `.hx` scripts | Psych HScript: `create`/`postCreate`/`update`/`beatHit`/`onPlayerHit`/`onDadHit`/`onEvent`/`onCountdown`… become Psych callbacks with Codename-style event objects (`event.cancel()` still works), `strumLines`, `stage.getSprite`, `FunkinSprite`, `CustomShader`, `Options`, `Conductor` and so on are mapped to Psych; a small `scripts/CodenameCompat.hx` recreates Codename-only camera settings when needed |
+| Mod | `pack.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
+
+## Psych → Codename
+
+| Input | Output |
+| --- | --- |
+| `data/<song>/<song>-<diff>.json` + `events.json` | `songs/<song>/charts/<diff>.json` + `meta.json`: opponent, player and (hidden) girlfriend strumlines, per-character vocals (`Voices-Player`/`Voices-Opponent`), section focus → `Camera Movement` (kept under forced camera positions), `Camera Follow Pos` → `Camera Position`, `Add Camera Zoom`, `Play Animation`, `Change Scroll Speed`, `Alt Idle Animation`, BPM and time signature changes |
+| `Hey!`, `Set GF Speed`, `Screen Shake`, `Change Character`, `Set Property`, `Play Sound`, `Alt Idle Animation` | `data/events/<name>.hx` + `.json` reimplementing Psych's built-in events in Codename |
+| `Hurt Note`, `Hey!`, `GF Sing` note types | `data/notes/<name>.hx` (avoided by the CPU, health loss on hit, no miss when skipped; hey/cheer animations; sung by the girlfriend) |
+| `characters/<id>.json` | `data/characters/<id>.xml`: offsets divided by the scale, `sing_duration` → `holdTime`, camera offsets per side, spritesheets outside `images/characters/` copied there |
+| `stages/<id>.json` (+ `stages/<id>.lua`) | `data/stages/<id>.xml` with sprites, boxes, quality filters (`low-memory`/`high-memory`), character spots and the pixel extension; sprites made in the stage Lua move into the XML and the rest of the Lua becomes `data/stages/<id>.hx` |
+| `weeks/*.json` + `images/menucharacters/*.json` | `data/weeks/weeks/*.xml` (song folders with display names), `data/weeks/weeks.txt`, `data/weeks/characters/*.xml`, `data/config/freeplaySonglist.txt` |
+| Lua and HScript | Codename HScript: Psych callbacks are bridged from Codename's (`goodNoteHitPre` → `onPlayerHit` with `return Function_Stop` cancelling), Lua sprites become shared `public var`s, `getProperty`/`setProperty`/tweens/timers/cameras/text/shaders/sounds/saves come with small Psych helper functions, `runHaxeCode` blocks are converted inline, `mustHitSection` reads the chart's camera events. Song scripts go to `songs/<song>/scripts/`, global ones to `songs/`, custom events to `data/events/`, note types to `data/notes/` |
+| Mod | `data/config/modpack.ini` from `pack.json`, audio moved to `songs/<song>/song/`, `pack.png` → `icon.png`, assets copied |
 
 ## Building
 

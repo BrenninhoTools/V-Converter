@@ -8,6 +8,7 @@ import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
+import com.brenninhotools.vconverter.core.Report
 import org.json.JSONObject
 
 data class CodenameAnimation(
@@ -90,7 +91,9 @@ object CodenameCharacterParser {
     }
 }
 
-object CodenameToVSliceCharacter {
+data class CodenamePsychBuild(val character: PsychCharacter, val mirrored: Boolean, val notes: Report)
+
+object CodenamePsychCharacter {
     private val swaps = mapOf("singLEFT" to "singRIGHT", "singRIGHT" to "singLEFT")
 
     fun defaultSlot(character: CodenameCharacter): CharacterSlot = when {
@@ -99,12 +102,12 @@ object CodenameToVSliceCharacter {
         else -> CharacterSlot.OPPONENT
     }
 
-    fun convert(
+    fun build(
         character: CodenameCharacter,
         slot: CharacterSlot,
         atlases: Map<String, SparrowAtlas>,
         gameOver: CodenameCharacter? = null
-    ): CharacterResult {
+    ): CodenamePsychBuild {
         val notes = ReportBuilder()
         val mirrored = (slot == CharacterSlot.PLAYER) != character.playerOffsets && slot != CharacterSlot.GIRLFRIEND
         val atlas = atlases[PsychToVSliceCharacter.atlasKey(character.images.first())]
@@ -150,10 +153,12 @@ object CodenameToVSliceCharacter {
                 notes.warn("centercam=\"false\" moves the camera to the character's corner in Codename; without the spritesheet XML the camera offset is approximate.")
             }
         }
-        val psychCamX = when {
-            slot == CharacterSlot.PLAYER -> positionX - character.x - camX
-            else -> character.x + camX - positionX
+        val psychCamX = when (slot) {
+            CharacterSlot.PLAYER -> positionX - character.x - camX
+            CharacterSlot.OPPONENT -> character.x + camX - positionX
+            CharacterSlot.GIRLFRIEND -> 150.0 + character.x + camX - positionX
         }
+        val psychCamY = if (slot == CharacterSlot.GIRLFRIEND) camY - 100.0 else camY
 
         val psych = PsychCharacter(
             image = images.joinToString(","),
@@ -161,39 +166,52 @@ object CodenameToVSliceCharacter {
             positionX = positionX,
             positionY = character.y,
             cameraX = psychCamX,
-            cameraY = camY,
+            cameraY = psychCamY,
             flipX = character.flipX,
             noAntialiasing = !character.antialiasing,
             healthIcon = character.icon,
             healthBarColor = rgb(character.color),
-            singDuration = character.holdTime,
+            singDuration = character.holdTime / 1.1,
             vocalsFile = "",
-            editorIsPlayer = character.playerOffsets,
+            editorIsPlayer = if (mirrored) slot == CharacterSlot.PLAYER else character.playerOffsets,
             animations = animations
         )
-        val result = PsychToVSliceCharacter.convert(CharacterSource(character.id, psych, slot, atlases))
-        val json = JSONObject(result.json)
-        character.interval?.let { json.put("danceEvery", it.coerceAtLeast(1)) }
         if (mirrored) {
             notes.warn("This character was made for the ${if (character.playerOffsets) "player" else "opponent"} side and is used on the other one; Codename mirrors it at runtime, so singLEFT/singRIGHT were swapped and the offsets mirrored.")
         }
         if (character.animations.any { it.label }) {
-            notes.warn("Some animations use Animate frame labels; V-Slice needs symbol names, so check them in the character JSON.")
+            notes.warn("Some animations use Animate frame labels; check them in the converted character.")
         }
-        val report = result.report.let { base ->
-            val extra = notes.build()
-            base.copy(
-                warnings = base.warnings.filterNot { it.startsWith("Psych plays") } + extra.warnings,
-                sections = base.sections.filterNot { it.title == "Notes" } + extra.sections
-            )
-        }
-        return CharacterResult(character.id, json.toString(2), report)
+        return CodenamePsychBuild(psych, mirrored, notes.build())
     }
 
-    private fun rgb(color: String): List<Int> {
+    fun rgb(color: String): List<Int> {
         val hex = color.trim().removePrefix("#").removePrefix("0x").removePrefix("0X").let { if (it.length == 8) it.substring(2) else it }
         if (hex.length != 6) return listOf(161, 161, 161)
         val value = hex.toIntOrNull(16) ?: return listOf(161, 161, 161)
         return listOf((value shr 16) and 0xFF, (value shr 8) and 0xFF, value and 0xFF)
+    }
+}
+
+object CodenameToVSliceCharacter {
+    fun defaultSlot(character: CodenameCharacter): CharacterSlot = CodenamePsychCharacter.defaultSlot(character)
+
+    fun convert(
+        character: CodenameCharacter,
+        slot: CharacterSlot,
+        atlases: Map<String, SparrowAtlas>,
+        gameOver: CodenameCharacter? = null
+    ): CharacterResult {
+        val built = CodenamePsychCharacter.build(character, slot, atlases, gameOver)
+        val result = PsychToVSliceCharacter.convert(CharacterSource(character.id, built.character, slot, atlases))
+        val json = JSONObject(result.json)
+        character.interval?.let { json.put("danceEvery", it.coerceAtLeast(1)) }
+        val report = result.report.let { base ->
+            base.copy(
+                warnings = base.warnings.filterNot { it.startsWith("Psych plays") } + built.notes.warnings.map { it.replace("check them in the converted character", "V-Slice needs symbol names, so check them in the character JSON") },
+                sections = base.sections.filterNot { it.title == "Notes" } + built.notes.sections
+            )
+        }
+        return CharacterResult(character.id, json.toString(2), report)
     }
 }

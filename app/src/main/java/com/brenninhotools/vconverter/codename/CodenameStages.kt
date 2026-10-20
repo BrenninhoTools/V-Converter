@@ -28,6 +28,10 @@ data class CodenameCharacterSpot(
     val flip: Boolean?
 )
 
+data class CodenameBeatSprite(val name: String, val interval: Int, val offset: Int, val anims: List<String>, val onCountdown: Boolean)
+
+data class CodenameProperty(val sprite: String, val path: String, val type: String, val value: String)
+
 data class CodenameStage(
     val id: String,
     val name: String,
@@ -38,7 +42,14 @@ data class CodenameStage(
     val spriteNames: List<String>,
     val extensions: List<String>,
     val notes: List<String>,
-    val warnings: List<String>
+    val warnings: List<String>,
+    val beats: List<CodenameBeatSprite> = emptyList(),
+    val properties: List<CodenameProperty> = emptyList(),
+    val blends: Map<String, String> = emptyMap(),
+    val zoomFactors: Map<String, Double> = emptyMap(),
+    val startCamera: Pair<Double?, Double?>? = null,
+    val ratings: Pair<Double?, Double?>? = null,
+    val extraCharacters: Map<String, CodenameCharacterSpot> = emptyMap()
 )
 
 object CodenameStageParser {
@@ -50,7 +61,7 @@ object CodenameStageParser {
 
     fun isStageXml(raw: String): Boolean = runCatching { XmlNode.parse(raw).name.equals("stage", ignoreCase = true) }.getOrDefault(false)
 
-    fun parse(id: String, raw: String, images: (String) -> ImageInfo? = { null }): CodenameStage {
+    fun parse(id: String, raw: String, includeLowMemory: Boolean = false, images: (String) -> ImageInfo? = { null }): CodenameStage {
         val root = XmlNode.parse(raw)
         if (!root.name.equals("stage", ignoreCase = true)) {
             throw IllegalArgumentException("This XML is not a Codename Engine stage (root is <${root.name}>).")
@@ -59,15 +70,28 @@ object CodenameStageParser {
         val notes = mutableListOf<String>()
         val warnings = mutableListOf<String>()
         val nodes = mutableListOf<XmlNode>()
+        val memory = HashMap<XmlNode, Int>()
         var lowMemory = 0
         root.children.forEach { node ->
             when (node.name.lowercase()) {
-                "high-memory" -> nodes += node.children
-                "low-memory" -> lowMemory += node.children.size
+                "high-memory" -> node.children.forEach {
+                    nodes += it
+                    memory[it] = PsychStageParser.FILTER_HIGH_QUALITY
+                }
+                "low-memory" -> if (includeLowMemory) node.children.forEach {
+                    nodes += it
+                    memory[it] = PsychStageParser.FILTER_LOW_QUALITY
+                } else lowMemory += node.children.size
                 else -> nodes += node
             }
         }
         if (lowMemory > 0) notes += "$lowMemory low-memory-only node(s) were left out (V-Slice always loads the full stage)."
+        val beats = mutableListOf<CodenameBeatSprite>()
+        val properties = mutableListOf<CodenameProperty>()
+        val blends = LinkedHashMap<String, String>()
+        val zoomFactors = LinkedHashMap<String, Double>()
+        var ratings: Pair<Double?, Double?>? = null
+        val extraSpots = LinkedHashMap<String, CodenameCharacterSpot>()
 
         val objects = mutableListOf<PsychStageObject>()
         val spots = LinkedHashMap<String, CodenameCharacterSpot>()
@@ -79,13 +103,19 @@ object CodenameStageParser {
                 "sprite", "spr", "sparrow" -> {
                     val name = node.attr("name") ?: return@forEach
                     spriteNames += name
-                    objects += sprite(node, name, folder, images, warnings)
+                    val obj = sprite(node, name, folder, images, warnings)
+                    objects += memory[node]?.let { obj.copy(filters = it) } ?: obj
+                    beatSprite(node, name)?.let { beats += it }
+                    node.attr("blend")?.takeIf { it.isNotBlank() && it.lowercase() != "normal" }?.let { blends[name] = it.lowercase() }
+                    node.double("zoomfactor")?.takeIf { it != 1.0 }?.let { zoomFactors[name] = it }
+                    properties += properties(node, name)
                 }
                 "box", "solid" -> {
                     val name = node.attr("name") ?: return@forEach
                     val width = node.double("width") ?: return@forEach
                     val height = node.double("height") ?: return@forEach
                     spriteNames += name
+                    properties += properties(node, name)
                     objects += PsychStageObject(
                         type = "square",
                         name = name,
@@ -100,7 +130,7 @@ object CodenameStageParser {
                         antialiasing = true,
                         flipX = false,
                         flipY = false,
-                        filters = PsychStageParser.FILTER_LOW_QUALITY or PsychStageParser.FILTER_HIGH_QUALITY,
+                        filters = memory[node] ?: (PsychStageParser.FILTER_LOW_QUALITY or PsychStageParser.FILTER_HIGH_QUALITY),
                         animations = emptyList(),
                         firstAnimation = ""
                     )
@@ -108,8 +138,14 @@ object CodenameStageParser {
                 "boyfriend", "bf", "player" -> spots["bf"] = spot(node, "bf")
                 "girlfriend", "gf" -> spots["gf"] = spot(node, "gf")
                 "dad", "opponent" -> spots["dad"] = spot(node, "dad")
-                "character", "char" -> node.attr("name")?.let { extraCharacters += it }
-                "ratings", "combo" -> notes += "The ratings position (x ${node.attr("x") ?: "default"}, y ${node.attr("y") ?: "default"}) is not part of V-Slice stages."
+                "character", "char" -> node.attr("name")?.let {
+                    extraCharacters += it
+                    extraSpots[it] = spot(node, "dad").copy(slot = it)
+                }
+                "ratings", "combo" -> {
+                    ratings = node.double("x") to node.double("y")
+                    notes += "The ratings position (x ${node.attr("x") ?: "default"}, y ${node.attr("y") ?: "default"}) is not part of V-Slice stages."
+                }
                 "use-extension", "extension", "ext" -> node.attr("script")?.let { extensions += (node.attr("folder") ?: "data/scripts/").let { f -> if (f.endsWith("/")) f else "$f/" } + it }
             }
         }
@@ -142,8 +178,36 @@ object CodenameStageParser {
             spriteNames = spriteNames,
             extensions = extensions,
             notes = notes,
-            warnings = warnings
+            warnings = warnings,
+            beats = beats,
+            properties = properties,
+            blends = blends,
+            zoomFactors = zoomFactors,
+            startCamera = if (root.has("startCamPosX") || root.has("startCamPosY")) root.double("startCamPosX") to root.double("startCamPosY") else null,
+            ratings = ratings,
+            extraCharacters = extraSpots
         )
+    }
+
+    private fun properties(node: XmlNode, name: String): List<CodenameProperty> =
+        node.elements("property").mapNotNull { p ->
+            val path = p.attr("name") ?: return@mapNotNull null
+            val type = p.attr("type") ?: return@mapNotNull null
+            val value = p.attr("value") ?: return@mapNotNull null
+            if (path == "alpha") null else CodenameProperty(name, path, type.lowercase(), value)
+        }
+
+    private fun beatSprite(node: XmlNode, name: String): CodenameBeatSprite? {
+        val spriteType = (node.attr("type") ?: "loop").trim().lowercase()
+        val animNodes = node.elements("anim")
+        val anims = animNodes.filter { a ->
+            val type = (a.attr("type") ?: spriteType).trim().lowercase()
+            type == "beat" || type == "onbeat"
+        }.mapNotNull { it.attr("name") }
+        val list = if (animNodes.isEmpty() && (spriteType == "beat" || spriteType == "onbeat")) listOf("idle") else anims
+        if (list.isEmpty()) return null
+        val interval = (node.int("beatInterval") ?: node.int("interval") ?: 2).coerceAtLeast(1)
+        return CodenameBeatSprite(name, interval, node.int("beatOffset") ?: 0, list, node.bool("playOnCountdown") ?: false)
     }
 
     private fun marker(type: String) = PsychStageObject(

@@ -14,6 +14,7 @@ import com.brenninhotools.vconverter.io.TreeModWriter
 import com.brenninhotools.vconverter.mod.ModConverter
 import com.brenninhotools.vconverter.mod.ModFiles
 import com.brenninhotools.vconverter.mod.ModInfo
+import com.brenninhotools.vconverter.mod.ModConversionResult
 import com.brenninhotools.vconverter.mod.ModProgress
 import com.brenninhotools.vconverter.mod.ModScan
 import com.brenninhotools.vconverter.mod.ModScanner
@@ -29,7 +30,12 @@ import kotlinx.coroutines.withContext
 
 data class LoadedMod(val sourceName: String, val files: ModFiles, val scan: ModScan)
 
-class ModViewModel(application: Application) : BaseConverterViewModel(application) {
+open class ModViewModel(application: Application) : BaseConverterViewModel(application) {
+    protected open val targetSuffix: String = "vslice"
+
+    protected open fun runConversion(files: ModFiles, scan: ModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        ModConverter(files, scan, writer, progress).convert(info)
+
     var mod by mutableStateOf<LoadedMod?>(null)
         private set
     var title by mutableStateOf("")
@@ -101,7 +107,7 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
 
     override val canDownload: Boolean get() = mod != null
 
-    override fun downloadName(): String = ZipModWriter.folderName(title).replace(' ', '-') + "-vslice.zip"
+    override fun downloadName(): String = ZipModWriter.folderName(title).replace(' ', '-') + "-$targetSuffix.zip"
 
     override fun zipPrefix(): String = ZipModWriter.folderName(title)
 
@@ -109,7 +115,7 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
         val loaded = mod ?: throw IllegalStateException("Open a mod first.")
         result = null
         try {
-            val conversion = ModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info())
+            val conversion = runConversion(loaded.files, loaded.scan, writer, info(), { _progress.value = it })
             result = conversion.report
         } finally {
             _progress.value = null
@@ -127,7 +133,7 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
                 download = null
                 val conversion = withContext(Dispatchers.IO) {
                     val writer = TreeModWriter(context, modFolder)
-                    ModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info)
+                    runConversion(loaded.files, loaded.scan, writer, info, { _progress.value = it })
                 }
                 result = conversion.report
                 status = StatusMessage.Success("Done! Wrote ${conversion.filesWritten} files into ${DocumentIO.folderName(context, modFolder)}.")
@@ -158,4 +164,11 @@ class ModViewModel(application: Application) : BaseConverterViewModel(applicatio
         releaseArchive()
         super.onCleared()
     }
+}
+
+class PsychToCodenameModViewModel(application: Application) : ModViewModel(application) {
+    override val targetSuffix: String = "codename"
+
+    override fun runConversion(files: ModFiles, scan: ModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        com.brenninhotools.vconverter.codename.PsychToCodenameMod(files, scan, writer, progress).convert(info)
 }

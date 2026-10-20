@@ -216,7 +216,7 @@ class CodenameStagesViewModel(application: Application) : CodenameViewModel(appl
         val report = ReportBuilder()
         val outputs = items.filter { it.kind == "stage" }.map { item ->
             val id = stem(item)
-            val result = CodenameToVSliceStage.convert(CodenameStageParser.parse(id, item.text, lookup))
+            val result = CodenameToVSliceStage.convert(CodenameStageParser.parse(id, item.text, images = lookup))
             result.report.warnings.forEach { report.warn("$id: $it") }
             result.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             out("data/stages/$id.json", result.json)

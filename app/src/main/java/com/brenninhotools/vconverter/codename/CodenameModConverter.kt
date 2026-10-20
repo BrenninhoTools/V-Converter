@@ -100,7 +100,7 @@ class CodenameModConverter(
     private fun parseStages(): Map<String, CodenameStage> {
         val result = LinkedHashMap<String, CodenameStage>()
         scan.stages.forEach { (id, path) ->
-            runCatching { CodenameStageParser.parse(id, files.readText(path), ::imageInfo) }
+            runCatching { CodenameStageParser.parse(id, files.readText(path), images = ::imageInfo) }
                 .onSuccess { result[id] = it }
                 .onFailure { report.warn("Stage \"$id\" could not be read: ${it.message}") }
         }
@@ -409,12 +409,13 @@ class CodenameModConverter(
             return runCatching {
                 val values = files.readText(path).lines()
                     .map { it.trim() }
-                    .filter { it.contains('=') && !it.startsWith(";") && !it.startsWith("#") }
+                    .filter { it.contains('=') && !it.startsWith(";") && !it.startsWith("#") && !it.startsWith("[") }
                     .associate { it.substringBefore('=').trim().uppercase() to it.substringAfter('=').trim().trim('"') }
                 ModInfo(
-                    title = values["MOD_NAME"] ?: "",
-                    description = values["MOD_DESCRIPTION"] ?: "",
-                    author = values["MOD_AUTHOR"] ?: ""
+                    title = values["NAME"] ?: values["MOD_NAME"] ?: "",
+                    description = values["DESCRIPTION"] ?: values["MOD_DESCRIPTION"] ?: "",
+                    author = values["AUTHOR"] ?: values["MOD_AUTHOR"] ?: "",
+                    version = values["VERSION"] ?: values["MOD_VERSION"] ?: "1.0.0"
                 )
             }.getOrNull()
         }

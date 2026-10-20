@@ -94,6 +94,18 @@ import com.brenninhotools.vconverter.ui.codename.CodenameModViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameScriptsViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameStagesViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameWeeksViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychModViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychChartsViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychCharactersViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychStagesViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychWeeksViewModel
+import com.brenninhotools.vconverter.ui.codename.CodenameToPsychScriptsViewModel
+import com.brenninhotools.vconverter.ui.codename.PsychToCodenameChartsViewModel
+import com.brenninhotools.vconverter.ui.codename.PsychToCodenameCharactersViewModel
+import com.brenninhotools.vconverter.ui.codename.PsychToCodenameStagesViewModel
+import com.brenninhotools.vconverter.ui.codename.PsychToCodenameWeeksViewModel
+import com.brenninhotools.vconverter.ui.codename.PsychToCodenameScriptsViewModel
+import com.brenninhotools.vconverter.ui.mod.PsychToCodenameModViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseChartsViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseCharactersViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseModScreen
@@ -136,6 +148,22 @@ enum class Tab(
         Direction.PSYCH_TO_VSLICE -> description
         Direction.VSLICE_TO_PSYCH -> reverseDescription
         Direction.CODENAME_TO_VSLICE -> codenameDescription
+        Direction.CODENAME_TO_PSYCH -> when (this) {
+            MOD -> "A full Codename mod into a Psych mod: charts, scripts, events and audio."
+            CHARTS -> "Codename strumline charts and events into Psych difficulty charts."
+            CHARACTERS -> "Character XML into Psych JSON with unscaled offsets."
+            STAGES -> "Stage XML into Psych stage JSON plus a stage script."
+            WEEKS -> "Week XMLs into Psych weeks, weekList.txt and menu characters."
+            SCRIPTS -> "Codename HScript into Psych HScript (.hx) with the right callbacks."
+        }
+        Direction.PSYCH_TO_CODENAME -> when (this) {
+            MOD -> "A full Psych mod into a Codename mod: songs, Lua/HScript, events and audio."
+            CHARTS -> "Psych charts and events.json into Codename strumlines and meta.json."
+            CHARACTERS -> "Character JSON into Codename XML with scaled offsets."
+            STAGES -> "Stage JSON (and stage Lua sprites) into Codename stage XML."
+            WEEKS -> "Psych weeks into week XMLs, weeks.txt and menu characters."
+            SCRIPTS -> "Lua and HScript into Codename HScript with Psych helpers."
+        }
     }
 }
 
@@ -148,15 +176,18 @@ enum class Engine(val label: String, val title: String, val detail: String, val 
 enum class Direction(val from: Engine, val to: Engine) {
     PSYCH_TO_VSLICE(Engine.PSYCH, Engine.VSLICE),
     VSLICE_TO_PSYCH(Engine.VSLICE, Engine.PSYCH),
-    CODENAME_TO_VSLICE(Engine.CODENAME, Engine.VSLICE);
+    CODENAME_TO_VSLICE(Engine.CODENAME, Engine.VSLICE),
+    CODENAME_TO_PSYCH(Engine.CODENAME, Engine.PSYCH),
+    PSYCH_TO_CODENAME(Engine.PSYCH, Engine.CODENAME);
 
     val label: String get() = "${from.title} to ${to.title}"
-    val canSwap: Boolean get() = this != CODENAME_TO_VSLICE
-    fun swapped(): Direction = when (this) {
-        PSYCH_TO_VSLICE -> VSLICE_TO_PSYCH
-        VSLICE_TO_PSYCH -> PSYCH_TO_VSLICE
-        CODENAME_TO_VSLICE -> CODENAME_TO_VSLICE
+    val canSwap: Boolean get() = entries.any { it.from == to && it.to == from }
+    fun swapped(): Direction = entries.firstOrNull { it.from == to && it.to == from } ?: this
+    fun nextTarget(): Direction {
+        val options = entries.filter { it.from == from }
+        return options[(options.indexOf(this) + 1) % options.size]
     }
+    fun retarget(engine: Engine): Direction = entries.firstOrNull { it.from == from && it.to == engine } ?: this
 
     companion object {
         fun from(engine: Engine): Direction = when (engine) {
@@ -164,6 +195,8 @@ enum class Direction(val from: Engine, val to: Engine) {
             Engine.VSLICE -> VSLICE_TO_PSYCH
             Engine.CODENAME -> CODENAME_TO_VSLICE
         }
+
+        fun targets(engine: Engine): List<Engine> = entries.filter { it.from == engine }.map { it.to }
     }
 }
 
@@ -209,6 +242,18 @@ fun MainScreen() {
     val cnStages: CodenameStagesViewModel = viewModel()
     val cnWeeks: CodenameWeeksViewModel = viewModel()
     val cnScripts: CodenameScriptsViewModel = viewModel()
+    val c2pMod: CodenameToPsychModViewModel = viewModel()
+    val c2pCharts: CodenameToPsychChartsViewModel = viewModel()
+    val c2pCharacters: CodenameToPsychCharactersViewModel = viewModel()
+    val c2pStages: CodenameToPsychStagesViewModel = viewModel()
+    val c2pWeeks: CodenameToPsychWeeksViewModel = viewModel()
+    val c2pScripts: CodenameToPsychScriptsViewModel = viewModel()
+    val p2cMod: PsychToCodenameModViewModel = viewModel()
+    val p2cCharts: PsychToCodenameChartsViewModel = viewModel()
+    val p2cCharacters: PsychToCodenameCharactersViewModel = viewModel()
+    val p2cStages: PsychToCodenameStagesViewModel = viewModel()
+    val p2cWeeks: PsychToCodenameWeeksViewModel = viewModel()
+    val p2cScripts: PsychToCodenameScriptsViewModel = viewModel()
     var direction by rememberSaveable { mutableStateOf(Direction.PSYCH_TO_VSLICE) }
 
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }
@@ -231,6 +276,20 @@ fun MainScreen() {
         Tab.STAGES -> cnStages
         Tab.WEEKS -> cnWeeks
         Tab.SCRIPTS -> cnScripts
+    } else if (direction == Direction.CODENAME_TO_PSYCH && target is Tab) when (target) {
+        Tab.MOD -> c2pMod
+        Tab.CHARTS -> c2pCharts
+        Tab.CHARACTERS -> c2pCharacters
+        Tab.STAGES -> c2pStages
+        Tab.WEEKS -> c2pWeeks
+        Tab.SCRIPTS -> c2pScripts
+    } else if (direction == Direction.PSYCH_TO_CODENAME && target is Tab) when (target) {
+        Tab.MOD -> p2cMod
+        Tab.CHARTS -> p2cCharts
+        Tab.CHARACTERS -> p2cCharacters
+        Tab.STAGES -> p2cStages
+        Tab.WEEKS -> p2cWeeks
+        Tab.SCRIPTS -> p2cScripts
     } else when (target) {
         Tab.MOD -> mod
         Tab.CHARTS -> charts
@@ -316,6 +375,30 @@ fun MainScreen() {
                     Tab.STAGES -> ReverseScreen(cnStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Add the stage images (.png and spritesheet .xml) so scaled sprites keep their exact spot.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to V-Slice")
                     Tab.WEEKS -> ReverseScreen(cnWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml plus data/weeks/characters/*.xml for the menu characters.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to V-Slice")
                     Tab.SCRIPTS -> ReverseScreen(cnScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts get the right scope.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to V-Slice")
+                } else if (currentDirection == Direction.CODENAME_TO_PSYCH && current is Tab) when (current) {
+                    Tab.MOD -> CodenameModScreen(
+                        c2pMod, folderName, save,
+                        intro = "Convert a whole Codename Engine mod to Psych: songs and variants, characters, stages (with their scripts), weeks, HScript scripts, events, note types, images and audio.",
+                        infoNote = "Written to pack.json (read from data/config/modpack.ini). icon.png becomes pack.png.",
+                        convertNote = "Download the converted mod as a .zip (unzip it into Psych's mods folder), or write it straight into an empty mod folder."
+                    )
+                    Tab.CHARTS -> ReverseScreen(c2pCharts, Funkin.Down, "Songs", "Add Codename charts", "Pick songs/<song>/charts/*.json with meta.json and events.json, plus data/events/*.json for custom event params. Variants become their own Psych songs.", R.drawable.ic_tab_chart, folderName, save)
+                    Tab.CHARACTERS -> ReverseScreen(c2pCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) so scaled offsets stay exact.", R.drawable.ic_tab_character, folderName, save)
+                    Tab.STAGES -> ReverseScreen(c2pStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Sprites become stage objects; beat dancers, blends and extra settings go into a stage script.", R.drawable.ic_tab_stage, folderName, save)
+                    Tab.WEEKS -> ReverseScreen(c2pWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml, data/weeks/characters/*.xml and the songs' meta.json for freeplay icons and colors.", R.drawable.ic_tab_week, folderName, save)
+                    Tab.SCRIPTS -> ReverseScreen(c2pScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts land in the right Psych folder.", R.drawable.ic_tab_script, folderName, save)
+                } else if (currentDirection == Direction.PSYCH_TO_CODENAME && current is Tab) when (current) {
+                    Tab.MOD -> ModScreen(
+                        p2cMod, folderName, save,
+                        intro = "Convert a whole Psych Engine mod to Codename: songs, characters, stages, weeks, Lua/HScript scripts, custom events, note types, images and audio.",
+                        infoNote = "Written to data/config/modpack.ini. pack.png becomes icon.png.",
+                        convertNote = "Download the converted mod as a .zip (unzip it into Codename's mods folder), or write it straight into an empty mod folder."
+                    )
+                    Tab.CHARTS -> ReverseScreen(p2cCharts, Funkin.Down, "Songs", "Add Psych charts", "Pick data/<song>/<song>-<difficulty>.json and events.json. Each song folder becomes songs/<song>/charts with a meta.json.", R.drawable.ic_tab_chart, folderName, save, buttonText = "Convert to Codename")
+                    Tab.CHARACTERS -> ReverseScreen(p2cCharacters, Funkin.Left, "Characters", "Add Psych characters", "Pick characters/*.json. Offsets are scaled for Codename and the side decides the camera offsets.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to Codename")
+                    Tab.STAGES -> ReverseScreen(p2cStages, Funkin.Up, "Stages", "Add Psych stages", "Pick stages/*.json and, if the stage builds its sprites in Lua, stages/<stage>.lua: those sprites move into the stage XML.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to Codename")
+                    Tab.WEEKS -> ReverseScreen(p2cWeeks, Funkin.Right, "Weeks", "Add Psych weeks", "Pick weeks/*.json and images/menucharacters/*.json.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to Codename")
+                    Tab.SCRIPTS -> ReverseScreen(p2cScripts, Funkin.Lavender, "Scripts", "Add Lua / HScript", "Pick .lua and .hx scripts. Archives keep the folders, so scripts/, data/<song>/, stages/, custom_events/ and custom_notetypes/ land in the right Codename folder. Add stages/*.json for stage scripts.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to Codename")
                 } else if (currentDirection == Direction.VSLICE_TO_PSYCH) when (current) {
                     Tab.MOD -> ReverseModScreen(revMod, folderName, save)
                     Tab.CHARTS -> ReverseScreen(revCharts, Funkin.Down, "Songs", "Add V-Slice songs", "Pick a song's <song>-metadata.json and <song>-chart.json (and -erect variants). Variations become their own Psych songs. Archives work too.", R.drawable.ic_tab_chart, folderName, save)
@@ -554,7 +637,7 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
 
 @Composable
 private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
-    val turn by animateFloatAsState(if (direction.from == Engine.VSLICE) 180f else 0f, animationSpec = spring(dampingRatio = 0.55f, stiffness = 300f), label = "swap")
+    val turn by animateFloatAsState(if (direction.from.ordinal > direction.to.ordinal) 180f else 0f, animationSpec = spring(dampingRatio = 0.55f, stiffness = 300f), label = "swap")
     val from = direction.from
     val to = direction.to
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -564,7 +647,7 @@ private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
                     val engines = Engine.entries
                     onChange(Direction.from(engines[(engines.indexOf(from) + 1) % engines.size]))
                 }
-                EngineCard("To", to, Modifier.weight(1f)) { if (direction.canSwap) onChange(direction.swapped()) }
+                EngineCard("To", to, Modifier.weight(1f)) { onChange(direction.nextTarget()) }
             }
             Box(
                 modifier = Modifier
@@ -588,12 +671,13 @@ private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
                 )
             }
         }
-        SourcePicker(direction.from) { onChange(Direction.from(it)) }
+        SourcePicker("SOURCE", direction.from, Engine.entries) { onChange(if (it == direction.from) direction else Direction.from(it)) }
+        SourcePicker("TARGET", direction.to, Direction.targets(direction.from)) { onChange(direction.retarget(it)) }
     }
 }
 
 @Composable
-private fun SourcePicker(selected: Engine, onSelect: (Engine) -> Unit) {
+private fun SourcePicker(caption: String, selected: Engine, enabled: List<Engine>, onSelect: (Engine) -> Unit) {
     val outer = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
@@ -605,11 +689,12 @@ private fun SourcePicker(selected: Engine, onSelect: (Engine) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("SOURCE", style = MaterialTheme.typography.labelSmall, color = Funkin.Muted, modifier = Modifier.padding(horizontal = 8.dp))
+        Text(caption, style = MaterialTheme.typography.labelSmall, color = Funkin.Muted, modifier = Modifier.width(56.dp).padding(start = 8.dp))
         Engine.entries.forEach { engine ->
             val active = engine == selected
+            val usable = engine in enabled
             val fill by animateColorAsState(if (active) engine.color else Color.Transparent, label = "source")
-            val content by animateColorAsState(if (active) Funkin.Ink else Funkin.Muted, label = "sourceText")
+            val content by animateColorAsState(if (active) Funkin.Ink else if (usable) Funkin.Muted else Funkin.Muted.copy(alpha = 0.35f), label = "sourceText")
             val shape = RoundedCornerShape(11.dp)
             Box(
                 modifier = Modifier
@@ -617,7 +702,7 @@ private fun SourcePicker(selected: Engine, onSelect: (Engine) -> Unit) {
                     .height(32.dp)
                     .clip(shape)
                     .background(fill)
-                    .clickable { onSelect(engine) },
+                    .clickable(enabled = usable) { onSelect(engine) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(engine.label, style = MaterialTheme.typography.labelMedium, color = content, maxLines = 1)
