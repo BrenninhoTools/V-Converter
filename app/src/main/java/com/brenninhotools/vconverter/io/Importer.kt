@@ -3,38 +3,9 @@ package com.brenninhotools.vconverter.io
 import android.content.Context
 import android.net.Uri
 import com.brenninhotools.vconverter.mod.ArchiveKind
-import com.brenninhotools.vconverter.mod.DirectoryModFiles
-import com.brenninhotools.vconverter.mod.ZipExtractor
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
 import java.util.UUID
-
-class ImportedFile(
-    val name: String,
-    val path: String,
-    val fromArchive: Boolean,
-    private val opener: () -> InputStream
-) {
-    val extension: String get() = name.substringAfterLast('.', "").lowercase()
-
-    fun open(): InputStream = opener()
-
-    fun readText(): String = open().use { it.readBytes().toString(Charsets.UTF_8) }
-
-    fun isUnder(folder: String): Boolean {
-        val segments = path.lowercase().split('/')
-        return segments.dropLast(1).contains(folder.lowercase())
-    }
-}
-
-class ExtractedArchive(val name: String, val kind: ArchiveKind, val directory: File) {
-    val files: DirectoryModFiles by lazy { DirectoryModFiles(directory) }
-
-    fun delete() {
-        directory.parentFile?.deleteRecursively()
-    }
-}
 
 object Importer {
     private const val CACHE_FOLDER = "imports"
@@ -60,25 +31,17 @@ object Importer {
         kind: ArchiveKind,
         onProgress: (Int, Int) -> Unit = { _, _ -> }
     ): ExtractedArchive {
-        val session = File(File(context.cacheDir, CACHE_FOLDER), UUID.randomUUID().toString())
-        session.mkdirs()
-        val copy = File(session, "source.bin")
-        val target = File(session, "files")
+        val cache = File(context.cacheDir, CACHE_FOLDER)
+        cache.mkdirs()
+        val copy = File(cache, "${UUID.randomUUID()}.bin")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 copy.outputStream().use { input.copyTo(it, 64 * 1024) }
             } ?: throw IOException("Could not open $name.")
-            when (kind) {
-                ArchiveKind.ZIP -> ZipExtractor.extract(copy, target, onProgress)
-                ArchiveKind.RAR, ArchiveKind.SEVEN_ZIP -> SevenZipExtractor.extract(copy, target, onProgress)
-            }
-        } catch (e: Exception) {
-            session.deleteRecursively()
-            throw if (e is IOException) e else IOException(e.message ?: "Could not extract $name.", e)
+            return Archives.extract(copy, name, kind, cache, onProgress)
         } finally {
             copy.delete()
         }
-        return ExtractedArchive(name, kind, target)
     }
 
     fun importFiles(context: Context, uris: List<Uri>): Pair<List<ImportedFile>, List<ExtractedArchive>> {

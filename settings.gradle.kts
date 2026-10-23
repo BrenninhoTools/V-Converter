@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "V-Converter"
 include(":app")
+include(":desktop")

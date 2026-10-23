@@ -29,11 +29,7 @@ sealed interface StatusMessage {
     data class Error(override val text: String) : StatusMessage
 }
 
-data class ConvertedOutput(
-    val files: List<OutputFile>,
-    val report: Report,
-    val preview: String? = null
-)
+typealias ConvertedOutput = com.brenninhotools.vconverter.convert.ConvertedOutput
 
 abstract class BaseConverterViewModel(application: Application) : AndroidViewModel(application) {
     var busy by mutableStateOf(false)

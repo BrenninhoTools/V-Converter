@@ -38,3 +38,45 @@ jobs:
           name: V-Converter-debug
           path: app/build/outputs/apk/debug/*.apk
           compression-level: 0
+
+  windows:
+    name: Windows App
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Build installers and portable app
+        shell: bash
+        run: ./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable --build-cache --parallel
+
+      - name: Zip portable app
+        shell: pwsh
+        run: Compress-Archive -Path desktop/build/compose/binaries/main/app/V-Converter -DestinationPath V-Converter-windows-portable.zip
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Converter-windows-installer
+          path: |
+            desktop/build/compose/binaries/main/msi/*.msi
+            desktop/build/compose/binaries/main/exe/*.exe
+          compression-level: 0
+
+      - name: Upload portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Converter-windows-portable
+          path: V-Converter-windows-portable.zip
+          compression-level: 0

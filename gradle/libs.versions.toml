@@ -9,6 +9,9 @@ documentFile = "1.0.1"
 junit = "4.13.2"
 orgJson = "20240303"
 sevenZip = "Release-16.02-2.03"
+sevenZipDesktop = "16.02-2.01"
+composeMultiplatform = "1.7.3"
+coroutines = "1.9.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -20,6 +23,9 @@ androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentFile" }
 sevenzip-jbinding = { group = "com.github.omicronapps", name = "7-Zip-JBinding-4Android", version.ref = "sevenZip" }
+sevenzip-desktop = { group = "net.sf.sevenzipjbinding", name = "sevenzipjbinding", version.ref = "sevenZipDesktop" }
+sevenzip-desktop-platforms = { group = "net.sf.sevenzipjbinding", name = "sevenzipjbinding-all-platforms", version.ref = "sevenZipDesktop" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
@@ -27,3 +33,5 @@ org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
