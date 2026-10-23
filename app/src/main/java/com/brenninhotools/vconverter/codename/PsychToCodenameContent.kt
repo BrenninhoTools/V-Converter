@@ -221,14 +221,24 @@ object PsychToCodenameStage {
             xml.leaf("sprite", *attrs)
             return
         }
-        xml.open("sprite", *attrs, "type" to "loop")
         val first = obj.firstAnimation.ifEmpty { obj.animations.first().anim }
-        val ordered = obj.animations.filter { it.anim != first } + obj.animations.filter { it.anim == first }
+        val bops = obj.danceEvery > 0.0
+        val alternate = bops && obj.animations.any { it.anim == "danceLeft" } && obj.animations.any { it.anim == "danceRight" } && first in setOf("danceLeft", "danceRight")
+        val beatAnims = when {
+            !bops -> emptySet()
+            alternate -> setOf("danceLeft", "danceRight")
+            else -> setOf(first)
+        }
+        if (bops) xml.open("sprite", *attrs, "type" to "beat", "beatInterval" to Math.round(obj.danceEvery).toInt().coerceAtLeast(1))
+        else xml.open("sprite", *attrs, "type" to "loop")
+        val ordered = if (bops) obj.animations.sortedBy { if (it.anim == "danceLeft") 0 else if (it.anim in beatAnims) 1 else 2 }
+        else obj.animations.filter { it.anim != first } + obj.animations.filter { it.anim == first }
         ordered.forEach { anim ->
             xml.leaf(
                 "anim",
                 "name" to anim.anim,
-                "anim" to anim.prefix,
+                "type" to if (bops && anim.anim !in beatAnims) "none" else null,
+                "anim" to anim.prefix.takeIf { it.isNotEmpty() },
                 "fps" to anim.fps,
                 "loop" to anim.loop.toString(),
                 "indices" to anim.indices.takeIf { it.isNotEmpty() }?.let { PsychToCodenameCharacter.numberRange(it) },

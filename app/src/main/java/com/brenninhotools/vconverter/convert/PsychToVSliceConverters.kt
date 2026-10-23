@@ -128,27 +128,40 @@ class PsychStagesConverter : PsychToVSliceConverter() {
 
     override fun downloadName() = "stages-vslice.zip"
 
-    override fun accept(file: ImportedFile) = file.extension == "json" || file.extension == "lua"
+    override fun accept(file: ImportedFile) = file.extension == "json" || file.extension == "lua" || (file.extension == "xml" && file.isUnder("images"))
 
     override fun classify(file: ImportedFile, text: String): PickedText {
         if (file.extension == "lua") return PickedText(file.path, file.name, file.path, text, "lua", "Stage Lua")
+        if (file.extension == "xml") {
+            val atlas = SparrowAtlas.parse(text)
+            require(atlas.frames.isNotEmpty()) { "not a Sparrow spritesheet" }
+            val image = psychParts(file.path).let { parts -> parts.indexOfLast { it.equals("images", true) }.let { i -> if (i >= 0) parts.drop(i + 1) else listOf(parts.last()) } }.joinToString("/").substringBeforeLast('.')
+            return PickedText(file.path, file.name, file.path, text, "atlas", image)
+        }
         val stage = PsychStageParser.parse(text)
         return PickedText(file.path, file.name, file.path, text, "stage", "${stage.objects?.size ?: 0} objects")
     }
+
+    override fun canConvert(items: List<PickedText>): Boolean = items.any { it.kind == "stage" || it.kind == "lua" }
 
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
         val json = items.filter { it.kind == "stage" }.associateBy { stem(it) }
         val lua = items.filter { it.kind == "lua" }.associateBy { stem(it) }
+        val atlases = items.filter { it.kind == "atlas" }.map { it.label.lowercase() to SparrowAtlas.parse(it.text) }
+        val lookup: (String) -> SparrowAtlas? = { image ->
+            val key = image.lowercase()
+            atlases.firstOrNull { it.first == key }?.second ?: atlases.firstOrNull { it.first.substringAfterLast('/') == key.substringAfterLast('/') }?.second
+        }
         val outputs = (json.keys + lua.keys).distinct().map { id ->
             var stage = json[id]?.let { PsychStageParser.parse(it.text) } ?: LuaStageExtractor.defaultStage()
             lua[id]?.let { script ->
-                val props = LuaStageExtractor.extract(script.text)
+                val props = LuaStageExtractor.extract(script.text, stage.objectNames)
                 stage = LuaStageExtractor.merge(stage, props)
                 if (props.notes.isNotEmpty()) report.section("$id · Lua stage", props.notes)
             }
             if (json[id] == null) report.warn("$id: no stage .json was added; default character positions were used.")
-            val converted = PsychToVSliceStage.convert(StageSource(id, stage))
+            val converted = PsychToVSliceStage.convert(StageSource(id, stage, atlas = lookup))
             converted.report.stats.firstOrNull { it.label == "Props" }?.let { report.stat("$id props", it.value) }
             converted.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             converted.report.warnings.forEach { report.warn("$id: $it") }

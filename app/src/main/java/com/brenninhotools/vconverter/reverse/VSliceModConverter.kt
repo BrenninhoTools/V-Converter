@@ -125,6 +125,13 @@ class VSliceModConverter(
     private var done = 0
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.levels.size + scan.scripts.size + scan.assets.size + 2
 
+    private val atlasCache = HashMap<String, SparrowAtlas?>()
+
+    private fun stageAtlas(image: String): SparrowAtlas? = atlasCache.getOrPut(image.lowercase()) {
+        val xml = index["${scan.root}images/$image.xml".lowercase()] ?: return@getOrPut null
+        runCatching { SparrowAtlas.parse(files.readText(xml)) }.getOrNull()?.takeIf { it.frames.isNotEmpty() }
+    }
+
     private fun step(label: String) {
         done++
         onProgress(ModProgress(done.coerceAtMost(total), total, label))
@@ -178,9 +185,11 @@ class VSliceModConverter(
             try {
                 val stage = VSliceParser.stage(files.readText(path))
                 zooms[id] = stage.cameraZoom
-                val result = VSliceToPsychStage.convert(id, stage)
+                val result = VSliceToPsychStage.convert(id, stage, ::stageAtlas)
                 write(result.path, result.json)
+                result.extra.forEach { (path, text) -> write(path, text) }
                 result.report.warnings.forEach { report.warn("Stage $id: $it") }
+                result.report.sections.filter { it.title == "Notes" }.forEach { section -> section.lines.filter { it.startsWith("stages/") }.takeIf { it.isNotEmpty() }?.let { report.section("Stage $id", it) } }
             } catch (e: Exception) {
                 report.warn("Stage \"$id\" was not converted: ${e.message}")
             }

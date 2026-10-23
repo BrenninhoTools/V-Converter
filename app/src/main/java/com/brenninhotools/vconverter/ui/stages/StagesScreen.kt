@@ -27,7 +27,7 @@ fun StagesScreen(viewModel: StagesViewModel, modFolderName: String?, onSave: () 
             SectionTitle("Stages", accent, 1)
             DropZone(
                 title = "Add Psych stages",
-                hint = "Pick stage .json files from the stages folder, plus the stage's .lua if it builds sprites in a script: they become V-Slice props. Archives (.zip/.rar/.7z) work too.",
+                hint = "Pick stage .json files from the stages folder, plus the stage's .lua if it builds sprites in a script: they become V-Slice props. Add the animated sprites' .xml (images/…) so scaled animations keep their exact offsets. Archives (.zip/.rar/.7z) work too.",
                 accent = accent,
                 icon = R.drawable.ic_tab_stage,
                 enabled = !busy,
@@ -50,6 +50,9 @@ fun StagesScreen(viewModel: StagesViewModel, modFolderName: String?, onSave: () 
                         }
                         Tag("Zoom ${item.stage.defaultZoom}", Funkin.Muted)
                         if (item.stage.isPixelStage) Tag("Pixel", Funkin.Left)
+                        val sheets = viewModel.atlases.keys.map { it.substringAfterLast('/') }.toSet()
+                        val animated = objects?.filter { it.type == "animatedSprite" }?.map { it.image.substringAfterLast('/').lowercase() }?.distinct() ?: emptyList()
+                        if (animated.isNotEmpty()) Tag("${animated.count { it in sheets }}/${animated.size} spritesheets", if (animated.all { it in sheets }) Funkin.Up else Funkin.Muted)
                     }
                 ) {
                     FunkinTextField(item.id, { viewModel.setId(index, it) }, "Stage id", accent, enabled = !busy)

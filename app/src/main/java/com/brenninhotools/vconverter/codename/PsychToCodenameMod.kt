@@ -166,7 +166,7 @@ class PsychToCodenameMod(
                 var skip: Set<Int> = emptySet()
                 val luaNotes = mutableListOf<String>()
                 if (luaScript != null) {
-                    val props = LuaStageExtractor.extract(files.readText(luaScript.path))
+                    val props = LuaStageExtractor.extract(files.readText(luaScript.path), stage.objectNames)
                     stage = LuaStageExtractor.merge(stage, props)
                     skip = props.removedLines
                     if (!props.isEmpty) luaNotes += "${props.behind.size + props.front.size} sprite(s) created in stages/$id.lua were moved into the stage XML."

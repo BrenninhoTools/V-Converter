@@ -104,28 +104,45 @@ object VSliceToPsychCharacter {
 }
 
 object VSliceToPsychStage {
-    fun convert(id: String, stage: VStage): ReverseResult {
+    private const val PSYCH_GF_SCROLL = 0.95
+
+    private fun lua(text: String) = "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+    private fun num(value: Double): String = value.toJsonNumber().toString()
+
+    fun convert(id: String, stage: VStage, atlas: (String) -> SparrowAtlas? = { null }): ReverseResult {
         val report = ReportBuilder()
         val objects = mutableListOf<Pair<Int, JSONObject>>()
-        val markers = listOf(
-            stage.girlfriend.zIndex to "gfGroup",
+        val beats = mutableListOf<String>()
+        val hideGf = stage.girlfriend.alpha <= 0.0
+        val markers = listOfNotNull(
+            if (hideGf) null else stage.girlfriend.zIndex to "gfGroup",
             stage.dad.zIndex to "dadGroup",
             stage.boyfriend.zIndex to "boyfriendGroup"
         )
+        val setup = mutableListOf<String>()
+        val steps = mutableListOf<String>()
+        val notes = mutableListOf<String>()
         var pixel = false
-        stage.props.forEach { prop ->
+        var bops = 0
+        var fixedOffsets = 0
+        val used = HashSet<String>()
+        stage.props.forEachIndexed { index, prop ->
+            var name = prop.name.ifBlank { "prop$index" }
+            var n = 2
+            while (!used.add(name)) name = "${prop.name.ifBlank { "prop$index" }}${n++}"
             val obj = JSONObject()
             val solid = prop.assetPath.startsWith("#")
-            val animated = prop.animations.isNotEmpty()
+            val animated = prop.animations.isNotEmpty() && !solid
             obj.put("type", if (solid) "square" else if (animated) "animatedSprite" else "sprite")
-            obj.put("name", prop.name)
+            obj.put("name", name)
             obj.put("x", prop.x.toJsonNumber())
             obj.put("y", prop.y.toJsonNumber())
             obj.put("scale", JSONArray(listOf(prop.scaleX.toJsonNumber(), prop.scaleY.toJsonNumber())))
             obj.put("scroll", JSONArray(listOf(prop.scrollX.toJsonNumber(), prop.scrollY.toJsonNumber())))
             obj.put("alpha", prop.alpha.toJsonNumber())
             obj.put("angle", prop.angle.toJsonNumber())
-            obj.put("color", if (solid) prop.assetPath.removePrefix("#").uppercase() else prop.color.removePrefix("#").ifEmpty { "FFFFFF" }.uppercase())
+            obj.put("color", colorHex(if (solid) prop.assetPath else prop.color))
             obj.put("filters", 3)
             if (!solid) {
                 obj.put("image", prop.assetPath)
@@ -133,28 +150,98 @@ object VSliceToPsychStage {
                 obj.put("flipY", prop.flipY)
                 obj.put("antialiasing", !prop.isPixel)
                 if (prop.isPixel) pixel = true
-                if (animated) {
-                    val anims = JSONArray()
-                    prop.animations.forEach { anim ->
-                        anims.put(
-                            JSONObject()
-                                .put("anim", anim.name)
-                                .put("name", anim.prefix)
-                                .put("fps", anim.frameRate)
-                                .put("loop", anim.looped)
-                                .put("indices", JSONArray(anim.indices))
-                                .put("offsets", JSONArray(listOf((anim.offsetX * prop.scaleX).toJsonNumber(), (anim.offsetY * prop.scaleY).toJsonNumber())))
-                        )
+            } else {
+                obj.put("antialiasing", false)
+            }
+            if (prop.blend.isNotBlank() && !prop.blend.equals("normal", true)) setup += "setBlendMode(${lua(name)}, ${lua(prop.blend.lowercase())})"
+            if (animated) {
+                val scaled = prop.scaleX != 1.0 || prop.scaleY != 1.0
+                val start = prop.startingAnimation.takeIf { s -> prop.animations.any { it.name == s } }
+                val first = if (scaled) atlas(prop.assetPath)?.firstFrame else null
+                val hitboxX = if (first != null) 0.5 * first.sourceWidth * (1 - prop.scaleX) else 0.0
+                val hitboxY = if (first != null) 0.5 * first.sourceHeight * (1 - prop.scaleY) else 0.0
+                val anims = JSONArray()
+                val packer = prop.animType == "packer"
+                prop.animations.forEach { anim ->
+                    if (packer) {
+                        setup += "addAnimation(${lua(name)}, ${lua(anim.name)}, {${anim.indices.joinToString(", ")}}, ${anim.frameRate}, ${anim.looped})"
+                        setup += "addOffset(${lua(name)}, ${lua(anim.name)}, ${num(round(hitboxX + anim.offsetX * prop.scaleX))}, ${num(round(hitboxY + anim.offsetY * prop.scaleY))})"
+                        return@forEach
                     }
-                    obj.put("animations", anims)
-                    obj.put("firstAnimation", prop.startingAnimation.ifEmpty { prop.animations.first().name })
-                    if (prop.animType != "sparrow") report.warn("\"${prop.name}\" uses ${prop.animType} frames; Psych reads the image as an atlas automatically, check it in the Stage Editor.")
+                    anims.put(
+                        JSONObject()
+                            .put("anim", anim.name)
+                            .put("name", anim.prefix)
+                            .put("fps", anim.frameRate)
+                            .put("loop", anim.looped)
+                            .put("indices", JSONArray(anim.indices))
+                            .put("offsets", JSONArray(listOf(round(hitboxX + anim.offsetX * prop.scaleX).toJsonNumber(), round(hitboxY + anim.offsetY * prop.scaleY).toJsonNumber())))
+                    )
+                }
+                obj.put("animations", anims)
+                obj.put("firstAnimation", start ?: prop.animations.first().name)
+                if (start == null && prop.danceEvery <= 0.0) setup += "setProperty(${lua("$name.animation.paused")}, true)"
+                if (packer) {
+                    setup += "playAnim(${lua(name)}, ${lua(start ?: prop.animations.first().name)}, true)"
+                    notes += "\"$name\" uses a Packer (.txt) spritesheet: its frame-index animations are added by stages/$id.lua, since Psych stage files only take prefix animations."
+                } else if (prop.animType == "animateatlas") {
+                    report.warn("\"$name\" is an Adobe Animate texture atlas; Psych stage objects cannot load those, so it needs a FlxAnimate sprite made in a script.")
+                } else if (prop.animType != "sparrow") {
+                    report.warn("\"$name\" uses ${prop.animType} frames; check it in Psych's Stage Editor.")
+                }
+                if (scaled && !packer) {
+                    fixedOffsets++
+                    if (first == null) {
+                        setup += "local ${luaVar(name, "x")}, ${luaVar(name, "y")} = getProperty(${lua("$name.offset.x")}), getProperty(${lua("$name.offset.y")})"
+                        prop.animations.forEach { anim ->
+                            setup += "addOffset(${lua(name)}, ${lua(anim.name)}, ${luaVar(name, "x")} + ${num(anim.offsetX * prop.scaleX)}, ${luaVar(name, "y")} + ${num(anim.offsetY * prop.scaleY)})"
+                        }
+                    }
+                    if (start != null) setup += "playAnim(${lua(name)}, ${lua(start)}, true)"
+                }
+                if (prop.danceEvery > 0.0) {
+                    val integral = prop.danceEvery == Math.floor(prop.danceEvery)
+                    val alternate = prop.animations.any { it.name == "danceLeft" } && prop.animations.any { it.name == "danceRight" }
+                    if (alternate && integral && prop.danceEvery == 1.0) {
+                        beats += "if curBeat % 2 == 0 then"
+                        beats += "\tplayAnim(${lua(name)}, 'danceLeft', false)"
+                        beats += "else"
+                        beats += "\tplayAnim(${lua(name)}, 'danceRight', false)"
+                        beats += "end"
+                        bops++
+                    } else if (alternate) {
+                        val every = num(prop.danceEvery * 4.0)
+                        steps += "if curStep % $every == 0 then"
+                        steps += "\tdanced[${lua(name)}] = not danced[${lua(name)}]"
+                        steps += "\tplayAnim(${lua(name)}, danced[${lua(name)}] and 'danceLeft' or 'danceRight', false)"
+                        steps += "end"
+                        bops++
+                    } else if (prop.animations.any { it.name == "idle" }) {
+                        if (integral) beats += "if curBeat % ${num(prop.danceEvery)} == 0 then playAnim(${lua(name)}, 'idle', false) end"
+                        else steps += "if curStep % ${num(prop.danceEvery * 4.0)} == 0 then playAnim(${lua(name)}, 'idle', false) end"
+                        bops++
+                    } else {
+                        report.warn("\"$name\" dances every ${num(prop.danceEvery)} beat(s) in V-Slice but has no idle or danceLeft/danceRight animation, so it does not bop there either.")
+                    }
                 }
             }
             objects += prop.zIndex * 10 to obj
         }
-        markers.forEach { (z, type) -> objects += z * 10 + 5 to JSONObject().put("type", type) }
+        markers.forEachIndexed { i, (z, type) -> objects += z * 10 + 5 + i to JSONObject().put("type", type) }
         val ordered = JSONArray(objects.sortedBy { it.first }.map { it.second })
+
+        fun characterSetup(c: VStageCharacter, tag: String, defaultScroll: Double) {
+            if (c.scroll != defaultScroll || c.scrollY != defaultScroll) {
+                setup += "setProperty(${lua("$tag.scrollFactor.x")}, ${num(c.scroll)})"
+                setup += "setProperty(${lua("$tag.scrollFactor.y")}, ${num(c.scrollY)})"
+            }
+            if (c.alpha != 1.0) setup += "setProperty(${lua("$tag.alpha")}, ${num(c.alpha)})"
+            if (c.angle != 0.0) setup += "setProperty(${lua("$tag.angle")}, ${num(c.angle)})"
+            if (c.scale != 1.0) report.warn("The $tag is scaled by ${num(c.scale)} on this stage; Psych stages cannot scale characters, so scale the character JSON instead.")
+        }
+        characterSetup(stage.boyfriend, "boyfriend", 1.0)
+        characterSetup(stage.dad, "dad", 1.0)
+        if (!hideGf) characterSetup(stage.girlfriend, "gf", PSYCH_GF_SCROLL)
 
         fun pos(c: VStageCharacter, slot: CharacterSlot) = JSONArray(listOf((c.x - slot.stageAnchorX).toJsonNumber(), (c.y - slot.stageAnchorY).toJsonNumber()))
         fun cam(c: VStageCharacter, slot: CharacterSlot) = JSONArray(listOf((c.cameraX - slot.cameraBaseX).toJsonNumber(), (c.cameraY - slot.cameraBaseY).toJsonNumber()))
@@ -166,18 +253,55 @@ object VSliceToPsychStage {
             .put("boyfriend", pos(stage.boyfriend, CharacterSlot.PLAYER))
             .put("girlfriend", pos(stage.girlfriend, CharacterSlot.GIRLFRIEND))
             .put("opponent", pos(stage.dad, CharacterSlot.OPPONENT))
-            .put("hide_girlfriend", false)
+            .put("hide_girlfriend", hideGf)
             .put("camera_boyfriend", cam(stage.boyfriend, CharacterSlot.PLAYER))
             .put("camera_opponent", cam(stage.dad, CharacterSlot.OPPONENT))
             .put("camera_girlfriend", cam(stage.girlfriend, CharacterSlot.GIRLFRIEND))
             .put("camera_speed", 1)
             .put("objects", ordered)
+
+        val extra = mutableListOf<Pair<String, String>>()
+        if (setup.isNotEmpty() || steps.isNotEmpty() || beats.isNotEmpty()) {
+            val script = StringBuilder()
+            fun block(header: String, lines: List<String>) {
+                if (lines.isEmpty()) return
+                if (script.isNotEmpty()) script.append('\n')
+                script.append(header).append('\n')
+                lines.forEach { script.append('\t').append(it).append('\n') }
+                script.append("end\n")
+            }
+            if (steps.any { it.contains("danced[") }) script.append("local danced = {}\n")
+            block("function onCreatePost()", setup)
+            block("function onBeatHit()", beats)
+            block("function onStepHit()", steps)
+            extra += "stages/$id.lua" to script.toString()
+            val parts = mutableListOf<String>()
+            if (bops > 0) parts += "$bops prop(s) bop on the beat like in V-Slice"
+            if (fixedOffsets > 0) parts += "$fixedOffsets scaled animated prop(s) get V-Slice's offset math"
+            if (setup.any { it.startsWith("setBlendMode") }) parts += "blend modes are applied"
+            if (setup.any { it.contains("scrollFactor") || it.contains(".alpha") || it.contains(".angle") }) parts += "character scroll, alpha and angle match the V-Slice stage"
+            notes += "stages/$id.lua was generated: " + parts.joinToString("; ") + "."
+        }
         report.stat("Objects", stage.props.size)
         report.stat("Zoom", stage.cameraZoom.toJsonNumber().toString())
-        if (stage.directory.isNotBlank() && stage.directory != "shared") report.warn("V-Slice asset library \"${stage.directory}\" has no Psych equivalent; images are read from the mod's images folder.")
-        if (listOf(stage.boyfriend, stage.dad, stage.girlfriend).any { it.scroll != 1.0 && it !== stage.girlfriend }) report.warn("Character scroll factors other than 1 are not stored in Psych stage files.")
-        report.section("Notes", listOf("Props, layer order, scroll, scale, alpha, angle, color, flip and animations were carried over. Edit it further in Psych's Stage Editor."))
-        return ReverseResult("stages/$id.json", root.toString(2), report.build())
+        if (stage.directory.isNotBlank() && stage.directory != "shared") notes += "V-Slice asset library \"${stage.directory}\": Psych reads the images from the mod's images folder, so copy them there if they came from that library."
+        if (hideGf) notes += "The girlfriend is invisible on this stage, so hide_girlfriend is on."
+        notes += "Props, layer order, scroll, scale, alpha, angle, color, flip and animations were carried over; tweak it further in Psych's Stage Editor."
+        report.section("Notes", notes)
+        return ReverseResult("stages/$id.json", root.toString(2), report.build(), extra)
+    }
+
+    private fun round(value: Double): Double = Math.round(value * 1000.0) / 1000.0
+
+    private fun luaVar(name: String, axis: String): String = "o_" + name.replace(Regex("[^A-Za-z0-9_]"), "_") + "_" + axis
+
+    private fun colorHex(raw: String): String {
+        val text = raw.trim().removePrefix("#").removePrefix("0x").removePrefix("0X")
+        return when {
+            text.length == 8 && text.all { it.isLetterOrDigit() } -> text.substring(2).uppercase()
+            text.length == 6 -> text.uppercase()
+            else -> "FFFFFF"
+        }
     }
 }
 

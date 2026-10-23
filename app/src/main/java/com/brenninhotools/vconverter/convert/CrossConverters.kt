@@ -479,7 +479,7 @@ class PsychToCodenameStagesConverter : PsychToCodenameConverter() {
             val notes = mutableListOf<String>()
             var skip: Set<Int> = emptySet()
             lua[id]?.let { script ->
-                val props = LuaStageExtractor.extract(script.text)
+                val props = LuaStageExtractor.extract(script.text, stage.objectNames)
                 stage = LuaStageExtractor.merge(stage, props)
                 skip = props.removedLines
                 if (!props.isEmpty) notes += "${props.behind.size + props.front.size} sprite(s) created in stages/$id.lua were moved into the stage XML."
@@ -598,7 +598,7 @@ class PsychToCodenameScriptsConverter : PsychToCodenameConverter() {
             var skip: Set<Int> = emptySet()
             var known = tags
             if (scope == CodenameScope.STAGE && lua) {
-                val props = LuaStageExtractor.extract(item.text)
+                val props = LuaStageExtractor.extract(item.text, stageObjects[stem] ?: emptySet())
                 if (!props.isEmpty && stageObjects.containsKey(stem)) skip = props.removedLines
                 known = tags + (stageObjects[stem] ?: emptySet())
             }

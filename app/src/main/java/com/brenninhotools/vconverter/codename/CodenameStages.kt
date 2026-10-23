@@ -305,7 +305,8 @@ object CodenameStageParser {
                 else -> anims.first().anim
             },
             blend = node.attr("blend")?.lowercase() ?: "",
-            danceEvery = if (beat) interval else 0
+            danceEvery = if (beat) interval.toDouble() else 0.0,
+            rawOffsets = false
         )
     }
 }

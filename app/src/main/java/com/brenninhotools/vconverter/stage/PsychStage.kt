@@ -38,7 +38,10 @@ data class PsychStageObject(
     val animations: List<PsychStageAnimation>,
     val firstAnimation: String,
     val blend: String = "",
-    val danceEvery: Int = 0
+    val danceEvery: Double = 0.0,
+    val rawOffsets: Boolean = true,
+    val startReplayed: Boolean = false,
+    val paused: Boolean = false
 )
 
 data class PsychStage(
@@ -56,7 +59,9 @@ data class PsychStage(
     val cameraSpeed: Double,
     val preload: List<String>,
     val objects: List<PsychStageObject>?
-)
+) {
+    val objectNames: Set<String> get() = objects?.filter { it.type in setOf("sprite", "animatedSprite", "square") }?.map { it.name }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+}
 
 class PsychStageException(message: String, cause: Throwable? = null) : Exception(message, cause)
 

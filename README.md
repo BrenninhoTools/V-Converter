@@ -99,11 +99,18 @@ Not carried over: health bar colors and per-character vocal suffixes (V-Slice ha
 
 ## Stages
 
-- Character positions → V-Slice feet anchors, camera offsets (including Psych's built-in ±100/150 camera shifts), zoom and directory
-- Psych 1.0 stage editor `objects` → props (sprites, animated sprites, solid squares), keeping layer order, scroll, scale, alpha, angle, color, flip and pixel mode
+Built against V-Slice's `Stage.hx` / `StageData.hx`, so the JSON loads and draws like Psych drew it:
+
+- Character positions → V-Slice feet anchors, camera offsets (including Psych's built-in ±100/150 camera shifts) and zoom
+- `directory` is always a real V-Slice asset library (`shared`, `week1`…): V-Slice stops with "Missing library" on unknown ones, and mod images load from `images/` anyway
+- Psych 1.0 stage editor `objects` → props (sprites, animated sprites, solid squares), keeping layer order, scroll, scale, alpha, angle, color, flip and pixel mode; low-quality-only and hidden objects are left out
+- Characters missing from the objects list go on top instead of disappearing; `hide_girlfriend` becomes an invisible girlfriend
+- Scaled animated sprites: V-Slice multiplies animation offsets by the scale and keeps the hitbox offset, Psych replaces it. With the spritesheet `.xml` the offsets are recalculated so every animation lands on the exact Psych pixel (the starting animation too)
+- Animated sprites without animations show the spritesheet's first frame, like Psych
+- Stage Lua is read: sprites it creates become props, and beat bops (`if curBeat % N == 0 then playAnim(...)`, danceLeft/danceRight alternation, `onStepHit` bops) become `danceEvery`, with the bop animation renamed to `idle` when needed. Lua `addOffset`, `setBlendMode` and frame-index `addAnimation` (Packer sheets) on stage objects are folded in, and those lines leave the converted script
 - Girlfriend scroll factor (0.95) preserved
 
-Stages built only in Lua/HScript have no object list; their character layout converts and the report lists the images to recreate as props.
+Stages built only in code have no object list; their character layout converts, base Psych stages point to their V-Slice twin (`stage` → `mainStage`…) and the report lists the images to recreate as props.
 
 ## Weeks
 
@@ -133,7 +140,7 @@ The report lists, line by line, anything a script uses that has no V-Slice equiv
 | `<song>-metadata.json` + `<song>-chart.json` | `data/<song>/<song>[-difficulty].json` (psych_v1): sections rebuilt from time changes (exact BPM changes), camera focus → `mustHitSection`/`gfSection`, note kinds → note types, `PlayAnimation`/`ScrollSpeed`/`ZoomCamera`/`FocusCamera` → Psych events |
 | Variations (`-erect`…) | Their own Psych song (`<song>-erect`) with their own audio, in a freeplay-only week |
 | `data/characters/<id>.json` (+ XML) | `characters/<id>.json`, positions and camera rebased exactly with the spritesheet |
-| `data/stages/<id>.json` | `stages/<id>.json` with stage-editor objects, layer order and character markers |
+| `data/stages/<id>.json` (+ images' `.xml`) | `stages/<id>.json` with stage-editor objects, layer order and character markers, plus `stages/<id>.lua` when needed: props with `danceEvery` bop on the beat (idle or danceLeft/danceRight), scaled animated props get V-Slice's offset math and start on their starting animation, props without one stay still, Packer animations, blend modes, and character scroll/alpha/angle; an invisible girlfriend becomes `hide_girlfriend` |
 | `data/levels/<id>.json` | `weeks/<id>.json` + `images/menucharacters/*.json` for custom props |
 | `.hxc` scripts | Psych HScript: modules → `scripts/`, songs → `data/<song>/`, stages → `stages/`, characters → `characters/`, song events → `custom_events/` (+ `.txt`), note kinds → `custom_notetypes/` |
 | Mod | `pack.json`/`pack.png`, `Voices-<char>.ogg` → `Voices-Player.ogg`/`Voices-Opponent.ogg`, assets copied |

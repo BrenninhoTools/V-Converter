@@ -118,23 +118,39 @@ class ReverseStagesConverter : FileConverter() {
 
     override fun downloadName() = "stages-psych.zip"
 
-    override fun accept(file: ImportedFile) = file.extension == "json" && file.isUnder("stages")
+    override fun accept(file: ImportedFile) = (file.extension == "json" && file.isUnder("stages")) || (file.extension == "xml" && file.isUnder("images"))
 
     override fun classify(file: ImportedFile, text: String): PickedText {
+        if (file.extension == "xml") {
+            val atlas = SparrowAtlas.parse(text)
+            require(atlas.frames.isNotEmpty()) { "not a Sparrow spritesheet" }
+            val parts = file.path.replace('\\', '/').split('/')
+            val start = parts.indexOfLast { it.equals("images", ignoreCase = true) }
+            val image = (if (start >= 0) parts.drop(start + 1) else listOf(parts.last())).joinToString("/").substringBeforeLast('.')
+            return PickedText(file.path, file.name, file.path, text, "atlas", image)
+        }
         val stage = VSliceParser.stage(text)
         return PickedText(file.path, file.name, file.path, text, "stage", "${stage.props.size} props")
     }
 
+    override fun canConvert(items: List<PickedText>): Boolean = items.any { it.kind == "stage" }
+
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
-        val files = items.map { item ->
+        val atlases = items.filter { it.kind == "atlas" }.map { it.label.lowercase() to SparrowAtlas.parse(it.text) }
+        val lookup: (String) -> SparrowAtlas? = { image ->
+            val key = image.lowercase()
+            atlases.firstOrNull { it.first == key }?.second ?: atlases.firstOrNull { it.first.substringAfterLast('/') == key.substringAfterLast('/') }?.second
+        }
+        val stages = items.filter { it.kind == "stage" }
+        val files = stages.flatMap { item ->
             val id = stem(item)
-            val result = VSliceToPsychStage.convert(id, VSliceParser.stage(item.text))
+            val result = VSliceToPsychStage.convert(id, VSliceParser.stage(item.text), lookup)
             result.report.warnings.forEach { report.warn("$id: $it") }
             result.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
-            out(result.path, result.json)
+            listOf(out(result.path, result.json)) + result.extra.map { (path, text) -> out(path, text) }
         }
-        report.stat("Stages", files.size)
+        report.stat("Stages", stages.size)
         return ConvertedOutput(files, report.build())
     }
 }

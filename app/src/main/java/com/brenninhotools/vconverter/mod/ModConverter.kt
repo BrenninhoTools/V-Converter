@@ -135,22 +135,33 @@ class ModConverter(
             try {
                 var stage = if (path != null) PsychStageParser.parse(files.readText(path)) else LuaStageExtractor.defaultStage()
                 luaStages[id]?.let { lua ->
-                    val props = LuaStageExtractor.extract(files.readText(lua))
+                    val props = LuaStageExtractor.extract(files.readText(lua), stage.objectNames)
                     stage = LuaStageExtractor.merge(stage, props)
                     stageSkipLines[id] = props.removedLines
                     if (props.notes.isNotEmpty()) report.section("Stage $id · stages/$id.lua", props.notes)
                 }
                 if (path == null) report.warn("Stage $id has no stages/$id.json; default character positions were used.")
-                val result = PsychToVSliceStage.convert(StageSource(id, stage))
+                val result = PsychToVSliceStage.convert(StageSource(id, stage, atlas = ::stageAtlas))
                 writer.writeText("data/stages/$id.json", result.json)
                 written++
                 ids += id
                 result.report.warnings.forEach { report.warn("Stage $id: $it") }
+                result.report.sections.filter { it.title == "Notes" || it.title == "Skipped objects" }.forEach { section ->
+                    val lines = section.lines.filterNot { it.startsWith("Character positions use") || it.startsWith("Layers keep") }
+                    if (lines.isNotEmpty()) report.section("Stage $id · ${section.title}", lines)
+                }
             } catch (e: Exception) {
                 report.warn("Stage \"$id\" was not converted: ${e.message}")
             }
         }
         return ids
+    }
+
+    private val atlasCache = HashMap<String, SparrowAtlas?>()
+
+    private fun stageAtlas(image: String): SparrowAtlas? = atlasCache.getOrPut(image.lowercase()) {
+        val path = pathIndex["${scan.root}images/$image.xml".lowercase()] ?: return@getOrPut null
+        runCatching { SparrowAtlas.parse(files.readText(path)) }.getOrNull()
     }
 
     private fun convertSongs(

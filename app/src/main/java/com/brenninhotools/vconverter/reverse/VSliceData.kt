@@ -84,10 +84,23 @@ data class VProp(
     val flipY: Boolean,
     val animType: String,
     val animations: List<VAnimation>,
-    val startingAnimation: String
+    val startingAnimation: String,
+    val blend: String = "",
+    val danceEvery: Double = 0.0
 )
 
-data class VStageCharacter(val x: Double, val y: Double, val zIndex: Int, val cameraX: Double, val cameraY: Double, val scroll: Double)
+data class VStageCharacter(
+    val x: Double,
+    val y: Double,
+    val zIndex: Int,
+    val cameraX: Double,
+    val cameraY: Double,
+    val scroll: Double,
+    val scrollY: Double = scroll,
+    val scale: Double = 1.0,
+    val alpha: Double = 1.0,
+    val angle: Double = 0.0
+)
 
 data class VStage(
     val name: String,
@@ -228,8 +241,13 @@ object VSliceParser {
         val obj = raw as? JSONObject ?: return VStageCharacter(fx, fy, fz, fcx, fcy, 1.0)
         val (x, y) = pair(obj.value("position"), fx, fy)
         val (cx, cy) = pair(obj.value("cameraOffsets"), fcx, fcy)
-        val (sx, _) = pair(obj.value("scroll"), 1.0, 1.0)
-        return VStageCharacter(x, y, obj.value("zIndex").asDouble(fz.toDouble()).toInt(), cx, cy, sx)
+        val (sx, sy) = pair(obj.value("scroll"), 1.0, 1.0)
+        return VStageCharacter(
+            x, y, obj.value("zIndex").asDouble(fz.toDouble()).toInt(), cx, cy, sx, sy,
+            scale = obj.value("scale").asDouble(1.0),
+            alpha = obj.value("alpha").asDouble(1.0),
+            angle = obj.value("angle").asDouble(0.0)
+        )
     }
 
     fun stage(raw: String): VStage {
@@ -257,7 +275,9 @@ object VSliceParser {
                 flipY = obj.value("flipY").asBool(false),
                 animType = obj.value("animType").asText().ifEmpty { "sparrow" },
                 animations = objects(obj.value("animations")).map(::animation),
-                startingAnimation = obj.value("startingAnimation").asText()
+                startingAnimation = obj.value("startingAnimation").asText(),
+                blend = obj.value("blend").asText(),
+                danceEvery = obj.value("danceEvery").asDouble(0.0)
             )
         }
         return VStage(
