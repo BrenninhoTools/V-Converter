@@ -1,19 +1,63 @@
+<div align="center">
+
+<img src="desktop/icon.png" width="128" alt="V-Converter icon">
+
 # V-Converter
 
-A remake of the V-Slice converter as a native Android app written in Kotlin. It converts Friday Night Funkin' content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+**Convert Friday Night Funkin' mods between Psych Engine, V-Slice and Codename Engine.**
 
-## Status
+[![Build](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml)
+![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
+![Vibe coded](https://img.shields.io/badge/vibe%20coded-%E2%9C%A8-ff69b4)
+
+</div>
+
+> [!NOTE]
+> **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
+
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android** and **Windows**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+
+## Contents
+
+- [Download](#download)
+- [Supported conversions](#supported-conversions)
+- [Generator](#generator)
+- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
+- [Building](#building)
+
+## Download
+
+Every push to `main` is built by [GitHub Actions](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml). Open the latest successful run and grab one of its artifacts:
+
+| Artifact | Platform | What it is |
+| --- | --- | --- |
+| `V-Converter-debug` | 📱 Android | Debug APK, install it directly |
+| `V-Converter-windows-installer` | 🪟 Windows | `.msi` and `.exe` installers |
+| `V-Converter-windows-portable` | 🪟 Windows | Portable folder, no install needed |
+
+## Supported conversions
 
 | Module | Psych → V-Slice | V-Slice → Psych | Codename → V-Slice | Codename → Psych | Psych → Codename |
-| --- | --- | --- | --- | --- | --- |
+| --- | :---: | :---: | :---: | :---: | :---: |
 | Whole mod (folder / .zip / .rar / .7z) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Charts | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Characters | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Stages | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Weeks ↔ Levels | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Scripts | ✅ Lua / HScript → `.hxc` | ✅ `.hxc` → Psych HScript | ✅ Codename HScript → `.hxc` | ✅ Codename HScript → Psych HScript | ✅ Lua / HScript → Codename HScript |
+| Scripts | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-The app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target.
+| Direction | Scripts |
+| --- | --- |
+| Psych → V-Slice | Lua / HScript → `.hxc` |
+| V-Slice → Psych | `.hxc` → Psych HScript |
+| Codename → V-Slice | Codename HScript → `.hxc` |
+| Codename → Psych | Codename HScript → Psych HScript |
+| Psych → Codename | Lua / HScript → Codename HScript |
+
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window.
 
 ## Generator
 
@@ -27,6 +71,12 @@ The app has two sections, switched at the top: **Converter** and **Generator** (
 | Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
 
 Every tab can download the result as a `.zip` or write it into the mod folder.
+
+---
+
+## Psych → V-Slice
+
+The main converter. Each part below has its own tab in the app.
 
 ## Whole mod
 
@@ -133,6 +183,8 @@ The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice sc
 
 The report lists, line by line, anything a script uses that has no V-Slice equivalent (`runHaxeCode`, videos, custom substates, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
 
+---
+
 ## V-Slice → Psych
 
 | Input | Output |
@@ -147,6 +199,8 @@ The report lists, line by line, anything a script uses that has no V-Slice equiv
 
 Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage positions and the on-screen character placement.
 
+---
+
 ## Codename → V-Slice
 
 | Input | Output |
@@ -159,6 +213,8 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `data/weeks/weeks/*.xml` + `data/weeks/characters/*.xml` | `data/levels/*.json` with menu props |
 | `.hx` scripts | V-Slice modules scoped like Codename runs them (song, stage, stage extension, character, event, note type, global). `create`/`update`/`beatHit`/`onPlayerHit`/`onEvent`… become module events with Codename-style event objects; `boyfriend`, `camHUD`, `curBeat`, `Conductor.crochet`, stage sprites by name and so on are mapped to the V-Slice API |
 | Mod | `_polymod_meta.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
+
+---
 
 ## Codename → Psych
 
@@ -173,6 +229,8 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `.hx` scripts | Psych HScript: `create`/`postCreate`/`update`/`beatHit`/`onPlayerHit`/`onDadHit`/`onEvent`/`onCountdown`… become Psych callbacks with Codename-style event objects (`event.cancel()` still works), `strumLines`, `stage.getSprite`, `FunkinSprite`, `CustomShader`, `Options`, `Conductor` and so on are mapped to Psych; a small `scripts/CodenameCompat.hx` recreates Codename-only camera settings when needed |
 | Mod | `pack.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
 
+---
+
 ## Psych → Codename
 
 | Input | Output |
@@ -186,17 +244,28 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | Lua and HScript | Codename HScript: Psych callbacks are bridged from Codename's (`goodNoteHitPre` → `onPlayerHit` with `return Function_Stop` cancelling), Lua sprites become shared `public var`s, `getProperty`/`setProperty`/tweens/timers/cameras/text/shaders/sounds/saves come with small Psych helper functions, `runHaxeCode` blocks are converted inline, `mustHitSection` reads the chart's camera events. Song scripts go to `songs/<song>/scripts/`, global ones to `songs/`, custom events to `data/events/`, note types to `data/notes/` |
 | Mod | `data/config/modpack.ini` from `pack.json`, audio moved to `songs/<song>/song/`, `pack.png` → `icon.png`, assets copied |
 
+---
+
 ## Building
+
+Android (debug APK):
 
 ```
 ./gradlew assembleDebug
 ```
 
-GitHub Actions builds a debug APK on every push to `main`.
+Windows (installers and portable app, run on Windows with JDK 17):
 
-Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) (RAR, RAR5, 7z).
+```
+./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable
+```
 
-The UI uses [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open Font License, see `licenses/`).
+The Windows app is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
+
+### Credits
+
+- Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows (RAR, RAR5, 7z)
+- The UI uses [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open Font License, see `licenses/`)
 
 ## References
 
