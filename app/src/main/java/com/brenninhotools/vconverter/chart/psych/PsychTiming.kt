@@ -1,26 +1,37 @@
 package com.brenninhotools.vconverter.chart.psych
 
 class PsychTiming(song: PsychSong) {
-    data class TimeChange(val time: Double, val beat: Double, val bpm: Double)
+    data class TimeChange(val time: Double, val beat: Double, val bpm: Double, val numerator: Int = 4)
 
     val sectionStarts: List<Double>
     val changes: List<TimeChange>
     val irregularSections: Int
+    val fractionalSections: Int
+    val endTime: Double
 
     init {
         val starts = ArrayList<Double>(song.sections.size)
         val list = mutableListOf(TimeChange(0.0, 0.0, song.bpm))
         var bpm = song.bpm
+        var numerator = 4
         var time = 0.0
         var beat = 0.0
         var irregular = 0
+        var fractional = 0
 
         for (section in song.sections) {
-            if (section.changeBpm && section.bpm > 0.0 && section.bpm != bpm) {
-                bpm = section.bpm
-                if (time == 0.0) list[0] = TimeChange(0.0, 0.0, bpm) else list += TimeChange(time, beat, bpm)
-            }
+            val newBpm = if (section.changeBpm && section.bpm > 0.0) section.bpm else bpm
+            val whole = Math.round(section.beats).toInt()
+            val integral = Math.abs(section.beats - whole) < 1e-6 && whole in 1..64
+            val newNumerator = if (integral) whole else numerator
             if (section.beats != 4.0) irregular++
+            if (!integral) fractional++
+            if (newBpm != bpm || newNumerator != numerator) {
+                bpm = newBpm
+                numerator = newNumerator
+                val change = TimeChange(time, beat, bpm, numerator)
+                if (time == 0.0) list[0] = change else list += change
+            }
             starts += time
             time += section.beats * 60000.0 / bpm
             beat += section.beats
@@ -29,6 +40,8 @@ class PsychTiming(song: PsychSong) {
         sectionStarts = starts
         changes = list
         irregularSections = irregular
+        fractionalSections = fractional
+        endTime = time
     }
 
     fun bpmAt(time: Double): Double = (changes.lastOrNull { it.time <= time + 0.001 } ?: changes.first()).bpm

@@ -15,6 +15,8 @@ class ConversionReport {
     var cameraEvents = 0
     var convertedEvents = 0
     var keptPsychEvents = 0
+    var offsetApplied = 0.0
+    val variations = LinkedHashMap<String, List<String>>()
 
     fun warn(message: String) {
         if (message !in warnings) warnings += message
@@ -72,6 +74,12 @@ class ConversionReport {
             "Duplicates removed",
             duplicateNotes.map { (difficulty, count) -> "$difficulty: $count stacked notes" }
         )
+        if (variations.isNotEmpty()) {
+            builder.section("Variations", variations.map { (name, difficulties) -> "$name: ${difficulties.joinToString(", ")}" })
+        }
+        if (offsetApplied != 0.0) {
+            builder.section("Audio offset", listOf("The Psych chart offset (${formatMs(offsetApplied)}) was written to the metadata's instrumental offset."))
+        }
         if (noteKinds.isNotEmpty()) {
             builder.section(
                 "Note kinds",

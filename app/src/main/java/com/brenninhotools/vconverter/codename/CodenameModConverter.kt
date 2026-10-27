@@ -189,7 +189,7 @@ class CodenameModConverter(
             report.warn("Song ${song.id}: its charts are neither Codename nor Psych/legacy charts.")
             return
         }
-        val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = song.folder, generatedBy = "V-Converter (Codename Engine to V-Slice)"))
+        val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = song.folder, splitVariations = false, generatedBy = "V-Converter (Codename Engine to V-Slice)"))
         val suffix = if (variant.isEmpty()) "" else "-$variant"
         writer.writeText("data/songs/${song.id}/${song.id}-metadata$suffix.json", VSliceWriter.metadataJson(conversion.metadata))
         writer.writeText("data/songs/${song.id}/${song.id}-chart$suffix.json", VSliceWriter.chartJson(conversion.chart))

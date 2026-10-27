@@ -9,6 +9,7 @@ import com.brenninhotools.vconverter.chart.vslice.VSliceEvent
 import com.brenninhotools.vconverter.chart.vslice.VSliceMetadata
 import com.brenninhotools.vconverter.chart.vslice.VSliceNote
 import com.brenninhotools.vconverter.chart.vslice.VSliceTimeChange
+import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
 import kotlin.math.roundToLong
 
 data class ChartSource(val difficulty: String, val song: PsychSong)
@@ -22,14 +23,34 @@ data class ConversionOptions(
     val keepPsychEvents: Boolean = true,
     val playerVocals: List<String>? = null,
     val opponentVocals: List<String>? = null,
+    val splitVariations: Boolean = true,
     val generatedBy: String = "V-Converter (Psych Engine to V-Slice)"
+)
+
+data class VariationChart(
+    val variation: String,
+    val metadata: VSliceMetadata,
+    val chart: VSliceChart
 )
 
 data class ConversionResult(
     val metadata: VSliceMetadata,
     val chart: VSliceChart,
-    val report: ConversionReport
-)
+    val report: ConversionReport,
+    val variations: List<VariationChart> = emptyList()
+) {
+    fun files(id: String): List<Pair<String, String>> {
+        val list = mutableListOf(
+            "$id-metadata.json" to VSliceWriter.metadataJson(metadata),
+            "$id-chart.json" to VSliceWriter.chartJson(chart)
+        )
+        variations.forEach { variation ->
+            list += "$id-metadata-${variation.variation}.json" to VSliceWriter.metadataJson(variation.metadata)
+            list += "$id-chart-${variation.variation}.json" to VSliceWriter.chartJson(variation.chart)
+        }
+        return list
+    }
+}
 
 object PsychToVSliceChart {
     val difficultyOrder = listOf("easy", "normal", "hard", "erect", "nightmare")
@@ -69,27 +90,71 @@ object PsychToVSliceChart {
 
         val ordered = normalized.sortedWith(compareBy({ difficultyRank(it.difficulty) }, { it.difficulty }))
         val main = ordered.firstOrNull { it.difficulty == "normal" } ?: ordered.first()
-        val song = main.song
-        val timing = PsychTiming(song)
         val report = ConversionReport()
 
-        checkConsistency(main, ordered, timing, report)
+        val groups = if (options.splitVariations) {
+            ordered.groupBy { signature(it.song) }.values.sortedBy { group -> if (main in group) 0 else 1 }
+        } else {
+            listOf(ordered)
+        }
+        val names = variationNames(groups.drop(1))
+        if (!options.splitVariations) checkConsistency(main, ordered, report)
+        ordered.forEach { source -> checkSource(source, report) }
 
+        val built = groups.mapIndexed { index, group ->
+            val lead = if (index == 0) main else group.first()
+            buildGroup(lead, group, options, report, if (index == 0) "" else names[index - 1])
+        }
+        val variationIds = names
+        val mainResult = built.first()
+        val mainMetadata = mainResult.first.copy(songVariations = variationIds)
+        val variations = built.drop(1).mapIndexed { i, (metadata, chart) -> VariationChart(variationIds[i], metadata, chart) }
+        variations.forEach { variation ->
+            val diffs = variation.metadata.difficulties.joinToString(", ")
+            report.warn("$diffs ${if (variation.metadata.difficulties.size == 1) "has" else "have"} different BPM, time signatures, events, characters or stage than \"${main.difficulty}\", so ${if (variation.metadata.difficulties.size == 1) "it was" else "they were"} kept as the \"${variation.variation}\" variation. V-Slice plays a variation with Voices files ending in -${variation.variation} (Voices-<character>-${variation.variation}.ogg).")
+            report.variations[variation.variation] = variation.metadata.difficulties
+        }
+
+        return ConversionResult(mainMetadata, mainResult.second, report, variations)
+    }
+
+    private data class Signature(val changes: List<PsychTiming.TimeChange>, val events: Set<PsychEvent>, val player: String, val opponent: String, val girlfriend: String, val stage: String)
+
+    private fun signature(song: PsychSong) = Signature(PsychTiming(song).changes, song.events.toSet(), song.player1, song.player2, song.girlfriend, song.stage)
+
+    private fun variationNames(groups: List<List<ChartSource>>): List<String> {
+        val used = mutableSetOf("default", "")
+        return groups.map { group ->
+            val difficulties = group.map { it.difficulty }
+            val base = when {
+                difficulties.any { it == "erect" || it == "nightmare" } -> "erect"
+                else -> slug(difficulties.first()).ifEmpty { "alt" }
+            }
+            var name = base
+            var n = 2
+            while (!used.add(name)) name = "$base${n++}"
+            name
+        }
+    }
+
+    private fun buildGroup(lead: ChartSource, group: List<ChartSource>, options: ConversionOptions, report: ConversionReport, variation: String): Pair<VSliceMetadata, VSliceChart> {
+        val song = lead.song
+        val timing = PsychTiming(song)
         val notes = LinkedHashMap<String, List<VSliceNote>>()
         val scrollSpeed = LinkedHashMap<String, Double>()
-        ordered.forEach { source ->
+        group.forEach { source ->
             notes[source.difficulty] = convertNotes(source, report)
             scrollSpeed[source.difficulty] = source.song.speed
         }
-
-        val events = (cameraEvents(song, timing, report) + psychEvents(song.events + options.extraEvents, song, timing, report, options.keepPsychEvents))
+        val countEvents = variation.isEmpty()
+        val events = (cameraEvents(song, timing, report, countEvents) + psychEvents(song.events + options.extraEvents, song, timing, report, options.keepPsychEvents, countEvents))
             .sortedBy { it.time }
 
         val metadata = VSliceMetadata(
             songName = options.songName.ifBlank { song.name }.ifBlank { "Unknown" },
             artist = options.artist.ifBlank { "Unknown" },
             charter = options.charter.ifBlank { "Unknown" },
-            difficulties = ordered.map { it.difficulty },
+            difficulties = group.map { it.difficulty },
             characters = VSliceCharacters(
                 player = song.player1,
                 girlfriend = song.girlfriend,
@@ -99,18 +164,23 @@ object PsychToVSliceChart {
             ),
             stage = convertStage(song.stage, options.customStageIds, report),
             noteStyle = noteStyle(song),
-            timeChanges = timing.changes.map { VSliceTimeChange(it.time, it.beat, it.bpm) },
+            timeChanges = timing.changes.map { VSliceTimeChange(it.time, it.beat, it.bpm, it.numerator) },
+            offset = song.offset,
             generatedBy = options.generatedBy
         )
-
         val chart = VSliceChart(
             scrollSpeed = scrollSpeed,
             events = events,
             notes = notes,
             generatedBy = options.generatedBy
         )
-
-        return ConversionResult(metadata, chart, report)
+        if (timing.fractionalSections > 0) {
+            report.warn("${timing.fractionalSections} sections${if (variation.isEmpty()) "" else " in the $variation variation"} have a fractional length (like 3.5 beats). Note timing is kept, but V-Slice measures stay in whole beats, so the camera bop can drift after them.")
+        }
+        if (song.offset != 0.0) {
+            report.offsetApplied = song.offset
+        }
+        return metadata to chart
     }
 
     fun normalizeDifficulty(raw: String): String = raw.trim().lowercase().replace(Regex("\\s+"), "-")
@@ -118,8 +188,9 @@ object PsychToVSliceChart {
     private fun difficultyRank(difficulty: String): Int =
         difficultyOrder.indexOf(difficulty).takeIf { it >= 0 } ?: difficultyOrder.size
 
-    private fun checkConsistency(main: ChartSource, all: List<ChartSource>, timing: PsychTiming, report: ConversionReport) {
+    private fun checkConsistency(main: ChartSource, all: List<ChartSource>, report: ConversionReport) {
         val song = main.song
+        val timing = PsychTiming(song)
         all.filter { it !== main }.forEach { other ->
             if (PsychTiming(other.song).changes != timing.changes) {
                 report.warn("\"${other.difficulty}\" has different BPM changes than \"${main.difficulty}\". V-Slice shares one timing map per song, so the \"${main.difficulty}\" timing was used.")
@@ -131,19 +202,14 @@ object PsychToVSliceChart {
                 report.warn("\"${other.difficulty}\" uses different characters or stage than \"${main.difficulty}\". The \"${main.difficulty}\" setup was used.")
             }
         }
-        all.forEach { source ->
-            if (source.song.invalidNotes > 0) {
-                report.warn("\"${source.difficulty}\": ${source.song.invalidNotes} malformed notes were ignored.")
-            }
-            if (source.song.wrappedLanes > 0) {
-                report.warn("\"${source.difficulty}\": ${source.song.wrappedLanes} notes used lanes above 7 and were wrapped into the 8 standard lanes.")
-            }
+    }
+
+    private fun checkSource(source: ChartSource, report: ConversionReport) {
+        if (source.song.invalidNotes > 0) {
+            report.warn("\"${source.difficulty}\": ${source.song.invalidNotes} malformed notes were ignored.")
         }
-        if (timing.irregularSections > 0) {
-            report.warn("${timing.irregularSections} sections are not 4 beats long. Timing is preserved, but V-Slice will display them in 4/4.")
-        }
-        if (song.offset != 0.0) {
-            report.warn("The Psych chart has an offset of ${ConversionReport.formatMs(song.offset)}. It was not applied; adjust offsets in the metadata if the song plays out of sync.")
+        if (source.song.wrappedLanes > 0) {
+            report.warn("\"${source.difficulty}\": ${source.song.wrappedLanes} notes used lanes above 7 and were wrapped into the 8 standard lanes.")
         }
     }
 
@@ -190,7 +256,7 @@ object PsychToVSliceChart {
         }
     }
 
-    private fun cameraEvents(song: PsychSong, timing: PsychTiming, report: ConversionReport): List<VSliceEvent> {
+    private fun cameraEvents(song: PsychSong, timing: PsychTiming, report: ConversionReport, count: Boolean): List<VSliceEvent> {
         val result = mutableListOf<VSliceEvent>()
         var last: Int? = null
         song.sections.indices.forEach { index ->
@@ -200,22 +266,22 @@ object PsychToVSliceChart {
                 result += VSliceEvent(timing.sectionStarts[index], "FocusCamera", mapOf("char" to focus))
             }
         }
-        report.cameraEvents = result.size
+        if (count) report.cameraEvents = result.size
         return result
     }
 
-    private fun psychEvents(events: List<PsychEvent>, song: PsychSong, timing: PsychTiming, report: ConversionReport, keep: Boolean): List<VSliceEvent> {
+    private fun psychEvents(events: List<PsychEvent>, song: PsychSong, timing: PsychTiming, report: ConversionReport, keep: Boolean, count: Boolean): List<VSliceEvent> {
         val result = mutableListOf<VSliceEvent>()
         events.distinct().sortedBy { it.time }.forEach { event ->
             val converted = convertEvent(event, song, timing)
             if (converted == null) {
-                report.skipEvent(event.name.ifBlank { "(unnamed)" })
+                if (count || event.name !in report.unsupportedEvents) report.skipEvent(event.name.ifBlank { "(unnamed)" })
                 if (keep && event.name.isNotBlank()) {
-                    report.keptPsychEvents++
+                    if (count) report.keptPsychEvents++
                     result += VSliceEvent(event.time, PsychEventIds.idFor(event.name), linkedMapOf("value1" to event.value1, "value2" to event.value2))
                 }
             } else {
-                report.convertedEvents++
+                if (count) report.convertedEvents++
                 result += converted
             }
         }

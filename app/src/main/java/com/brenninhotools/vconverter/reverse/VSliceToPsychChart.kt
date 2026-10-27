@@ -97,7 +97,7 @@ object VSliceToPsychChart {
                     .put("bpm", meta.timeChanges.first().bpm.toJsonNumber())
                     .put("needsVoices", true)
                     .put("speed", speed.toJsonNumber())
-                    .put("offset", 0)
+                    .put("offset", meta.offsetInstrumental.toJsonNumber())
                     .put("player1", meta.player)
                     .put("player2", meta.opponent)
                     .put("gfVersion", meta.girlfriend.ifEmpty { "gf" })
@@ -118,7 +118,7 @@ object VSliceToPsychChart {
         }
         if (lostFocus > 0) report.warn("$lostFocus camera focus changes happen in the middle of a section; Psych moves the camera once per section, so they snap to the section they fall in.")
         if (skipped.isNotEmpty()) report.section("Events with no Psych equivalent (kept under their V-Slice names for scripts)", skipped.map { (k, v) -> "$k ×$v" })
-        if (mainMeta.offsetInstrumental != 0.0) report.warn("The V-Slice instrumental offset (${mainMeta.offsetInstrumental} ms) was not carried over; set Psych's chart offset by ear if the song feels off-sync.")
+        if (mainMeta.offsetInstrumental != 0.0) report.section("Audio offset", listOf("The V-Slice instrumental offset (${mainMeta.offsetInstrumental.toJsonNumber()} ms) became the Psych chart offset."))
         if (mainMeta.noteStyle.equals("pixel", ignoreCase = true)) report.warn("Pixel note style: the charts use Psych's pixelUI skins; make sure the stage is a pixel stage (isPixelStage).")
         report.section("Audio", listOf("songs/$id/Inst.ogg", "songs/$id/Voices.ogg or Voices-Player.ogg + Voices-Opponent.ogg"))
         if (name != mainMeta.songName && mainMeta.songName.isNotBlank()) {

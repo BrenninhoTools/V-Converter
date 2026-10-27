@@ -264,12 +264,16 @@ fun FunkinTextField(
     label: String,
     accent: Color,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    placeholder: String? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        placeholder = if (placeholder.isNullOrBlank()) null else {
+            { Text(placeholder, color = Funkin.Muted.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        },
         singleLine = true,
         enabled = enabled,
         shape = RoundedCornerShape(14.dp),

@@ -35,14 +35,11 @@ abstract class PsychToVSliceConverter : FileConverter() {
 class PsychChartsConverter : PsychToVSliceConverter() {
     override val noun = "chart"
 
+    var keepEvents: Boolean = true
+
     override fun downloadName() = "charts-vslice.zip"
 
     override fun accept(file: ImportedFile) = file.extension == "json"
-
-    private fun baseName(stem: String): String {
-        val suffix = stem.substringAfterLast('-', "").lowercase()
-        return if (suffix in PsychToVSliceChart.difficultyOrder) stem.substringBeforeLast('-') else stem
-    }
 
     override fun classify(file: ImportedFile, text: String): PickedText {
         val stem = file.name.substringBeforeLast('.')
@@ -54,10 +51,8 @@ class PsychChartsConverter : PsychToVSliceConverter() {
             return PickedText(file.path, file.name, file.path, text, "events", "${psychId(owner)} · ${song.events.size} events")
         }
         require(song.sections.isNotEmpty()) { "not a Psych chart" }
-        val id = psychId(baseName(stem))
-        val suffix = stem.substringAfterLast('-', "").lowercase()
-        val difficulty = if (suffix in PsychToVSliceChart.difficultyOrder) suffix else "normal"
-        return PickedText(file.path, file.name, file.path, text, "chart", "$id · $difficulty")
+        val (id, difficulty) = PsychChartNames.split(stem, folder)
+        return PickedText(file.path, file.name, file.path, text, "chart", "${psychId(id)} · $difficulty")
     }
 
     override fun canConvert(items: List<PickedText>): Boolean = items.any { it.kind == "chart" }
@@ -65,22 +60,36 @@ class PsychChartsConverter : PsychToVSliceConverter() {
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
-        items.groupBy { it.label.substringBefore(" · ") }.forEach { (id, group) ->
+        val songs = items.groupBy { it.label.substringBefore(" · ") }
+        songs.forEach { (id, group) ->
             val sources = group.filter { it.kind == "chart" }.map { ChartSource(it.label.substringAfter(" · "), PsychChartParser.parse(it.text)) }
             if (sources.isEmpty()) return@forEach
             val main = (sources.firstOrNull { it.difficulty == "normal" } ?: sources.first()).song
             val events = group.filter { it.kind == "events" }.flatMap { PsychChartParser.parseEventsOnly(it.text) }
-            val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = main.name.ifBlank { id }, extraEvents = events))
-            outputs += out("data/songs/$id/$id-metadata.json", VSliceWriter.metadataJson(conversion.metadata))
-            outputs += out("data/songs/$id/$id-chart.json", VSliceWriter.chartJson(conversion.chart))
-            ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys).forEach { outputs += out(it.path, it.content) }
+            val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = main.name.ifBlank { id }, extraEvents = events, keepPsychEvents = keepEvents))
+            conversion.files(id).forEach { (name, text) -> outputs += out("data/songs/$id/$name", text) }
+            if (keepEvents) ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys).forEach { outputs += out(it.path, it.content) }
             val converted = conversion.report.toReport()
-            converted.stats.forEach { report.stat("$id ${it.label}", it.value) }
-            converted.sections.forEach { report.section("$id · ${it.title}", it.lines) }
-            converted.warnings.forEach { report.warn("$id: $it") }
+            val prefix = if (songs.size > 1) "$id " else ""
+            converted.stats.forEach { report.stat(prefix + it.label, it.value) }
+            converted.sections.forEach { report.section(if (songs.size > 1) "$id · ${it.title}" else it.title, it.lines) }
+            converted.warnings.forEach { report.warn(if (songs.size > 1) "$id: $it" else it) }
         }
         require(outputs.isNotEmpty()) { "Nothing to convert: add a Psych chart (data/<song>/<song>-<difficulty>.json)." }
         return ConvertedOutput(outputs.distinctBy { it.relativePath }, report.build())
+    }
+}
+
+object PsychChartNames {
+    fun split(stem: String, folder: String?): Pair<String, String> {
+        val lower = stem.lowercase()
+        val dir = folder?.lowercase()?.takeUnless { it == "data" || it == "charts" }
+        if (dir != null) {
+            if (lower == dir) return dir to "normal"
+            if (lower.startsWith("$dir-") && lower.length > dir.length + 1) return dir to lower.substring(dir.length + 1)
+        }
+        val suffix = lower.substringAfterLast('-', "")
+        return if (suffix in PsychToVSliceChart.difficultyOrder) lower.substringBeforeLast('-') to suffix else lower to "normal"
     }
 }
 

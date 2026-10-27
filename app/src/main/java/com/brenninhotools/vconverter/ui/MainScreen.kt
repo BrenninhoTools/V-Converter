@@ -62,7 +62,11 @@ import com.brenninhotools.vconverter.R
 import com.brenninhotools.vconverter.ui.characters.CharactersScreen
 import com.brenninhotools.vconverter.ui.characters.CharactersViewModel
 import com.brenninhotools.vconverter.ui.charts.ChartsScreen
-import com.brenninhotools.vconverter.ui.charts.ChartsViewModel
+import com.brenninhotools.vconverter.ui.charts.CodenameChartsViewModel
+import com.brenninhotools.vconverter.ui.charts.CodenameToPsychChartsViewModel
+import com.brenninhotools.vconverter.ui.charts.PsychToCodenameChartsViewModel
+import com.brenninhotools.vconverter.ui.charts.PsychToVSliceChartsViewModel
+import com.brenninhotools.vconverter.ui.charts.ReverseChartsViewModel
 import com.brenninhotools.vconverter.ui.components.AppLogo
 import com.brenninhotools.vconverter.ui.scripts.ScriptsScreen
 import com.brenninhotools.vconverter.ui.scripts.ScriptsViewModel
@@ -88,25 +92,21 @@ import com.brenninhotools.vconverter.ui.generator.StageGenViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import com.brenninhotools.vconverter.ui.codename.CodenameCharactersViewModel
-import com.brenninhotools.vconverter.ui.codename.CodenameChartsViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameModScreen
 import com.brenninhotools.vconverter.ui.codename.CodenameModViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameScriptsViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameStagesViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameWeeksViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameToPsychModViewModel
-import com.brenninhotools.vconverter.ui.codename.CodenameToPsychChartsViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameToPsychCharactersViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameToPsychStagesViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameToPsychWeeksViewModel
 import com.brenninhotools.vconverter.ui.codename.CodenameToPsychScriptsViewModel
-import com.brenninhotools.vconverter.ui.codename.PsychToCodenameChartsViewModel
 import com.brenninhotools.vconverter.ui.codename.PsychToCodenameCharactersViewModel
 import com.brenninhotools.vconverter.ui.codename.PsychToCodenameStagesViewModel
 import com.brenninhotools.vconverter.ui.codename.PsychToCodenameWeeksViewModel
 import com.brenninhotools.vconverter.ui.codename.PsychToCodenameScriptsViewModel
 import com.brenninhotools.vconverter.ui.mod.PsychToCodenameModViewModel
-import com.brenninhotools.vconverter.ui.reverse.ReverseChartsViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseCharactersViewModel
 import com.brenninhotools.vconverter.ui.reverse.ReverseModScreen
 import com.brenninhotools.vconverter.ui.reverse.ReverseModViewModel
@@ -218,7 +218,7 @@ enum class GenTab(
 @Composable
 fun MainScreen() {
     val modFolder: ModFolderViewModel = viewModel()
-    val charts: ChartsViewModel = viewModel()
+    val charts: PsychToVSliceChartsViewModel = viewModel()
     val characters: CharactersViewModel = viewModel()
     val stages: StagesViewModel = viewModel()
     val weeks: WeeksViewModel = viewModel()
@@ -370,7 +370,7 @@ fun MainScreen() {
                 Spacer(Modifier.size(16.dp))
                 if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
                     Tab.MOD -> CodenameModScreen(cnMod, folderName, save)
-                    Tab.CHARTS -> ReverseScreen(cnCharts, Funkin.Down, "Songs", "Add Codename charts", "Pick songs/<song>/charts/*.json with meta.json and events.json (variants live in charts/<variant>/). Archives keep the folders, so several songs work at once.", R.drawable.ic_tab_chart, folderName, save, buttonText = "Convert to V-Slice")
+                    Tab.CHARTS -> ChartsScreen(cnCharts, folderName, save)
                     Tab.CHARACTERS -> ReverseScreen(cnCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) for exact positions. Add <name>-dead.xml to merge the game over animations.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to V-Slice")
                     Tab.STAGES -> ReverseScreen(cnStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Add the stage images (.png and spritesheet .xml) so scaled sprites keep their exact spot.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to V-Slice")
                     Tab.WEEKS -> ReverseScreen(cnWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml plus data/weeks/characters/*.xml for the menu characters.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to V-Slice")
@@ -382,7 +382,7 @@ fun MainScreen() {
                         infoNote = "Written to pack.json (read from data/config/modpack.ini). icon.png becomes pack.png.",
                         convertNote = "Download the converted mod as a .zip (unzip it into Psych's mods folder), or write it straight into an empty mod folder."
                     )
-                    Tab.CHARTS -> ReverseScreen(c2pCharts, Funkin.Down, "Songs", "Add Codename charts", "Pick songs/<song>/charts/*.json with meta.json and events.json, plus data/events/*.json for custom event params. Variants become their own Psych songs.", R.drawable.ic_tab_chart, folderName, save)
+                    Tab.CHARTS -> ChartsScreen(c2pCharts, folderName, save)
                     Tab.CHARACTERS -> ReverseScreen(c2pCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) so scaled offsets stay exact.", R.drawable.ic_tab_character, folderName, save)
                     Tab.STAGES -> ReverseScreen(c2pStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Sprites become stage objects; beat dancers, blends and extra settings go into a stage script.", R.drawable.ic_tab_stage, folderName, save)
                     Tab.WEEKS -> ReverseScreen(c2pWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml, data/weeks/characters/*.xml and the songs' meta.json for freeplay icons and colors.", R.drawable.ic_tab_week, folderName, save)
@@ -394,14 +394,14 @@ fun MainScreen() {
                         infoNote = "Written to data/config/modpack.ini. pack.png becomes icon.png.",
                         convertNote = "Download the converted mod as a .zip (unzip it into Codename's mods folder), or write it straight into an empty mod folder."
                     )
-                    Tab.CHARTS -> ReverseScreen(p2cCharts, Funkin.Down, "Songs", "Add Psych charts", "Pick data/<song>/<song>-<difficulty>.json and events.json. Each song folder becomes songs/<song>/charts with a meta.json.", R.drawable.ic_tab_chart, folderName, save, buttonText = "Convert to Codename")
+                    Tab.CHARTS -> ChartsScreen(p2cCharts, folderName, save)
                     Tab.CHARACTERS -> ReverseScreen(p2cCharacters, Funkin.Left, "Characters", "Add Psych characters", "Pick characters/*.json. Offsets are scaled for Codename and the side decides the camera offsets.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to Codename")
                     Tab.STAGES -> ReverseScreen(p2cStages, Funkin.Up, "Stages", "Add Psych stages", "Pick stages/*.json and, if the stage builds its sprites in Lua, stages/<stage>.lua: those sprites move into the stage XML.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to Codename")
                     Tab.WEEKS -> ReverseScreen(p2cWeeks, Funkin.Right, "Weeks", "Add Psych weeks", "Pick weeks/*.json and images/menucharacters/*.json.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to Codename")
                     Tab.SCRIPTS -> ReverseScreen(p2cScripts, Funkin.Lavender, "Scripts", "Add Lua / HScript", "Pick .lua and .hx scripts. Archives keep the folders, so scripts/, data/<song>/, stages/, custom_events/ and custom_notetypes/ land in the right Codename folder. Add stages/*.json for stage scripts.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to Codename")
                 } else if (currentDirection == Direction.VSLICE_TO_PSYCH) when (current) {
                     Tab.MOD -> ReverseModScreen(revMod, folderName, save)
-                    Tab.CHARTS -> ReverseScreen(revCharts, Funkin.Down, "Songs", "Add V-Slice songs", "Pick a song's <song>-metadata.json and <song>-chart.json (and -erect variants). Variations become their own Psych songs. Archives work too.", R.drawable.ic_tab_chart, folderName, save)
+                    Tab.CHARTS -> ChartsScreen(revCharts, folderName, save)
                     Tab.CHARACTERS -> ReverseScreen(revCharacters, Funkin.Left, "Characters", "Add V-Slice characters", "Pick data/characters/*.json with their spritesheet .xml (images/…) for exact positions. Archives work too.", R.drawable.ic_tab_character, folderName, save)
                     Tab.STAGES -> ReverseScreen(revStages, Funkin.Up, "Stages", "Add V-Slice stages", "Pick data/stages/*.json. Props, layers, scroll and animations become Psych stage objects.", R.drawable.ic_tab_stage, folderName, save)
                     Tab.WEEKS -> ReverseScreen(revWeeks, Funkin.Right, "Levels", "Add V-Slice levels", "Pick data/levels/*.json, plus the songs' -metadata.json files for names, icons and difficulties.", R.drawable.ic_tab_week, folderName, save)

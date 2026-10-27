@@ -7,12 +7,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.brenninhotools.vconverter.convert.FileConverter
 import com.brenninhotools.vconverter.convert.ReverseCharactersConverter
-import com.brenninhotools.vconverter.convert.ReverseChartsConverter
 import com.brenninhotools.vconverter.convert.ReverseScriptsConverter
 import com.brenninhotools.vconverter.convert.ReverseStagesConverter
 import com.brenninhotools.vconverter.convert.ReverseWeeksConverter
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
+import com.brenninhotools.vconverter.ui.ConvertedOutput
 import com.brenninhotools.vconverter.ui.StatusMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,7 +21,7 @@ typealias PickedText = com.brenninhotools.vconverter.convert.PickedText
 
 open class ReverseViewModel(application: Application, private val converter: FileConverter) : BaseConverterViewModel(application) {
     var files by mutableStateOf(listOf<PickedText>())
-        private set
+        protected set
 
     val noun: String get() = converter.noun
 
@@ -37,6 +37,7 @@ open class ReverseViewModel(application: Application, private val converter: Fil
             val loaded = load(uris, converter::accept) { file -> converter.classify(file, converter.read(file)) }
             files = files.filterNot { old -> loaded.items.any { it.key == old.key } } + loaded.items
             invalidate()
+            onFilesChanged()
             loadStatus(loaded, "file(s)")
         }
     }
@@ -44,6 +45,7 @@ open class ReverseViewModel(application: Application, private val converter: Fil
     fun remove(index: Int) {
         files = files.filterIndexed { i, _ -> i != index }
         invalidate()
+        onFilesChanged()
     }
 
     fun setSlot(index: Int, slot: CharacterSlot) {
@@ -55,14 +57,22 @@ open class ReverseViewModel(application: Application, private val converter: Fil
         files = emptyList()
         status = null
         invalidate()
+        onFilesChanged()
     }
+
+    protected open fun onFilesChanged() = Unit
+
+    protected open fun produce(snapshot: List<PickedText>): ConvertedOutput = converter.build(snapshot)
+
+    protected open fun onConverted() = Unit
 
     fun convert() {
         runTask {
             try {
                 val snapshot = files
                 require(snapshot.isNotEmpty()) { "Add at least one $engine $noun." }
-                output = withContext(Dispatchers.Default) { converter.build(snapshot) }
+                output = withContext(Dispatchers.Default) { produce(snapshot) }
+                onConverted()
                 download = null
                 status = null
             } catch (e: Exception) {
@@ -73,8 +83,6 @@ open class ReverseViewModel(application: Application, private val converter: Fil
     }
 
 }
-
-class ReverseChartsViewModel(application: Application) : ReverseViewModel(application, ReverseChartsConverter())
 
 class ReverseCharactersViewModel(application: Application) : ReverseViewModel(application, ReverseCharactersConverter())
 

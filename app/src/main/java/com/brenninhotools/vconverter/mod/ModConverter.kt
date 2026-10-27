@@ -191,9 +191,19 @@ class ModConverter(
                         opponentVocals = listOf(opponentKey).takeIf { "voices-${opponentKey.lowercase()}" in audioNames }
                     )
                 )
-                writer.writeText("data/songs/${scanned.id}/${scanned.id}-metadata.json", VSliceWriter.metadataJson(conversion.metadata))
-                writer.writeText("data/songs/${scanned.id}/${scanned.id}-chart.json", VSliceWriter.chartJson(conversion.chart))
-                written += 2
+                conversion.files(scanned.id).forEach { (name, text) ->
+                    writer.writeText("data/songs/${scanned.id}/$name", text)
+                    written++
+                }
+                conversion.variations.forEach { variation ->
+                    scanned.audio.filter { it.substringAfterLast('/').startsWith("Voices", ignoreCase = true) }.forEach { path ->
+                        val file = path.substringAfterLast('/')
+                        val target = "songs/${scanned.id}/${file.substringBeforeLast('.')}-${variation.variation}.${file.substringAfterLast('.')}"
+                        runCatching { writer.copy(target) { files.open(path) } }
+                            .onSuccess { written++ }
+                            .onFailure { report.warn("Could not copy $target: ${it.message}") }
+                    }
+                }
                 keptPsychEvents += conversion.report.keptPsychEvents
                 keptEventNames += conversion.report.unsupportedEvents.keys
                 conversion.report.warnings.forEach { report.warn("Song ${scanned.id}: $it") }

@@ -55,6 +55,16 @@ object VSliceWriter {
             .put("generatedBy", metadata.generatedBy)
             .put("timeFormat", "ms")
             .put("timeChanges", timeChanges)
+        if (metadata.offset != 0.0) {
+            root.put(
+                "offsets",
+                JSONObject()
+                    .put("instrumental", metadata.offset.toJsonNumber())
+                    .put("altInstrumentals", JSONObject())
+                    .put("vocals", JSONObject())
+                    .put("altVocals", JSONObject())
+            )
+        }
 
         return root.toString(2)
     }

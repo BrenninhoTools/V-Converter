@@ -95,21 +95,34 @@ Every other tab also accepts archives and picks the files it needs from them.
 
 ## Charts
 
-Pick one or more Psych Engine charts of the same song (`song-easy.json`, `song.json`, `song-hard.json`, …) and optionally its `events.json`. The app writes a V-Slice song folder:
+Pick one or more Psych Engine charts (`song-easy.json`, `song.json`, `song-hard.json`, …) with their `events.json`; several songs at once work too. The app writes a V-Slice song folder:
 
 ```
 <song-id>/
 ├── <song-id>-metadata.json
-└── <song-id>-chart.json
+├── <song-id>-chart.json
+├── <song-id>-metadata-erect.json   (only when a difficulty needs its own variation)
+└── <song-id>-chart-erect.json
 ```
 
 Drop that folder inside `data/songs/` of your V-Slice mod.
+
+### The Charts tab
+
+The same Charts tab is used for every direction (Psych ↔ V-Slice, Codename → V-Slice, Codename ↔ Psych), on Android and on Windows:
+
+1. **Files**, grouped by song. Psych difficulties can be renamed in place (handy for `song-insane.json` style names).
+2. **Preview**: a minimap of the whole chart with the opponent and player lanes (and girlfriend lanes when used), holds, camera focus, BPM and time signature changes and events, with a zoom toggle. After converting, switch between the source and the converted chart: the app checks that every note, hold and BPM change made it across.
+3. **Options**: song name, artist, charter, characters, stage, note style and scroll speed per difficulty (empty fields keep what the chart uses), plus a switch to keep or drop Psych-only events. Only the options the target engine has are shown.
+4. **Convert** and save, like the other tabs.
 
 ### What gets converted
 
 - Both the legacy format (pre-1.0, `mustHitSection` relative lanes) and `psych_v1` (absolute lanes)
 - Every difficulty merged into one chart, each with its own scroll speed
-- BPM changes rebuilt from section lengths into `timeChanges`
+- Difficulties with their own BPM, time signatures, events, characters or stage are not flattened: they become a V-Slice variation (`erect` for erect/nightmare charts), and the whole-mod converter copies the `Voices` files with the variation suffix V-Slice looks for
+- BPM changes and time signatures (sections of 3, 6, 7… beats) rebuilt from section lengths into `timeChanges`
+- The chart's `offset` becomes the metadata's instrumental offset (and back, V-Slice → Psych)
 - Camera focus from `mustHitSection` / `gfSection` → `FocusCamera`
 - Psych events:
   - `Hey!` → `PlayAnimation` (`hey`)

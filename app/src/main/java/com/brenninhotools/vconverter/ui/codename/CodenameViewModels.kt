@@ -2,13 +2,10 @@ package com.brenninhotools.vconverter.ui.codename
 
 import android.app.Application
 import com.brenninhotools.vconverter.convert.CodenameCharactersConverter
-import com.brenninhotools.vconverter.convert.CodenameChartsConverter
 import com.brenninhotools.vconverter.convert.CodenameScriptsConverter
 import com.brenninhotools.vconverter.convert.CodenameStagesConverter
 import com.brenninhotools.vconverter.convert.CodenameWeeksConverter
 import com.brenninhotools.vconverter.ui.reverse.ReverseViewModel
-
-class CodenameChartsViewModel(application: Application) : ReverseViewModel(application, CodenameChartsConverter())
 
 class CodenameCharactersViewModel(application: Application) : ReverseViewModel(application, CodenameCharactersConverter())
 

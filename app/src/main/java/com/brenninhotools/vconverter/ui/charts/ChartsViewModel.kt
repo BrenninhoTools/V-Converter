@@ -1,148 +1,132 @@
 package com.brenninhotools.vconverter.ui.charts
 
 import android.app.Application
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.brenninhotools.vconverter.chart.ChartSource
-import com.brenninhotools.vconverter.chart.ConversionOptions
-import com.brenninhotools.vconverter.chart.PsychToVSliceChart
-import com.brenninhotools.vconverter.chart.psych.PsychChartParser
-import com.brenninhotools.vconverter.chart.psych.PsychEvent
-import com.brenninhotools.vconverter.chart.psych.PsychSong
-import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
-import com.brenninhotools.vconverter.io.ImportedFile
-import com.brenninhotools.vconverter.script.ScriptConverter
-import com.brenninhotools.vconverter.io.OutputFile
-import com.brenninhotools.vconverter.ui.BaseConverterViewModel
+import androidx.lifecycle.viewModelScope
+import com.brenninhotools.vconverter.chart.preview.ChartEngine
+import com.brenninhotools.vconverter.chart.preview.ChartField
+import com.brenninhotools.vconverter.chart.preview.ChartPreview
+import com.brenninhotools.vconverter.chart.preview.ChartTweaker
+import com.brenninhotools.vconverter.chart.preview.ChartTweaks
+import com.brenninhotools.vconverter.chart.preview.ChartWorkbench
+import com.brenninhotools.vconverter.convert.CodenameChartsConverter
+import com.brenninhotools.vconverter.convert.CodenameToPsychChartsConverter
+import com.brenninhotools.vconverter.convert.FileConverter
+import com.brenninhotools.vconverter.convert.PsychChartsConverter
+import com.brenninhotools.vconverter.convert.PsychToCodenameChartsConverter
+import com.brenninhotools.vconverter.convert.ReverseChartsConverter
 import com.brenninhotools.vconverter.ui.ConvertedOutput
-import com.brenninhotools.vconverter.ui.StatusMessage
+import com.brenninhotools.vconverter.ui.reverse.PickedText
+import com.brenninhotools.vconverter.ui.reverse.ReverseViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class PickedChart(
-    val key: String,
-    val fileName: String,
-    val difficulty: String,
-    val song: PsychSong
-) {
-    val noteCount: Int get() = song.sections.sumOf { it.notes.size }
-}
+open class ChartsViewModel(application: Application, private val converter: FileConverter) : ReverseViewModel(application, converter) {
+    val source: ChartEngine
+    val target: ChartEngine
 
-data class PickedEvents(val fileName: String, val events: List<PsychEvent>)
+    init {
+        val engines = ChartWorkbench.engines(converter) ?: (ChartEngine.PSYCH to ChartEngine.VSLICE)
+        source = engines.first
+        target = engines.second
+    }
 
-class ChartsViewModel(application: Application) : BaseConverterViewModel(application) {
-    var charts by mutableStateOf(listOf<PickedChart>())
+    val fields: Set<ChartField> = ChartTweaker.fields(source, target)
+
+    val canRenameDifficulty: Boolean = ChartWorkbench.canRenameDifficulty(converter)
+
+    var tweaks by mutableStateOf(ChartTweaks())
         private set
-    var events by mutableStateOf<PickedEvents?>(null)
+    var before by mutableStateOf(listOf<ChartPreview>())
         private set
-    var songId by mutableStateOf("")
-    var songName by mutableStateOf("")
-    var artist by mutableStateOf("")
-    var charter by mutableStateOf("")
+    var after by mutableStateOf(listOf<ChartPreview>())
+        private set
+    var showAfter by mutableStateOf(false)
+    var selected by mutableStateOf<String?>(null)
+    var zoomed by mutableStateOf(false)
 
-    override fun downloadName(): String = "${sanitizeId(songId).ifEmpty { "song" }}-vslice.zip"
+    private var previewJob: Job? = null
+    private var pendingAfter = listOf<ChartPreview>()
 
-    fun add(uris: List<Uri>) {
-        if (uris.isEmpty()) return
-        runTask {
-            val loaded = load(uris, ::isChartCandidate) { file ->
-                val text = file.readText()
-                if (file.name.equals("events.json", ignoreCase = true)) {
-                    PickedEvents(file.name, PsychChartParser.parseEventsOnly(text))
-                } else {
-                    PickedChart(file.path, file.name, detectDifficulty(file.name), PsychChartParser.parse(text))
-                }
-            }
-            loaded.items.filterIsInstance<PickedEvents>().lastOrNull()?.let { events = it }
-            val added = loaded.items.filterIsInstance<PickedChart>()
-            charts = charts.filterNot { old -> added.any { it.key == old.key } } + added
-            fillSongInfo()
-            invalidate()
-            loadStatus(loaded, "file(s)")
+    val difficulties: List<String> get() = before.map { it.difficulty }.distinct()
+
+    val selectedBefore: ChartPreview? get() = before.firstOrNull { key(it) == selected } ?: before.firstOrNull()
+
+    val selectedAfter: ChartPreview? get() {
+        val source = selectedBefore ?: return after.firstOrNull()
+        return after.firstOrNull { it.matches(source) } ?: after.firstOrNull { it.difficulty.equals(source.difficulty, ignoreCase = true) }
+    }
+
+    val current: ChartPreview? get() = if (showAfter && after.isNotEmpty()) selectedAfter ?: selectedBefore else selectedBefore
+
+    fun key(preview: ChartPreview): String = "${preview.song}|${preview.variation}|${preview.difficulty}"
+
+    fun select(preview: ChartPreview) {
+        selected = key(preview)
+    }
+
+    fun updateTweaks(change: (ChartTweaks) -> ChartTweaks) {
+        tweaks = change(tweaks)
+        invalidate()
+        after = emptyList()
+        showAfter = false
+    }
+
+    fun setSpeed(difficulty: String, raw: String) {
+        val value = raw.replace(',', '.').toDoubleOrNull()
+        updateTweaks { current ->
+            val speeds = current.speeds.toMutableMap()
+            if (value == null || value <= 0.0) speeds.remove(difficulty) else speeds[difficulty] = value
+            current.copy(speeds = speeds)
         }
     }
 
-    private fun isChartCandidate(file: ImportedFile): Boolean =
-        file.extension == "json" && listOf("characters", "stages", "weeks", "images").none { file.isUnder(it) }
+    fun resetTweaks() = updateTweaks { ChartTweaks(keepUnknownEvents = it.keepUnknownEvents) }
 
     fun setDifficulty(index: Int, value: String) {
-        charts = charts.mapIndexed { i, chart -> if (i == index) chart.copy(difficulty = value) else chart }
+        val item = files.getOrNull(index) ?: return
+        files = files.mapIndexed { i, old -> if (i == index) ChartWorkbench.withDifficulty(item, value) else old }
         invalidate()
+        onFilesChanged()
     }
 
-    fun remove(index: Int) {
-        charts = charts.filterIndexed { i, _ -> i != index }
-        invalidate()
-    }
+    fun difficultyOf(item: PickedText): String? = ChartWorkbench.difficultyOf(converter, item)
 
-    fun removeEvents() {
-        events = null
-        invalidate()
-    }
+    fun songOf(item: PickedText): String = ChartWorkbench.songOf(converter, item)
 
-    fun clear() {
-        charts = emptyList()
-        events = null
-        songId = ""
-        songName = ""
-        status = null
-        invalidate()
-    }
-
-    fun convert() {
-        runTask {
-            try {
-                val id = sanitizeId(songId)
-                require(id.isNotEmpty()) { "Enter a song id. It names the folder and files." }
-                val sources = charts.map { ChartSource(it.difficulty, it.song) }
-                val options = ConversionOptions(
-                    songName = songName,
-                    artist = artist,
-                    charter = charter,
-                    extraEvents = events?.events ?: emptyList()
-                )
-                val result = withContext(Dispatchers.Default) {
-                    val conversion = PsychToVSliceChart.convert(sources, options)
-                    val folder = listOf("data", "songs", id)
-                    val files = mutableListOf(
-                        OutputFile(folder, "$id-metadata.json", VSliceWriter.metadataJson(conversion.metadata)),
-                        OutputFile(folder, "$id-chart.json", VSliceWriter.chartJson(conversion.chart))
-                    )
-                    ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys).forEach { file ->
-                        files += OutputFile.of(file.path, file.content, null)
-                    }
-                    ConvertedOutput(files = files, report = conversion.report.toReport())
-                }
-                songId = id
-                output = result
-                status = null
-            } catch (e: Exception) {
-                output = null
-                status = StatusMessage.Error(e.message ?: "Conversion failed.")
-            }
+    override fun onFilesChanged() {
+        after = emptyList()
+        showAfter = false
+        val snapshot = files
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            before = withContext(Dispatchers.Default) { runCatching { ChartWorkbench.before(converter, snapshot) }.getOrDefault(emptyList()) }
+            if (before.none { key(it) == selected }) selected = before.firstOrNull()?.let(::key)
         }
     }
 
-    private fun fillSongInfo() {
-        val first = charts.firstOrNull() ?: return
-        if (songName.isBlank()) songName = first.song.name.ifBlank { baseName(first.fileName) }
-        if (songId.isBlank()) songId = sanitizeId(baseName(first.fileName).ifBlank { songName })
+    override fun produce(snapshot: List<PickedText>): ConvertedOutput {
+        val run = ChartWorkbench.run(converter, snapshot, tweaks)
+        pendingAfter = run.after
+        return run.output
     }
 
-    companion object {
-        private val knownDifficulties = PsychToVSliceChart.difficultyOrder
-
-        fun baseName(fileName: String): String {
-            val stem = fileName.substringBeforeLast('.')
-            val suffix = stem.substringAfterLast('-', "").lowercase()
-            return if (suffix in knownDifficulties) stem.substringBeforeLast('-') else stem
-        }
-
-        fun detectDifficulty(fileName: String): String {
-            val suffix = fileName.substringBeforeLast('.').substringAfterLast('-', "").lowercase()
-            return if (suffix in knownDifficulties) suffix else "normal"
-        }
+    override fun onConverted() {
+        after = pendingAfter
+        showAfter = after.isNotEmpty()
     }
 }
+
+class PsychToVSliceChartsViewModel(application: Application) : ChartsViewModel(application, PsychChartsConverter())
+
+class ReverseChartsViewModel(application: Application) : ChartsViewModel(application, ReverseChartsConverter())
+
+class CodenameChartsViewModel(application: Application) : ChartsViewModel(application, CodenameChartsConverter())
+
+class CodenameToPsychChartsViewModel(application: Application) : ChartsViewModel(application, CodenameToPsychChartsConverter())
+
+class PsychToCodenameChartsViewModel(application: Application) : ChartsViewModel(application, PsychToCodenameChartsConverter())

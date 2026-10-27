@@ -385,12 +385,8 @@ class PsychToCodenameChartsConverter : PsychToCodenameConverter() {
         val folder = songFolder(file.path, stem).lowercase()
         if (stem.equals("events", ignoreCase = true)) return PickedText(file.path, file.name, file.path, text, "events", "$folder · ${song.events.size} events")
         require(song.sections.isNotEmpty()) { "not a Psych chart" }
-        val difficulty = when {
-            stem.equals(folder, ignoreCase = true) -> "normal"
-            stem.lowercase().startsWith("$folder-") -> stem.substring(folder.length + 1).lowercase()
-            else -> "normal"
-        }
-        return PickedText(file.path, file.name, file.path, text, "chart", "$folder · $difficulty")
+        val (id, difficulty) = PsychChartNames.split(stem, folder)
+        return PickedText(file.path, file.name, file.path, text, "chart", "$id · $difficulty")
     }
 
     override fun canConvert(items: List<PickedText>): Boolean = items.any { it.kind == "chart" }

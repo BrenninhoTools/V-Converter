@@ -29,6 +29,7 @@ data class VSliceMetadata(
     val previewStart: Int = 0,
     val previewEnd: Int = 15000,
     val songVariations: List<String> = emptyList(),
+    val offset: Double = 0.0,
     val generatedBy: String
 )
 

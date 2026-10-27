@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brenninhotools.vconverter.convert.PickedText
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 
@@ -182,7 +183,7 @@ private fun Hero(state: AppState) {
 }
 
 @Composable
-private fun Card(accent: Color? = null, content: @Composable () -> Unit) {
+internal fun Card(accent: Color? = null, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         Modifier.fillMaxWidth().clip(shape).background(Palette.Surface)
@@ -193,7 +194,7 @@ private fun Card(accent: Color? = null, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SectionTitle(text: String, accent: Color) {
+internal fun SectionTitle(text: String, accent: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(width = 4.dp, height = 18.dp).clip(RoundedCornerShape(2.dp)).background(accent))
         Spacer(Modifier.width(8.dp))
@@ -202,7 +203,7 @@ private fun SectionTitle(text: String, accent: Color) {
 }
 
 @Composable
-private fun Primary(text: String, accent: Color, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun Primary(text: String, accent: Color, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -212,14 +213,14 @@ private fun Primary(text: String, accent: Color, enabled: Boolean = true, onClic
 }
 
 @Composable
-private fun Secondary(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun Secondary(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     OutlinedButton(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.5.dp, Palette.Outline)) {
         Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) Palette.Text else Palette.Muted)
     }
 }
 
 @Composable
-private fun Chip(text: String, color: Color) {
+internal fun Chip(text: String, color: Color) {
     Box(
         Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.16f)).border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -227,7 +228,7 @@ private fun Chip(text: String, color: Color) {
 }
 
 @Composable
-private fun StatusBanner(status: Status?) {
+internal fun StatusBanner(status: Status?) {
     status ?: return
     val color = when (status) {
         is Status.Info -> Palette.Down
@@ -267,7 +268,7 @@ private fun Progress(done: Int, total: Int, label: String, accent: Color) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReportView(report: Report, accent: Color) {
+internal fun ReportView(report: Report, accent: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (report.stats.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -317,7 +318,7 @@ private fun ReportView(report: Report, accent: Color) {
 }
 
 @Composable
-private fun Field(value: String, onChange: (String) -> Unit, label: String, accent: Color, enabled: Boolean) {
+internal fun Field(value: String, onChange: (String) -> Unit, label: String, accent: Color, enabled: Boolean) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -394,47 +395,14 @@ private fun ModScreen(state: AppState) {
 @Composable
 private fun FilesScreen(state: AppState) {
     val files = state.files()
+    if (files.isCharts) {
+        ChartsScreen(state, files)
+        return
+    }
     val accent = state.tab.accent
-    val busy = files.busy
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SectionTitle("${state.direction.from.title} files", accent)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Primary("Add files…", accent, !busy) { Dialogs.openFiles("Add ${state.direction.from.title} files").takeIf { it.isNotEmpty() }?.let { state.addFiles(it) } }
-                    Secondary("Add folder…", !busy) { Dialogs.chooseFolder("Add a folder")?.let { state.addFiles(listOf(it)) } }
-                    if (files.items.isNotEmpty()) TextButton(onClick = { files.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
-                }
-                Text("Archives (.zip, .rar, .7z) are opened and only the matching files are kept.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-                if (files.items.isEmpty()) {
-                    Box(
-                        Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(12.dp))
-                            .border(1.5.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) { Text("Drop files here", style = MaterialTheme.typography.titleMedium, color = accent.copy(alpha = 0.8f)) }
-                }
-                files.items.forEachIndexed { index, item ->
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.SurfaceHigh).padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(item.name, style = MaterialTheme.typography.bodyMedium, color = Palette.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(item.label, style = MaterialTheme.typography.labelSmall, color = Palette.Muted, maxLines = 1)
-                        }
-                        Chip(item.kind, accent)
-                        item.slot?.let { slot ->
-                            Spacer(Modifier.width(8.dp))
-                            SlotPicker(slot, !busy) { files.setSlot(index, it) }
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        TextButton(onClick = { files.remove(index) }, enabled = !busy) { Text("✕", color = Palette.Muted) }
-                    }
-                }
-                Primary("Convert to ${state.direction.to.title}", accent, files.converter.canConvert(files.items) && !busy) { state.convertFiles() }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)), color = accent, trackColor = Palette.SurfaceHigh)
-                StatusBanner(files.status)
-            }
+            FilesCard(state, files, accent)
         }
         Column(Modifier.weight(1.25f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             OutputCard(state, files, accent)
@@ -443,7 +411,56 @@ private fun FilesScreen(state: AppState) {
 }
 
 @Composable
-private fun SlotPicker(slot: CharacterSlot, enabled: Boolean, onSelect: (CharacterSlot) -> Unit) {
+internal fun FilesCard(
+    state: AppState,
+    files: FileTabState,
+    accent: Color,
+    tags: @Composable (Int, PickedText) -> Unit = { _, item -> Chip(item.kind, accent) },
+    extra: @Composable (Int, PickedText) -> Unit = { _, _ -> }
+) {
+    val busy = files.busy
+    Card {
+        SectionTitle("${state.direction.from.title} files", accent)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Primary("Add files…", accent, !busy) { Dialogs.openFiles("Add ${state.direction.from.title} files").takeIf { it.isNotEmpty() }?.let { state.addFiles(it) } }
+            Secondary("Add folder…", !busy) { Dialogs.chooseFolder("Add a folder")?.let { state.addFiles(listOf(it)) } }
+            if (files.items.isNotEmpty()) TextButton(onClick = { files.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
+        }
+        Text("Archives (.zip, .rar, .7z) are opened and only the matching files are kept.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+        if (files.items.isEmpty()) {
+            Box(
+                Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(12.dp))
+                    .border(1.5.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) { Text("Drop files here", style = MaterialTheme.typography.titleMedium, color = accent.copy(alpha = 0.8f)) }
+        }
+        files.items.forEachIndexed { index, item ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.SurfaceHigh).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(item.name, style = MaterialTheme.typography.bodyMedium, color = Palette.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(item.label, style = MaterialTheme.typography.labelSmall, color = Palette.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                tags(index, item)
+                extra(index, item)
+                item.slot?.let { slot ->
+                    Spacer(Modifier.width(8.dp))
+                    SlotPicker(slot, !busy) { files.setSlot(index, it) }
+                }
+                Spacer(Modifier.width(4.dp))
+                TextButton(onClick = { files.remove(index) }, enabled = !busy) { Text("✕", color = Palette.Muted) }
+            }
+        }
+        Primary("Convert to ${state.direction.to.title}", accent, files.converter.canConvert(files.items) && !busy) { state.convertFiles() }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)), color = accent, trackColor = Palette.SurfaceHigh)
+        StatusBanner(files.status)
+    }
+}
+
+@Composable
+internal fun SlotPicker(slot: CharacterSlot, enabled: Boolean, onSelect: (CharacterSlot) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, enabled = enabled, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Palette.Outline)) {
@@ -461,7 +478,7 @@ private fun SlotPicker(slot: CharacterSlot, enabled: Boolean, onSelect: (Charact
 }
 
 @Composable
-private fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
+internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
     val output = files.output
     Card(accent = if (output != null) accent else null) {
         SectionTitle("Output", accent)

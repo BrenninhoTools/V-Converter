@@ -4,6 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.brenninhotools.vconverter.chart.preview.ChartEngine
+import com.brenninhotools.vconverter.chart.preview.ChartField
+import com.brenninhotools.vconverter.chart.preview.ChartPreview
+import com.brenninhotools.vconverter.chart.preview.ChartTweaker
+import com.brenninhotools.vconverter.chart.preview.ChartTweaks
+import com.brenninhotools.vconverter.chart.preview.ChartWorkbench
 import com.brenninhotools.vconverter.codename.CodenameModConverter
 import com.brenninhotools.vconverter.codename.CodenameModScanner
 import com.brenninhotools.vconverter.codename.CodenameToPsychMod
@@ -310,6 +316,66 @@ class FileTabState(val converter: FileConverter) {
     var busy by mutableStateOf(false)
     var preview by mutableStateOf<OutputFile?>(null)
 
+    val chartEngines: Pair<ChartEngine, ChartEngine>? = ChartWorkbench.engines(converter)
+    val isCharts: Boolean get() = chartEngines != null
+    val chartFields: Set<ChartField> = chartEngines?.let { ChartTweaker.fields(it.first, it.second) } ?: emptySet()
+    val canRenameDifficulty: Boolean = ChartWorkbench.canRenameDifficulty(converter)
+    var tweaks by mutableStateOf(ChartTweaks())
+        private set
+    var before by mutableStateOf(listOf<ChartPreview>())
+        private set
+    var after by mutableStateOf(listOf<ChartPreview>())
+        private set
+    var showAfter by mutableStateOf(false)
+    var selected by mutableStateOf<String?>(null)
+    var zoom by mutableStateOf(0)
+
+    val difficulties: List<String> get() = before.map { it.difficulty }.distinct()
+
+    fun key(preview: ChartPreview): String = "${preview.song}|${preview.variation}|${preview.difficulty}"
+
+    val selectedBefore: ChartPreview? get() = before.firstOrNull { key(it) == selected } ?: before.firstOrNull()
+
+    val selectedAfter: ChartPreview? get() {
+        val source = selectedBefore ?: return after.firstOrNull()
+        return after.firstOrNull { it.matches(source) } ?: after.firstOrNull { it.difficulty.equals(source.difficulty, ignoreCase = true) }
+    }
+
+    val currentPreview: ChartPreview? get() = if (showAfter && after.isNotEmpty()) selectedAfter ?: selectedBefore else selectedBefore
+
+    fun updateTweaks(change: (ChartTweaks) -> ChartTweaks) {
+        tweaks = change(tweaks)
+        output = null
+        preview = null
+        after = emptyList()
+        showAfter = false
+    }
+
+    fun setSpeed(difficulty: String, raw: String) {
+        val value = raw.replace(',', '.').toDoubleOrNull()
+        updateTweaks { current ->
+            val speeds = current.speeds.toMutableMap()
+            if (value == null || value <= 0.0) speeds.remove(difficulty) else speeds[difficulty] = value
+            current.copy(speeds = speeds)
+        }
+    }
+
+    fun setDifficulty(index: Int, value: String) {
+        val item = items.getOrNull(index) ?: return
+        items = items.mapIndexed { i, old -> if (i == index) ChartWorkbench.withDifficulty(item, value) else old }
+        output = null
+        preview = null
+        refreshCharts()
+    }
+
+    private fun refreshCharts() {
+        if (!isCharts) return
+        after = emptyList()
+        showAfter = false
+        before = runCatching { ChartWorkbench.before(converter, items) }.getOrDefault(emptyList())
+        if (before.none { key(it) == selected }) selected = before.firstOrNull()?.let(::key)
+    }
+
     private fun tail(file: File, count: Int) = file.absoluteFile.invariantSeparatorsPath.split('/').filter { it.isNotEmpty() }.takeLast(count).joinToString("/")
 
     fun add(sources: List<File>) {
@@ -359,6 +425,7 @@ class FileTabState(val converter: FileConverter) {
         items = items.filterNot { old -> picked.any { it.key == old.key } } + picked
         output = null
         preview = null
+        refreshCharts()
         val text = buildString {
             append("Loaded ${picked.size} file(s).")
             if (skipped > 0) append(" $skipped other file(s) were ignored.")
@@ -374,6 +441,7 @@ class FileTabState(val converter: FileConverter) {
         items = items.filterIndexed { i, _ -> i != index }
         output = null
         preview = null
+        refreshCharts()
     }
 
     fun setSlot(index: Int, slot: CharacterSlot) {
@@ -387,11 +455,19 @@ class FileTabState(val converter: FileConverter) {
         output = null
         preview = null
         status = null
+        refreshCharts()
     }
 
     fun convert() {
         require(items.isNotEmpty()) { "Add at least one ${converter.engine} ${converter.noun}." }
-        val result = converter.build(items)
+        val result = if (isCharts) {
+            val run = ChartWorkbench.run(converter, items, tweaks)
+            after = run.after
+            showAfter = run.after.isNotEmpty()
+            run.output
+        } else {
+            converter.build(items)
+        }
         output = result
         preview = result.files.firstOrNull()
         status = null
