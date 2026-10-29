@@ -80,7 +80,7 @@ The main converter. Each part below has its own tab in the app.
 
 ## Whole mod
 
-The **Mod** tab converts an entire Psych Engine mod in one go, from its folder or from a `.zip`, `.rar` (RAR4 and RAR5) or `.7z` archive. The mod root is found automatically even when the archive wraps it in extra folders.
+The **Mod** tab converts an entire Psych Engine mod in one go, from its folder or from a `.zip`, `.rar` (RAR4 and RAR5) or `.7z` archive. The mod root is found automatically even when the archive wraps it in extra folders. Older mods shipped as a whole engine build work too: `assets/preload/`, `assets/shared/`, `assets/week*/`, `assets/base_game/` and `assets/songs/` are merged as if they were a `mods/` folder.
 
 - `data/<song>/` charts (+ `events.json`) → `data/songs/<song>/`
 - `characters/`, `stages/`, `weeks/` → `data/characters/`, `data/stages/`, `data/levels/`
@@ -90,6 +90,8 @@ The **Mod** tab converts an entire Psych Engine mod in one go, from its folder o
 - Placeholder folders that hold nothing but a single text file (like a template's `readme.txt`) are left out automatically, in both directions
 - `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
 - Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/modules/*.hxc`
+- A chart's custom `arrowSkin` (and `splashSkin`) → a V-Slice note style in `data/notestyles/` built from the same sheet; note types that set their own `texture` get a note style plus a `NoteKind` script that applies it
+- Songs on a pixel stage (`isPixelStage` or `stageUI: "pixel"`) use the `pixel` note style
 
 Every other tab also accepts archives and picks the files it needs from them.
 
@@ -157,6 +159,8 @@ Pick Psych character `.json` files together with their spritesheet `.xml` files.
 - Scale, flip, pixel (no antialiasing), health icon, sing duration, dance speed (`danceLeft`/`danceRight`)
 - Camera position folded into `cameraOffsets`
 - Slot (Player / Opponent / Girlfriend) decides how offsets are rebased
+- `<anim>-loop` animations (played by Psych after `<anim>` ends) become V-Slice's `<anim>-hold`, which works the same way (and back, V-Slice → Psych)
+- **Animate atlas characters** (`images/<image>/Animation.json` + `spritemap1.json`): Psych's symbol names (matched by prefix) become the exact symbol names V-Slice plays (`animType: "symbol"`), and the offsets include each symbol's bounds, read from `Animation.json` and the spritemap, so the atlas lands where Psych draws it. The same works Psych → Codename, V-Slice → Psych (frame label animations become indices of the main symbol, which is all Psych can play) and Codename → Psych
 
 Not carried over: health bar colors and per-character vocal suffixes (V-Slice has no equivalent).
 
@@ -180,8 +184,9 @@ Stages built only in code have no object list; their character layout converts, 
 - Songs (ids in Psych's song path format), story name, background (`menubackgrounds/menu_<name>` or the default yellow) and title image (`storymenu/<week>`)
 - Menu characters from `images/menucharacters/*.json` → level props, placed where Psych draws them; base `dad`/`bf`/`gf` map to V-Slice's own props
 - Hidden story weeks → `visible: false`
+- Lock chains and freeplay hiding → a level script (`scripts/levels/<Week>Level.hxc`): the level unlocks after beating `weekBefore`, stays hidden until then when `hiddenUntilUnlocked` is set, keeps its songs out of freeplay while locked (like Psych) and hides them for good with `hideFreeplay`
 
-Not carried over: lock chains (`weekBefore`), freeplay hiding, per-song freeplay icons/colors (listed in the report).
+Not carried over: per-song freeplay icons/colors (V-Slice shows the opponent's pixel icon; listed in the report).
 
 ## Scripts
 
@@ -194,7 +199,9 @@ The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice sc
 - The output is plain V-Slice HScript: no Lua-style leftovers (no `Function_*` constants, no `psych("…")` dispatch, no `g_`/`l_` prefixes). Script names keep their own names (`onUpdate` becomes `onUpdateScript` where it would clash with a `Module` method), and Psych calls become real functions such as `makeSprite(...)`. No runtime or helper classes are added: each module carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
 - Every class, field and event the generated code touches was checked against the FunkinCrew/Funkin source
 
-The report lists, line by line, anything a script uses that has no V-Slice equivalent (`runHaxeCode`, videos, custom substates, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
+Animate atlas sprites (`makeFlxAnimateSprite`, `loadAnimateAtlas`, `addAnimationBySymbol(Indices)`), every shader getter/setter (int/bool arrays, `setShaderSampler2D`), camera scroll and follow-point helpers, gamepads (buttons and analog sticks), `getPixelColor`, `loadMultipleFrames`, `createInstance`/`addInstance`, `callMethodFromClass`, `addToGroup`/`removeFromGroup`, `directoryFileList`, `loadSong` and `startVideo` are converted too, for V-Slice and for Codename.
+
+The report lists, line by line, anything a script uses that has no V-Slice equivalent (custom substates, `addLuaScript`/`addHScript`, `saveFile`/`deleteFile`, dialogue, metatables, `unspawnNotes` tricks) so those parts can be finished by hand.
 
 ---
 
@@ -250,6 +257,7 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | --- | --- |
 | `data/<song>/<song>-<diff>.json` + `events.json` | `songs/<song>/charts/<diff>.json` + `meta.json`: opponent, player and (hidden) girlfriend strumlines, per-character vocals (`Voices-Player`/`Voices-Opponent`), section focus → `Camera Movement` (kept under forced camera positions), `Camera Follow Pos` → `Camera Position`, `Add Camera Zoom`, `Play Animation`, `Change Scroll Speed`, `Alt Idle Animation`, BPM and time signature changes |
 | `Hey!`, `Set GF Speed`, `Screen Shake`, `Change Character`, `Set Property`, `Play Sound`, `Alt Idle Animation` | `data/events/<name>.hx` + `.json` reimplementing Psych's built-in events in Codename |
+| Custom `arrowSkin`, note types with their own `texture` | A song script that swaps the note and strum sprites, and the note type texture copied to `images/game/notes/<type>`, where Codename looks for it |
 | `Hurt Note`, `Hey!`, `GF Sing` note types | `data/notes/<name>.hx` (avoided by the CPU, health loss on hit, no miss when skipped; hey/cheer animations; sung by the girlfriend) |
 | `characters/<id>.json` | `data/characters/<id>.xml`: offsets divided by the scale, `sing_duration` → `holdTime`, camera offsets per side, spritesheets outside `images/characters/` copied there |
 | `stages/<id>.json` (+ `stages/<id>.lua`) | `data/stages/<id>.xml` with sprites, boxes, quality filters (`low-memory`/`high-memory`), character spots and the pixel extension; sprites made in the stage Lua move into the XML and the rest of the Lua becomes `data/stages/<id>.hx` |

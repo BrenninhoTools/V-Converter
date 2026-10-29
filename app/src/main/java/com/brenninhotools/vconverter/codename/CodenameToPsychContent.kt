@@ -3,7 +3,9 @@ package com.brenninhotools.vconverter.codename
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
+import com.brenninhotools.vconverter.core.AnimateAtlas
 import com.brenninhotools.vconverter.core.SparrowAtlas
+import com.brenninhotools.vconverter.reverse.VSliceToPsychCharacter
 import com.brenninhotools.vconverter.psych.PsychWriters
 import com.brenninhotools.vconverter.script.hx.HxSource
 import com.brenninhotools.vconverter.stage.PsychPoint
@@ -32,9 +34,34 @@ object CodenameToPsychCharacter {
         character: CodenameCharacter,
         slot: CharacterSlot,
         atlases: Map<String, SparrowAtlas>,
-        animate: Boolean = false
+        atlas: AnimateAtlas? = null
     ): CodenamePsychResult {
-        val built = CodenamePsychCharacter.build(character, slot, atlases, null)
+        val animate = atlas != null
+        val raw = CodenamePsychCharacter.build(character, slot, atlases, null)
+        val missingSymbols = mutableListOf<String>()
+        val built = if (atlas == null) raw else raw.copy(character = raw.character.copy(animations = raw.character.animations.map { anim ->
+            val source = character.animations.firstOrNull { it.prefix == anim.prefix && it.indices == anim.indices } ?: character.animations.firstOrNull { it.prefix == anim.prefix }
+            val label = if (source?.label == true) atlas.findLabel(anim.prefix) else null
+            val symbol = if (label == null) atlas.symbols[anim.prefix] ?: atlas.findSymbol(anim.prefix) else null
+            val scale = character.scale
+            when {
+                label != null -> anim.copy(
+                    prefix = VSliceToPsychCharacter.exactSymbol(atlas, atlas.mainSymbol),
+                    indices = if (anim.indices.isNotEmpty()) anim.indices.map { label.start + it } else (label.start until label.start + label.duration).toList(),
+                    offsetX = anim.offsetX + scale * atlas.mainBounds.x,
+                    offsetY = anim.offsetY + scale * atlas.mainBounds.y
+                )
+                symbol != null -> anim.copy(
+                    prefix = VSliceToPsychCharacter.exactSymbol(atlas, symbol.name),
+                    offsetX = anim.offsetX + scale * symbol.bounds.x,
+                    offsetY = anim.offsetY + scale * symbol.bounds.y
+                )
+                else -> {
+                    missingSymbols += "${anim.anim} (\"${anim.prefix}\")"
+                    anim
+                }
+            }
+        }))
         val report = ReportBuilder()
         report.stat("Animations", built.character.animations.size)
         report.stat("Side", slot.name.lowercase())
@@ -42,7 +69,8 @@ object CodenameToPsychCharacter {
         built.notes.sections.forEach { report.section(it.title, it.lines) }
         if (character.extraSheets.isNotEmpty()) report.section("Spritesheets", listOf("Extra sheets were joined into the image field: ${built.character.image}"))
         if (atlases.isEmpty() && !animate) report.warn("Spritesheet XML not provided, so mirrored offsets and centercam corrections are approximate.")
-        if (animate) report.warn("This character uses an Animate atlas; Psych loads it from the same folder, but check its offsets in the character editor.")
+        if (animate) report.section("Animate atlas", listOf("Frame label animations became indices of the main symbol (Psych only plays symbols), and offsets include each symbol's bounds."))
+        if (missingSymbols.isNotEmpty()) report.warn("These animations match no symbol or frame label in Animation.json: ${missingSymbols.joinToString()}.")
         val gameOver = character.gameOverCharacter
         val notes = mutableListOf<String>()
         if (gameOver != null && gameOver != "bf-dead") notes += "Game over character \"$gameOver\": set \"gameOverChar\": \"$gameOver\" in the charts (V-Converter does this for the songs it converts)."

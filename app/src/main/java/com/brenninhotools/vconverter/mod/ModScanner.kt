@@ -25,7 +25,21 @@ data class ModScan(
 ) {
     val isEmpty: Boolean get() = songs.isEmpty() && characters.isEmpty() && stages.isEmpty() && weeks.isEmpty() && assets.isEmpty() && scripts.isEmpty()
 
-    fun relative(path: String): String = path.removePrefix(root)
+    fun relative(path: String): String = PsychLayout.normalize(path.removePrefix(root))
+}
+
+object PsychLayout {
+    private val libraries = Regex("^(preload|shared|base_game|exclude|embed|tutorial|week[0-9]+|weekend[0-9]+)$", RegexOption.IGNORE_CASE)
+    private val engineRoot = Regex("^(.*?)assets/(?:(?:preload|shared|base_game|exclude|embed|tutorial|week[0-9]+|weekend[0-9]+)/)+$", RegexOption.IGNORE_CASE)
+
+    fun normalize(rel: String): String {
+        if (!rel.startsWith("assets/", ignoreCase = true)) return rel
+        var rest = rel.substring("assets/".length)
+        while (rest.contains('/') && libraries.matches(rest.substringBefore('/'))) rest = rest.substringAfter('/')
+        return rest
+    }
+
+    fun engineRootOf(root: String): String? = engineRoot.find(root)?.groupValues?.get(1)
 }
 
 object ModScanner {
@@ -35,7 +49,10 @@ object ModScanner {
     private val audioExtensions = setOf("ogg", "mp3", "wav")
 
     fun scan(files: ModFiles): ModScan {
-        val roots = findRoots(files.paths)
+        val ranked = findRoots(files.paths)
+        val first = ranked.firstOrNull() ?: ""
+        val engine = PsychLayout.engineRootOf(first)
+        val roots = if (engine != null) listOf(engine) + ranked.drop(1).filter { !it.startsWith(engine) } else ranked
         val root = roots.firstOrNull() ?: ""
         val placeholders = Placeholders.find(files.paths, root)
         val placeholderFiles = placeholders.values.toSet()
@@ -56,7 +73,7 @@ object ModScanner {
         var weekList: String? = null
 
         inside.forEach { full ->
-            val rel = full.removePrefix(root)
+            val rel = PsychLayout.normalize(full.removePrefix(root))
             val parts = rel.split('/')
             val top = parts.first().lowercase()
             val fileName = parts.last()
@@ -134,9 +151,11 @@ object ModScanner {
                 }
             }
         }
+        val content = scores.keys.associateWith { prefix -> paths.count { it.startsWith(prefix) && !it.endsWith(".txt", ignoreCase = true) && !it.endsWith(".md", ignoreCase = true) } }
+        val busiest = content.values.maxOrNull() ?: 0
         return scores.entries
             .filter { Integer.bitCount(it.value) >= 1 }
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { Integer.bitCount(it.value) }.thenBy { it.key.length })
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { content.getValue(it.key) * 10 >= busiest }.thenByDescending { Integer.bitCount(it.value) }.thenBy { it.key.length })
             .map { it.key }
             .let { ranked ->
                 val best = ranked.firstOrNull() ?: return emptyList()

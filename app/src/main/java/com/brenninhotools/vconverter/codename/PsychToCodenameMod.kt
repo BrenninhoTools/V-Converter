@@ -3,8 +3,11 @@ package com.brenninhotools.vconverter.codename
 import com.brenninhotools.vconverter.character.PsychCharacter
 import com.brenninhotools.vconverter.character.PsychCharacterParser
 import com.brenninhotools.vconverter.chart.ChartSource
+import com.brenninhotools.vconverter.chart.PsychNoteStyles
 import com.brenninhotools.vconverter.chart.psych.PsychChartParser
 import com.brenninhotools.vconverter.chart.psych.PsychEvent
+import com.brenninhotools.vconverter.core.AnimateAtlas
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
@@ -36,7 +39,7 @@ class PsychToCodenameMod(
     private data class LoadedSong(val id: String, val sources: List<ChartSource>, val extraEvents: List<PsychEvent>, val audio: List<String>)
 
     private val report = ReportBuilder()
-    private val pathIndex: Map<String, String> = files.paths.associateBy { it.lowercase() }
+    private val pathIndex: Map<String, String> = files.paths.filter { it.startsWith(scan.root) }.associateBy { (scan.root + scan.relative(it)).lowercase() }
     private var written = 0
     private var done = 0
     private val writtenPaths = HashSet<String>()
@@ -243,6 +246,11 @@ class PsychToCodenameMod(
                 )
                 result.charts.forEach { (difficulty, json) -> write("songs/${song.id}/charts/$difficulty.json", json) }
                 write("songs/${song.id}/meta.json", result.meta)
+                if (PsychNoteStyles.isCustom(main.arrowSkin)) {
+                    val skin = main.arrowSkin.trim().removePrefix("images/").removeSuffix(".png")
+                    write("songs/${song.id}/scripts/psych-note-skin.hx", PsychToCodenameEvents.noteSkinScript(skin))
+                    report.section("Song ${song.id} · Note skin", listOf("arrowSkin \"$skin\" is applied to notes and strums by songs/${song.id}/scripts/psych-note-skin.hx."))
+                }
                 result.events.forEach { (name, n) -> usedEvents[name] = (usedEvents[name] ?: 0) + n }
                 usedNoteTypes += result.noteTypes
                 val chars = songCharacters.getOrPut(song.id) { linkedSetOf() }
@@ -280,8 +288,16 @@ class PsychToCodenameMod(
             try {
                 val slot = usage[id]?.maxByOrNull { it.value }?.key ?: PsychToCodenameCharacter.defaultSlot(id, character)
                 val images = character.atlasImages.ifEmpty { listOf(character.image) }
-                val animate = images.any { img -> pathIndex["${scan.root}images/${img.trim()}/animation.json".lowercase()] != null }
-                val result = PsychToCodenameCharacter.convert(id, character, slot, animate)
+                val folder = "${scan.root}images/${images.first().trim().removeSuffix("/")}/".lowercase()
+                val animationPath = pathIndex["${folder}animation.json"]
+                val atlasPaths = pathIndex.filterKeys { it.startsWith(folder) && !it.substring(folder.length).contains('/') }.values.toList()
+                val atlas = animationPath?.let { path ->
+                    val spritemaps = atlasPaths.filter { it != path && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) }.sortedBy { it.lowercase() }
+                    runCatching { AnimateAtlas.parse(files.readText(path), spritemaps.map { files.readText(it) }) }
+                        .onFailure { report.warn("Character $id: Animate atlas could not be read (${it.message}).") }
+                        .getOrNull()
+                }
+                val result = PsychToCodenameCharacter.convert(id, character, slot, atlas, atlasFiles = if (animationPath != null) atlasPaths.map { it.substringAfterLast('/') } else emptyList())
                 result.files.forEach { write(it.path, it.text) }
                 result.copies.forEach { copyRelative(it.from, it.to) }
                 result.report.warnings.forEach { report.warn("Character $id: $it") }
@@ -378,6 +394,13 @@ class PsychToCodenameMod(
         (usedNoteTypes + modTypes.keys).distinct().forEach { name ->
             val sources = modTypes[name] ?: emptyList()
             if (sources.isNotEmpty()) {
+                sources.firstNotNullOfOrNull { script -> runCatching { PsychNoteStyles.textureIn(files.readText(script.path)) }.getOrNull() }?.let { texture ->
+                    val clean = texture.trim().removePrefix("images/").removeSuffix(".png")
+                    if (pathIndex["${scan.root}images/$clean.png".lowercase()] != null) {
+                        listOf("png", "xml").forEach { ext -> copyRelative("images/$clean.$ext", "images/game/notes/$name.$ext") }
+                        notes += "\"$name\" uses its Psych texture images/$clean, copied to images/game/notes/$name (Codename picks it up by name)"
+                    }
+                }
                 sources.forEachIndexed { index, script ->
                     val target = if (index == 0) "data/notes/$name.hx" else "songs/notetype-${SongPath.format(name)}-${script.rel.substringAfterLast('.')}.hx"
                     if (index > 0) report.warn("Note type \"$name\" has more than one script; ${script.rel} became a global script ($target).")

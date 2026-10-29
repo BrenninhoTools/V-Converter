@@ -1,5 +1,7 @@
 package com.brenninhotools.vconverter.reverse
 
+import com.brenninhotools.vconverter.core.AnimateAtlas
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
@@ -221,7 +223,12 @@ class VSliceModConverter(
                     val xml = index["${scan.root}images/$asset.xml".lowercase()]
                     if (xml != null) runCatching { atlases[VSliceToPsychCharacter.atlasKey(asset)] = SparrowAtlas.parse(files.readText(xml)) }
                 }
-                val result = VSliceToPsychCharacter.convert(id, character, slot, atlases)
+                val folder = "${scan.root}images/${character.assetPath.trim().removeSuffix("/")}/".lowercase()
+                val animate = index["${folder}animation.json"]?.let { animation ->
+                    val spritemaps = files.paths.filter { it.lowercase().startsWith(folder) && it != animation && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) && !it.substring(folder.length).contains('/') }.sortedBy { it.lowercase() }
+                    runCatching { AnimateAtlas.parse(files.readText(animation), spritemaps.map { files.readText(it) }) }.getOrNull()
+                }
+                val result = VSliceToPsychCharacter.convert(id, character, slot, atlases, animate)
                 write(result.path, result.json)
                 icons[id] = character.healthIcon.ifEmpty { id }
                 result.report.warnings.forEach { report.warn("Character $id: $it") }

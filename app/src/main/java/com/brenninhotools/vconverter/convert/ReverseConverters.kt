@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.convert
 
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
@@ -80,9 +81,14 @@ class ReverseCharactersConverter : FileConverter() {
 
     override fun downloadName() = "characters-psych.zip"
 
-    override fun accept(file: ImportedFile) = (file.extension == "json" && file.isUnder("characters")) || (file.extension == "xml" && file.isUnder("images"))
+    override fun accept(file: ImportedFile) = (file.extension == "json" && (file.isUnder("characters") || AnimateAtlases.isAtlasFile(file.name))) || (file.extension == "xml" && file.isUnder("images"))
 
-    override fun classify(file: ImportedFile, text: String): PickedText = when (file.extension) {
+    override fun classify(file: ImportedFile, text: String): PickedText = when {
+        AnimateAtlases.isAtlasFile(file.name) -> PickedText(file.path, file.name, file.path, text, "animate", "Animate atlas · ${AnimateAtlases.key(file.path)}")
+        else -> classifySheet(file, text)
+    }
+
+    private fun classifySheet(file: ImportedFile, text: String): PickedText = when (file.extension) {
         "xml" -> {
             val atlas = SparrowAtlas.parse(text)
             require(atlas.frames.isNotEmpty()) { "no Sparrow frames" }
@@ -100,10 +106,12 @@ class ReverseCharactersConverter : FileConverter() {
 
     override fun build(items: List<PickedText>): ConvertedOutput {
         val atlases = items.filter { it.kind == "atlas" }.associate { VSliceToPsychCharacter.atlasKey(stem(it)) to SparrowAtlas.parse(it.text) }
+        val animates = AnimateAtlases.collect(items.filter { it.kind == "animate" }.map { it.path to it.text })
         val report = ReportBuilder()
         val files = items.filter { it.kind == "character" }.map { item ->
             val id = stem(item)
-            val result = VSliceToPsychCharacter.convert(id, VSliceParser.character(item.text), item.slot ?: CharacterSlot.OPPONENT, atlases)
+            val character = VSliceParser.character(item.text)
+            val result = VSliceToPsychCharacter.convert(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases, animates[VSliceToPsychCharacter.atlasKey(character.assetPath)])
             result.report.stats.firstOrNull { it.label == "Accuracy" }?.let { report.stat(id, it.value) }
             result.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             result.report.warnings.forEach { report.warn("$id: $it") }

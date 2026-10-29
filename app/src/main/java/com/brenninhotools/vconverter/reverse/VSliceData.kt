@@ -44,7 +44,8 @@ data class VAnimation(
     val indices: List<Int>,
     val offsetX: Double,
     val offsetY: Double,
-    val flipX: Boolean
+    val flipX: Boolean,
+    val animType: String = ""
 )
 
 data class VCharacter(
@@ -205,7 +206,8 @@ object VSliceParser {
             indices = numbers(obj.value("frameIndices")).map { it.toInt() },
             offsetX = ox,
             offsetY = oy,
-            flipX = obj.value("flipX").asBool(false)
+            flipX = obj.value("flipX").asBool(false),
+            animType = obj.value("animType").asText()
         )
     }
 

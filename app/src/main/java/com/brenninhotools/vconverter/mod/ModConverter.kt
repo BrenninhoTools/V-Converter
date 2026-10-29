@@ -6,6 +6,7 @@ import com.brenninhotools.vconverter.character.PsychCharacterParser
 import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
 import com.brenninhotools.vconverter.chart.ChartSource
 import com.brenninhotools.vconverter.chart.ConversionOptions
+import com.brenninhotools.vconverter.chart.PsychNoteStyles
 import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.chart.psych.PsychChartParser
 import com.brenninhotools.vconverter.chart.psych.PsychSong
@@ -13,6 +14,8 @@ import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
+import com.brenninhotools.vconverter.core.AnimateAtlas
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.script.ScriptConverter
@@ -47,7 +50,7 @@ class ModConverter(
     private val onProgress: (ModProgress) -> Unit = {}
 ) {
     private val report = ReportBuilder()
-    private val pathIndex: Map<String, String> = files.paths.associateBy { it.lowercase() }
+    private val pathIndex: Map<String, String> = files.paths.filter { it.startsWith(scan.root) }.associateBy { (scan.root + scan.relative(it)).lowercase() }
     private var written = 0
     private var keptPsychEvents = 0
     private val keptEventNames = sortedSetOf<String>()
@@ -141,6 +144,7 @@ class ModConverter(
                     if (props.notes.isNotEmpty()) report.section("Stage $id · stages/$id.lua", props.notes)
                 }
                 if (path == null) report.warn("Stage $id has no stages/$id.json; default character positions were used.")
+                if (stage.isPixelStage) pixelStages += id
                 val result = PsychToVSliceStage.convert(StageSource(id, stage, atlas = ::stageAtlas))
                 writer.writeText("data/stages/$id.json", result.json)
                 written++
@@ -158,6 +162,40 @@ class ModConverter(
     }
 
     private val atlasCache = HashMap<String, SparrowAtlas?>()
+    private val pixelStages = HashSet<String>()
+    private val noteStyles = HashMap<String, String?>()
+
+    private fun sheet(image: String): SparrowAtlas? {
+        val path = pathIndex["${scan.root}images/${image.trim().removePrefix("images/").removeSuffix(".png")}.xml".lowercase()] ?: return null
+        return runCatching { SparrowAtlas.parse(files.readText(path)) }.getOrNull()
+    }
+
+    private fun noteStyleFor(skin: String, splash: String = "", strumline: Boolean = true, label: String = ""): String? {
+        if (!PsychNoteStyles.isCustom(skin)) return null
+        val key = skin.trim().lowercase() + "|" + splash.trim().lowercase() + "|" + strumline
+        return noteStyles.getOrPut(key) {
+            val notes = sheet(skin)
+            if (notes == null) report.warn("Note skin images/$skin.xml was not found; ${label.ifBlank { "its songs" }} keep the default note style.")
+            val style = notes?.let { PsychNoteStyles.build(skin, it, splash.takeIf { s -> s.isNotBlank() }, splash.takeIf { s -> s.isNotBlank() }?.let(::sheet), strumline) }
+            if (notes != null && style == null) report.warn("images/$skin.xml has no Psych note animations (purple0…), so it was not turned into a note style.")
+            style?.let {
+                val id = if (strumline) it.id else it.id + "-notes"
+                writer.writeText("data/notestyles/$id.json", it.json)
+                written++
+                report.section("Note style $id", listOf("Made from images/$skin.") + it.notes)
+                id
+            }
+        }
+    }
+
+    private fun animateAtlas(image: String): AnimateAtlas? {
+        val folder = "${scan.root}images/${image.trim().removeSuffix("/")}/".lowercase()
+        val animation = pathIndex["${folder}animation.json"] ?: return null
+        val spritemaps = pathIndex.filterKeys { it.startsWith(folder) && !it.substring(folder.length).contains('/') && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) }.values.filter { it != animation }.sortedBy { it.lowercase() }
+        return runCatching { AnimateAtlas.parse(files.readText(animation), spritemaps.map { files.readText(it) }) }
+            .onFailure { report.warn("Animate atlas images/$image could not be read: ${it.message}") }
+            .getOrNull()
+    }
 
     private fun stageAtlas(image: String): SparrowAtlas? = atlasCache.getOrPut(image.lowercase()) {
         val path = pathIndex["${scan.root}images/$image.xml".lowercase()] ?: return@getOrPut null
@@ -187,6 +225,8 @@ class ModConverter(
                         songName = main.name,
                         extraEvents = extraEvents,
                         customStageIds = stageIds,
+                        noteStyle = noteStyleFor(main.arrowSkin, main.splashSkin, label = "song ${scanned.id}"),
+                        pixelStages = pixelStages,
                         playerVocals = listOf(playerKey).takeIf { "voices-${playerKey.lowercase()}" in audioNames },
                         opponentVocals = listOf(opponentKey).takeIf { "voices-${opponentKey.lowercase()}" in audioNames }
                     )
@@ -246,7 +286,7 @@ class ModConverter(
                     val path = pathIndex["${scan.root}images/$image.xml".lowercase()] ?: return@mapNotNull null
                     PsychToVSliceCharacter.atlasKey(image) to SparrowAtlas.parse(files.readText(path))
                 }.toMap()
-                val result = PsychToVSliceCharacter.convert(CharacterSource(id, character, slot, atlases))
+                val result = PsychToVSliceCharacter.convert(CharacterSource(id, character, slot, atlases, animate = animateAtlas(character.image)))
                 writer.writeText("data/characters/$id.json", result.json)
                 written++
                 if (result.report.stats.any { it.label == "Accuracy" && it.value != "Exact" }) approximate++
@@ -258,7 +298,7 @@ class ModConverter(
             }
         }
         if (approximate > 0) {
-            report.warn("$approximate character(s) use an Animate atlas or a missing spritesheet XML, so their positions are approximate.")
+            report.warn("$approximate character(s) are missing their spritesheet XML or Animate atlas files, so their positions are approximate.")
         }
     }
 
@@ -276,6 +316,11 @@ class ModConverter(
                 val result = PsychToVSliceLevel.convert(WeekSource(id, PsychWeekParser.parse(files.readText(path)), menu))
                 writer.writeText("data/levels/$id.json", result.json)
                 written++
+                result.extra.forEach { (extraPath, text) ->
+                    writer.writeText(extraPath, text)
+                    written++
+                }
+                result.report.sections.filter { it.title.startsWith("Level script") }.forEach { report.section("Week $id · ${it.title}", it.lines) }
                 result.report.warnings.forEach { report.warn("Week $id: $it") }
                 val missing = result.songIds.filter { it !in songIds }
                 if (missing.isNotEmpty()) {
@@ -314,6 +359,15 @@ class ModConverter(
         outputs.forEach { file ->
             writer.writeText(file.path, file.content)
             written++
+        }
+        sources.filter { "/custom_notetypes/" in "/" + it.path.lowercase() }.forEach { source ->
+            val texture = PsychNoteStyles.textureIn(source.text) ?: return@forEach
+            val typeName = source.path.substringAfterLast('/').substringBeforeLast('.')
+            val style = noteStyleFor(texture, strumline = false, label = "note type $typeName") ?: return@forEach
+            val (path, text) = PsychNoteStyles.noteKindScript(PsychToVSliceChart.noteKindFor(typeName), typeName, style)
+            writer.writeText(path, text)
+            written++
+            report.section("Note type $typeName", listOf("Its texture images/$texture became note style \"$style\", applied by $path."))
         }
         report.stat("Scripts", bundle.converted)
         bundle.report.sections.forEach { report.section("Script · ${it.title}", it.lines) }

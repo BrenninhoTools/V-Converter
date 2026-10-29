@@ -39,6 +39,7 @@ data class PsychSong(
     val girlfriend: String,
     val stage: String,
     val arrowSkin: String,
+    val splashSkin: String = "",
     val sections: List<PsychSection>,
     val events: List<PsychEvent>,
     val invalidNotes: Int,

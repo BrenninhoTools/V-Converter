@@ -1,6 +1,8 @@
 package com.brenninhotools.vconverter.codename
 
 import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
+import com.brenninhotools.vconverter.core.AnimateAtlas
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
@@ -212,8 +214,12 @@ class CodenameToPsychMod(
             val character = if (id == sourceId) sourceCharacter else sourceCharacter.copy(id = id)
             try {
                 val slot = usage[id]?.maxByOrNull { it.value }?.key ?: CodenamePsychCharacter.defaultSlot(character)
-                val animate = character.images.any { img -> pathIndex["${scan.root}images/$img/animation.json".lowercase()] != null }
-                val result = CodenameToPsychCharacter.convert(character, slot, atlasesFor(character.images), animate)
+                val folder = "${scan.root}images/${character.images.first()}/".lowercase()
+                val atlas = pathIndex["${folder}animation.json"]?.let { animation ->
+                    val spritemaps = files.paths.filter { it.lowercase().startsWith(folder) && it != animation && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) && !it.substring(folder.length).contains('/') }.sortedBy { it.lowercase() }
+                    runCatching { AnimateAtlas.parse(files.readText(animation), spritemaps.map { files.readText(it) }) }.getOrNull()
+                }
+                val result = CodenameToPsychCharacter.convert(character, slot, atlasesFor(character.images), atlas)
                 if (id != sourceId) report.section("Character $sourceId", listOf("Renamed to \"$id\": Psych has the speaker shooting built into that character (it reads data/<song>/picospeaker.json), so the Codename character script was not needed."))
                 result.files.forEach { write(it.path, it.text) }
                 result.report.warnings.filterNot { it.startsWith("Spritesheet XML not provided") && !character.animations.any { a -> a.x != 0.0 } }.forEach { report.warn("Character $id: $it") }

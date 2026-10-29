@@ -12,6 +12,11 @@ import funkin.Paths;
 import funkin.PlayerSettings;
 import funkin.Preferences;
 import funkin.audio.FunkinSound;
+import funkin.data.song.SongRegistry;
+import funkin.graphics.FunkinSprite;
+import funkin.play.cutscene.VideoCutscene;
+import funkin.ui.transition.LoadingState;
+import funkin.util.assets.FlxAnimationUtil;
 import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
@@ -344,6 +349,61 @@ class PsychApiLibrary extends Module
       case "setCameraFollowPoint":
         game.cameraFollowPoint.setPosition(num(a[0], 0), num(a[1], 0));
         return null;
+      case "addCameraFollowPoint":
+        game.cameraFollowPoint.x += num(arg(a, 0, 0), 0);
+        game.cameraFollowPoint.y += num(arg(a, 1, 0), 0);
+        return null;
+      case "setCameraScroll":
+        FlxG.camera.scroll.set(num(a[0], 0) - FlxG.width / 2, num(a[1], 0) - FlxG.height / 2);
+        return null;
+      case "addCameraScroll":
+        FlxG.camera.scroll.add(num(arg(a, 0, 0), 0), num(arg(a, 1, 0), 0));
+        return null;
+      case "getCameraScrollX": return FlxG.camera.scroll.x + FlxG.width / 2;
+      case "getCameraScrollY": return FlxG.camera.scroll.y + FlxG.height / 2;
+      case "gamepadAnalogX": return gamepadAxis(a[0], truthy(arg(a, 1, true)), true);
+      case "gamepadAnalogY": return gamepadAxis(a[0], truthy(arg(a, 1, true)), false);
+      case "gamepadJustPressed": return gamepadButton(FlxG.gamepads.getByID(Std.int(num(a[0], 0))), "justPressed", a[1]);
+      case "gamepadPressed": return gamepadButton(FlxG.gamepads.getByID(Std.int(num(a[0], 0))), "pressed", a[1]);
+      case "gamepadReleased": return gamepadButton(FlxG.gamepads.getByID(Std.int(num(a[0], 0))), "justReleased", a[1]);
+      case "anyGamepadJustPressed": return anyGamepad("justPressed", a[0]);
+      case "anyGamepadPressed": return anyGamepad("pressed", a[0]);
+      case "anyGamepadReleased": return anyGamepad("justReleased", a[0]);
+      case "getPixelColor":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.pixels != null ? o.pixels.getPixel32(Std.int(num(a[1], 0)), Std.int(num(a[2], 0))) : 0xFF000000;
+      case "loadMultipleFrames": return with(a[0], function(o) o.frames = multiAtlas(a[1]));
+      case "updateHitboxFromGroup":
+        var g:Dynamic = resolve(a[0]);
+        var list:Dynamic = g != null && g.members != null ? g.members : g;
+        if (list != null && list[Std.int(num(a[1], 0))] != null) list[Std.int(num(a[1], 0))].updateHitbox();
+        return null;
+      case "directoryFileList": return directoryFileList(Std.string(a[0]));
+      case "loadSong": return loadSong(arg(a, 0, null), Std.int(num(arg(a, 1, -1), -1)));
+      case "startVideo":
+        VideoCutscene.play(Paths.videos(Std.string(a[0])));
+        return true;
+      case "createInstance": return createInstance(a[0], Std.string(a[1]), arg(a, 2, null));
+      case "addInstance": return addLuaSprite(a[0], truthy(arg(a, 1, false)));
+      case "callMethodFromClass":
+        var cls:Dynamic = Type.resolveClass(Std.string(a[0]));
+        if (cls == null) return null;
+        return Reflect.callMethod(cls, Reflect.field(cls, Std.string(a[1])), listArgs(arg(a, 2, null)));
+      case "addToGroup":
+        var g:Dynamic = resolve(a[0]);
+        var o:Dynamic = resolve(a[1]);
+        if (g == null || o == null) return false;
+        var index:Dynamic = arg(a, 2, null);
+        if (index == null || num(index, -1) < 0) g.add(o) else g.insert(Std.int(num(index, 0)), o);
+        return true;
+      case "removeFromGroup":
+        var g:Dynamic = resolve(a[0]);
+        if (g == null) return false;
+        var o:Dynamic = arg(a, 2, null) != null ? resolve(a[2]) : (g.members != null ? g.members[Std.int(num(a[1], 0))] : g[Std.int(num(a[1], 0))]);
+        if (o == null) return false;
+        if (g.members != null) g.remove(o, true) else g.remove(o);
+        if (truthy(arg(a, 3, true))) o.destroy();
+        return true;
       case "getCameraFollowX": return game.cameraFollowPoint.x;
       case "getCameraFollowY": return game.cameraFollowPoint.y;
       case "triggerEvent": return triggerEvent(Std.string(a[0]), arg(a, 1, ""), arg(a, 2, ""));
@@ -504,6 +564,29 @@ class PsychApiLibrary extends Module
       case "getShaderFloat":
         var o:Dynamic = resolve(a[0]);
         return o != null && o.shader != null ? o.shader.getFloat(Std.string(a[1])) : null;
+      case "getShaderInt":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getInt(Std.string(a[1])) : null;
+      case "getShaderBool":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getBool(Std.string(a[1])) : null;
+      case "getShaderFloatArray":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getFloatArray(Std.string(a[1])) : null;
+      case "getShaderIntArray":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getIntArray(Std.string(a[1])) : null;
+      case "getShaderBoolArray":
+        var o:Dynamic = resolve(a[0]);
+        return o != null && o.shader != null ? o.shader.getBoolArray(Std.string(a[1])) : null;
+      case "setShaderIntArray": return withShader(a[0], function(sh) sh.setIntArray(Std.string(a[1]), indices(a[2])));
+      case "setShaderBoolArray": return withShader(a[0], function(sh) sh.setBoolArray(Std.string(a[1]), bools(a[2])));
+      case "setShaderSampler2D": return withShader(a[0], function(sh) sh.setSampler2D(Std.string(a[1]), Assets.getBitmapData(Paths.image(Std.string(a[2])))));
+      case "makeFlxAnimateSprite": return makeFlxAnimateSprite(a[0], num(a[1], 0), num(a[2], 0), a[3]);
+      case "loadAnimateAtlas": return with(a[0], function(o) o.loadTextureAtlas(Std.string(a[1])));
+      case "addAnimationBySymbol": return addAnimationBySymbol(a[0], a[1], a[2], num(a[3], 24), truthy(a[4]), null);
+      case "addAnimationBySymbolIndices": return addAnimationBySymbol(a[0], a[1], a[2], num(a[4], 24), truthy(a[5]), indices(a[3]));
+      case "instanceArg": return instanceArg(a[0], a[1]);
       case "songUsesEvent": return songUsesEvent(Std.string(a[0]));
       case "songUsesNoteType": return songUsesNoteType(Std.string(a[0]));
       case "noteTypeName": return noteTypeName(a[0]);
@@ -892,6 +975,171 @@ class PsychApiLibrary extends Module
     s.antialiasing = true;
     sprite(Std.string(tag), s);
     return true;
+  }
+
+  function gamepadAxis(id:Dynamic, leftStick:Bool, horizontal:Bool):Float
+  {
+    var pad:Dynamic = FlxG.gamepads.getByID(Std.int(num(id, 0)));
+    if (pad == null || pad.analog == null) return 0;
+    var value:Dynamic = Reflect.getProperty(pad.analog.value, (leftStick ? "LEFT_STICK_" : "RIGHT_STICK_") + (horizontal ? "X" : "Y"));
+    return value == null ? 0 : value;
+  }
+
+  function gamepadButton(pad:Dynamic, list:String, button:Dynamic):Bool
+  {
+    if (pad == null || button == null) return false;
+    var buttons:Dynamic = Reflect.getProperty(pad, list);
+    return buttons != null && Reflect.getProperty(buttons, Std.string(button).toUpperCase()) == true;
+  }
+
+  function anyGamepad(list:String, button:Dynamic):Bool
+  {
+    for (pad in FlxG.gamepads.getActiveGamepads())
+    {
+      if (gamepadButton(pad, list, button)) return true;
+    }
+    return false;
+  }
+
+  function multiAtlas(images:Dynamic):Dynamic
+  {
+    var names:Array<String> = [];
+    if (Std.isOfType(images, Array))
+    {
+      var list:Array<Dynamic> = images;
+      for (v in list) names.push(Std.string(v));
+    }
+    else
+    {
+      var i:Int = 1;
+      while (Reflect.field(images, Std.string(i)) != null)
+      {
+        names.push(Std.string(Reflect.field(images, Std.string(i))));
+        i++;
+      }
+    }
+    if (names.length == 0) return null;
+    var frames:Dynamic = Paths.getSparrowAtlas(names[0]);
+    for (i in 1...names.length) frames = FlxAnimationUtil.combineFramesCollections(frames, Paths.getSparrowAtlas(names[i]));
+    return frames;
+  }
+
+  function directoryFileList(folder:String):Array<String>
+  {
+    var prefix:String = folder;
+    if (!StringTools.endsWith(prefix, "/")) prefix += "/";
+    var result:Array<String> = [];
+    for (id in Assets.list())
+    {
+      var path:String = id.indexOf(":") >= 0 ? id.substr(id.indexOf(":") + 1) : id;
+      var at:Int = path.indexOf(prefix);
+      if (at < 0) continue;
+      var rest:String = path.substr(at + prefix.length);
+      var name:String = rest.indexOf("/") >= 0 ? rest.substr(0, rest.indexOf("/")) : rest;
+      if (name.length > 0 && result.indexOf(name) < 0) result.push(name);
+    }
+    return result;
+  }
+
+  function loadSong(name:Dynamic, difficulty:Int):Dynamic
+  {
+    var id:String = name == null || Std.string(name).length == 0 ? game.currentSong.id : StringTools.trim(Std.string(name)).toLowerCase().split(" ").join("-");
+    var song:Dynamic = SongRegistry.instance.fetchEntry(id);
+    if (song == null) return false;
+    var names:Array<String> = ["easy", "normal", "hard"];
+    var target:String = difficulty < 0 ? game.currentDifficulty : (difficulty < names.length ? names[difficulty] : game.currentDifficulty);
+    LoadingState.loadPlayState({targetSong: song, targetDifficulty: target, targetVariation: game.currentVariation});
+    return true;
+  }
+
+  function createInstance(tag:Dynamic, className:String, args:Dynamic):Dynamic
+  {
+    var cls:Dynamic = Type.resolveClass(className);
+    if (cls == null) return false;
+    var made:Dynamic = Type.createInstance(cls, listArgs(args));
+    sprite(Std.string(tag), made);
+    return true;
+  }
+
+  function listArgs(value:Dynamic):Array<Dynamic>
+  {
+    var result:Array<Dynamic> = [];
+    if (value == null) return result;
+    if (Std.isOfType(value, Array))
+    {
+      var list:Array<Dynamic> = value;
+      for (v in list) result.push(v);
+      return result;
+    }
+    var i:Int = 1;
+    while (Reflect.field(value, Std.string(i)) != null)
+    {
+      result.push(Reflect.field(value, Std.string(i)));
+      i++;
+    }
+    return result;
+  }
+
+  function makeFlxAnimateSprite(tag:Dynamic, x:Float, y:Float, folder:Dynamic):Dynamic
+  {
+    var s:FunkinSprite = new FunkinSprite(x, y);
+    if (folder != null && Std.string(folder).length > 0) s.loadTextureAtlas(Std.string(folder));
+    s.antialiasing = true;
+    sprite(Std.string(tag), s);
+    return true;
+  }
+
+  function addAnimationBySymbol(target:Dynamic, name:Dynamic, symbol:Dynamic, fps:Float, loop:Bool, frames:Array<Int>):Dynamic
+  {
+    return with(target, function(o)
+    {
+      var wanted:String = Std.string(symbol);
+      var found:String = wanted;
+      var dictionary:Dynamic = o.library != null && !o.library.existsSymbol(wanted) ? Reflect.field(o.library, "dictionary") : null;
+      if (dictionary != null)
+      {
+        for (key in dictionary.keys())
+        {
+          if (StringTools.startsWith(key, wanted))
+          {
+            found = key;
+            break;
+          }
+        }
+      }
+      if (frames != null && frames.length > 0) o.anim.addBySymbolIndices(Std.string(name), found, frames, fps, loop);
+      else o.anim.addBySymbol(Std.string(name), found, fps, loop);
+      if (o.anim.curAnim == null) o.anim.play(Std.string(name), true);
+    });
+  }
+
+  function instanceArg(name:Dynamic, className:Dynamic):Dynamic
+  {
+    if (className != null && Std.string(className).length > 0)
+    {
+      var cls:Dynamic = Type.resolveClass(Std.string(className));
+      if (cls != null) return Reflect.getProperty(cls, Std.string(name));
+    }
+    return resolve(name);
+  }
+
+  function bools(value:Dynamic):Array<Bool>
+  {
+    var result:Array<Bool> = [];
+    if (value == null) return result;
+    if (Std.isOfType(value, Array))
+    {
+      var list:Array<Dynamic> = value;
+      for (v in list) result.push(truthy(v));
+      return result;
+    }
+    var i:Int = 1;
+    while (Reflect.field(value, Std.string(i)) != null)
+    {
+      result.push(truthy(Reflect.field(value, Std.string(i))));
+      i++;
+    }
+    return result;
   }
 
   function makeAnimatedLuaSprite(tag:Dynamic, image:Dynamic, x:Float, y:Float, type:Dynamic):Dynamic

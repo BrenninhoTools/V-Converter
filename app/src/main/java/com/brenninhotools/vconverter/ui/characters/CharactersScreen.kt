@@ -37,7 +37,7 @@ fun CharactersScreen(viewModel: CharactersViewModel, modFolderName: String?, onS
             SectionTitle("Characters", accent, 1)
             DropZone(
                 title = "Add characters & sheets",
-                hint = "Pick Psych character .json files together with their spritesheet .xml files (images/characters). The XML makes positions pixel-exact. You can also pick a .zip/.rar/.7z.",
+                hint = "Pick Psych character .json files together with their spritesheet .xml files (images/characters), or Animation.json + spritemap1.json for Animate atlas characters. They make positions pixel-exact. You can also pick a .zip/.rar/.7z.",
                 accent = accent,
                 icon = R.drawable.ic_tab_character,
                 enabled = !busy,
@@ -58,7 +58,8 @@ fun CharactersScreen(viewModel: CharactersViewModel, modFolderName: String?, onS
                     enabled = !busy,
                     onRemove = { viewModel.remove(index) },
                     tags = {
-                        if (missing.isEmpty()) Tag("Sheet found", Funkin.Up) else Tag("Missing ${missing.size} sheet(s)", Funkin.Warning)
+                        if (viewModel.isAnimate(item)) Tag("Animate atlas", Funkin.Up)
+                        else if (missing.isEmpty()) Tag("Sheet found", Funkin.Up) else Tag("Missing ${missing.size} sheet(s)", Funkin.Warning)
                         Tag("${item.character.animations.size} anims", Funkin.Muted)
                         Tag("Scale ${item.character.scale}", Funkin.Muted)
                         if (item.character.atlasImages.size > 1) Tag("Multi-atlas", accent)
@@ -89,7 +90,7 @@ fun CharactersScreen(viewModel: CharactersViewModel, modFolderName: String?, onS
                         }
                         if (missing.isNotEmpty()) {
                             Text(
-                                "Needs: " + missing.joinToString { it.substringAfterLast('/') + ".xml" },
+                                "Needs: " + missing.joinToString { it.substringAfterLast('/') + ".xml" } + " (or its Animation.json + spritemap for an Animate atlas)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Funkin.Warning
                             )

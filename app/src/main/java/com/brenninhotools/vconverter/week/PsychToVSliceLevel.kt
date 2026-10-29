@@ -14,7 +14,7 @@ data class WeekSource(
     val menuCharacters: Map<String, PsychMenuCharacter>
 )
 
-data class LevelResult(val id: String, val json: String, val songIds: List<String>, val report: Report)
+data class LevelResult(val id: String, val json: String, val songIds: List<String>, val report: Report, val extra: List<Pair<String, String>> = emptyList())
 
 object PsychToVSliceLevel {
     const val LEVEL_VERSION = "1.0.0"
@@ -76,23 +76,78 @@ object PsychToVSliceLevel {
         if (week.difficulties.isNotEmpty()) {
             report.warn("Psych week difficulties (${week.difficulties.joinToString()}) are not stored in V-Slice levels; each song's metadata lists its difficulties.")
         }
+        val locked = week.weekBefore.isNotBlank() && !week.startUnlocked
+        val extra = mutableListOf<Pair<String, String>>()
+        if (locked || week.hideFreeplay) {
+            val className = levelClass(source.id)
+            extra += "scripts/levels/$className.hxc" to levelScript(className, source.id, week, locked)
+            report.section(
+                "Level script (scripts/levels/$className.hxc)",
+                listOfNotNull(
+                    if (locked) "Unlocks after beating \"${week.weekBefore}\", like Psych's weekBefore" else null,
+                    if (locked && week.hiddenUntilUnlocked) "Hidden from the story menu until unlocked" else null,
+                    if (locked) "Its songs stay out of freeplay while it is locked, like in Psych" else null,
+                    if (week.hideFreeplay) "Its songs are hidden from freeplay but still play in story mode" else null
+                )
+            )
+        }
         report.section(
             "Not carried over",
             listOfNotNull(
-                week.weekBefore.takeIf { it.isNotBlank() && !week.startUnlocked }?.let { "Unlock after \"$it\" (V-Slice levels have no lock chain)" },
-                if (week.hiddenUntilUnlocked) "Hidden until unlocked" else null,
-                if (week.hideFreeplay) "Hide from freeplay (V-Slice lists every level's songs in freeplay)" else null,
                 week.weekName.takeIf { it.isNotBlank() }?.let { "Week name \"$it\" (only the story name is shown in V-Slice)" }
             )
         )
         report.section(
-            "Freeplay icons & colors (set these in the V-Slice freeplay instead)",
+            "Freeplay icons & colors (V-Slice shows the opponent's images/freeplay/icons/<character>pixel.png and has no per-song color)",
             week.songs.map { song ->
                 String.format(Locale.US, "%s → icon %s, #%02X%02X%02X", SongPath.format(song.name), song.icon.ifBlank { "face" }, song.color[0], song.color[1], song.color[2])
             }
         )
 
-        return LevelResult(source.id, root.toString(2), songIds, report.build())
+        return LevelResult(source.id, root.toString(2), songIds, report.build(), extra)
+    }
+
+    fun levelClass(id: String): String {
+        val pascal = id.split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }.joinToString("") { it.replaceFirstChar { c -> c.uppercaseChar() } }.ifEmpty { "Psych" }
+        return (if (pascal.first().isDigit()) "Level$pascal" else pascal) + "Level"
+    }
+
+    private fun quote(text: String): String = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+    private fun levelScript(className: String, id: String, week: PsychWeek, locked: Boolean): String = buildString {
+        appendLine("import flixel.FlxG;")
+        if (locked) appendLine("import funkin.save.Save;")
+        appendLine("import funkin.ui.story.Level;")
+        appendLine("import funkin.ui.story.StoryMenuState;")
+        appendLine()
+        appendLine("class $className extends Level")
+        appendLine("{")
+        appendLine("  public function new()")
+        appendLine("  {")
+        appendLine("    super(${quote(id)});")
+        appendLine("  }")
+        if (locked) {
+            appendLine()
+            appendLine("  override public function isUnlocked():Bool")
+            appendLine("  {")
+            appendLine("    return Save.instance.hasBeatenLevel(${quote(week.weekBefore.trim())});")
+            appendLine("  }")
+            if (week.hiddenUntilUnlocked) {
+                appendLine()
+                appendLine("  override public function isVisible():Bool")
+                appendLine("  {")
+                appendLine("    return super.isVisible() && isUnlocked();")
+                appendLine("  }")
+            }
+        }
+        appendLine()
+        appendLine("  override public function getSongs():Array<String>")
+        appendLine("  {")
+        appendLine("    var songs:Array<String> = super.getSongs();")
+        appendLine("    if (Std.isOfType(FlxG.state, StoryMenuState)) return songs;")
+        appendLine(if (week.hideFreeplay) "    return [];" else "    return isUnlocked() ? songs : [];")
+        appendLine("  }")
+        appendLine("}")
     }
 
     private fun prop(menu: PsychMenuCharacter, slot: Int, propIndex: Int): JSONObject {

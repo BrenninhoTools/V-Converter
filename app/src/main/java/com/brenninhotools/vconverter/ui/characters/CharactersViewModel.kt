@@ -9,6 +9,8 @@ import com.brenninhotools.vconverter.character.CharacterSource
 import com.brenninhotools.vconverter.character.PsychCharacter
 import com.brenninhotools.vconverter.character.PsychCharacterParser
 import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
+import com.brenninhotools.vconverter.core.AnimateAtlas
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
@@ -35,10 +37,15 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
         private set
     var atlases by mutableStateOf(mapOf<String, SparrowAtlas>())
         private set
+    var animateFiles by mutableStateOf(mapOf<String, String>())
+        private set
+
+    val animates: Map<String, AnimateAtlas> get() = AnimateAtlases.collect(animateFiles.toList())
 
     private sealed interface Item {
         data class Character(val item: PickedCharacter) : Item
         data class Atlas(val key: String, val atlas: SparrowAtlas) : Item
+        data class Animate(val path: String, val text: String) : Item
     }
 
     fun add(uris: List<Uri>) {
@@ -49,7 +56,7 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
                     "xml" -> {
                         Item.Atlas(PsychToVSliceCharacter.atlasKey(file.name.substringBeforeLast('.')), SparrowAtlas.parse(file.readText()))
                     }
-                    "json" -> {
+                    "json" -> if (AnimateAtlases.isAtlasFile(file.name)) Item.Animate(file.path, file.readText()) else {
                         val character = PsychCharacterParser.parse(file.readText())
                         val id = sanitizeId(file.name.substringBeforeLast('.'))
                         Item.Character(PickedCharacter(file.path, file.name, id, PsychToVSliceCharacter.defaultSlot(id, character), character))
@@ -59,6 +66,7 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
             }
             val added = loaded.items.filterIsInstance<Item.Character>().map { it.item }
             atlases = atlases + loaded.items.filterIsInstance<Item.Atlas>().associate { it.key to it.atlas }
+            animateFiles = animateFiles + loaded.items.filterIsInstance<Item.Animate>().associate { it.path to it.text }
             characters = characters.filterNot { old -> added.any { it.key == old.key } } + added
             invalidate()
             loadStatus(loaded, "file(s)")
@@ -66,14 +74,18 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
     }
 
     private fun isCharacterCandidate(file: ImportedFile): Boolean = when (file.extension) {
-        "json" -> file.isUnder("characters")
+        "json" -> file.isUnder("characters") || AnimateAtlases.isAtlasFile(file.name)
         "xml" -> file.isUnder("characters")
         else -> false
     }
 
     fun missingAtlases(item: PickedCharacter): List<String> =
         item.character.atlasImages.ifEmpty { listOf(item.character.image) }
-            .filter { PsychToVSliceCharacter.atlasKey(it) !in atlases }
+            .filter { PsychToVSliceCharacter.atlasKey(it) !in atlases && PsychToVSliceCharacter.atlasKey(it) !in animateKeys }
+
+    private val animateKeys: Set<String> get() = animateFiles.keys.filter { it.substringAfterLast('/').equals("Animation.json", ignoreCase = true) }.map { AnimateAtlases.key(it) }.toSet()
+
+    fun isAnimate(item: PickedCharacter): Boolean = PsychToVSliceCharacter.atlasKey(item.character.image) in animateKeys
 
     fun setId(index: Int, value: String) = update(index) { it.copy(id = value) }
 
@@ -87,6 +99,7 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
     fun clear() {
         characters = emptyList()
         atlases = emptyMap()
+        animateFiles = emptyMap()
         status = null
         invalidate()
     }
@@ -102,10 +115,11 @@ class CharactersViewModel(application: Application) : BaseConverterViewModel(app
 
                 val snapshot = characters.zip(ids)
                 val sheets = atlases
+                val animated = animates
                 val result = withContext(Dispatchers.Default) {
                     val combined = ReportBuilder()
                     val files = snapshot.map { (item, id) ->
-                        val converted = PsychToVSliceCharacter.convert(CharacterSource(id, item.character, item.slot, sheets))
+                        val converted = PsychToVSliceCharacter.convert(CharacterSource(id, item.character, item.slot, sheets, animate = animated[PsychToVSliceCharacter.atlasKey(item.character.image)]))
                         converted.report.stats.firstOrNull { it.label == "Accuracy" }?.let { combined.stat(id, it.value) }
                         converted.report.sections.forEach { combined.section("$id · ${it.title}", it.lines) }
                         converted.report.warnings.forEach { combined.warn("$id: $it") }

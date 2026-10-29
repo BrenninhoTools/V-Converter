@@ -24,6 +24,8 @@ data class ConversionOptions(
     val playerVocals: List<String>? = null,
     val opponentVocals: List<String>? = null,
     val splitVariations: Boolean = true,
+    val noteStyle: String? = null,
+    val pixelStages: Set<String> = emptySet(),
     val generatedBy: String = "V-Converter (Psych Engine to V-Slice)"
 )
 
@@ -163,7 +165,7 @@ object PsychToVSliceChart {
                 opponentVocals = options.opponentVocals
             ),
             stage = convertStage(song.stage, options.customStageIds, report),
-            noteStyle = noteStyle(song),
+            noteStyle = options.noteStyle ?: noteStyle(song, options.pixelStages),
             timeChanges = timing.changes.map { VSliceTimeChange(it.time, it.beat, it.bpm, it.numerator) },
             offset = song.offset,
             generatedBy = options.generatedBy
@@ -354,8 +356,8 @@ object PsychToVSliceChart {
         return stage
     }
 
-    private fun noteStyle(song: PsychSong): String {
-        val pixelStage = song.stage.lowercase() in setOf("school", "schoolevil")
+    private fun noteStyle(song: PsychSong, pixelStages: Set<String>): String {
+        val pixelStage = song.stage.lowercase() in setOf("school", "schoolevil") || pixelStages.any { it.equals(song.stage, ignoreCase = true) }
         val pixelSkin = song.arrowSkin.lowercase().contains("pixel")
         return if (pixelStage || pixelSkin) "pixel" else "funkin"
     }

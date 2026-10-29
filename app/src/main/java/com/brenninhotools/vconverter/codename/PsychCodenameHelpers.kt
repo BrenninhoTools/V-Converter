@@ -583,6 +583,30 @@ function psychShaderGet(obj:Dynamic, name:String):Dynamic
   var shader:Dynamic = Std.isOfType(obj, CustomShader) ? obj : obj.shader;
   return shader == null ? null : shader.hget(name);
 }"""),
+        "gamepad" to h("""
+function psychGamepad(id:Int, list:String, button:String):Bool
+{
+  var pad:Dynamic = FlxG.gamepads.getByID(id);
+  if (pad == null || button == null) return false;
+  return Reflect.getProperty(Reflect.getProperty(pad, list), button.toUpperCase()) == true;
+}
+
+function psychAnyGamepad(list:String, button:String):Bool
+{
+  for (pad in FlxG.gamepads.getActiveGamepads())
+  {
+    if (Reflect.getProperty(Reflect.getProperty(pad, list), button.toUpperCase()) == true) return true;
+  }
+  return false;
+}
+
+function psychGamepadAxis(id:Int, leftStick:Bool, horizontal:Bool):Float
+{
+  var pad:Dynamic = FlxG.gamepads.getByID(id);
+  if (pad == null || pad.analog == null) return 0;
+  var value:Dynamic = Reflect.getProperty(pad.analog.value, (leftStick ? "LEFT_STICK_" : "RIGHT_STICK_") + (horizontal ? "X" : "Y"));
+  return value == null ? 0 : value;
+}"""),
         "focus" to h("""
 var psychFocusEvents:Array<Dynamic> = null;
 var psychFocusIndex:Int = 0;

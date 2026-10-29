@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.reverse
 
+import com.brenninhotools.vconverter.core.AnimateAtlas
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
@@ -32,7 +33,8 @@ object VSliceToPsychCharacter {
 
     fun atlasKey(path: String): String = path.trim().replace('\\', '/').substringAfterLast('/').substringBeforeLast(".png").lowercase()
 
-    fun convert(id: String, character: VCharacter, slot: CharacterSlot, atlases: Map<String, SparrowAtlas>): ReverseResult {
+    fun convert(id: String, character: VCharacter, slot: CharacterSlot, atlases: Map<String, SparrowAtlas>, animate: AnimateAtlas? = null): ReverseResult {
+        if (animate != null && character.renderType.equals("animateatlas", ignoreCase = true)) return convertAtlas(id, character, slot, animate)
         val report = ReportBuilder()
         val s = character.scale
         val images = (listOf(character.assetPath) + character.animations.map { it.assetPath }).filter { it.isNotBlank() }.distinct()
@@ -65,7 +67,7 @@ object VSliceToPsychCharacter {
                     .put("offsets", JSONArray(listOf(((anim.offsetX - idleX) * s).toJsonNumber(), ((anim.offsetY - idleY) * s).toJsonNumber())))
                     .put("loop", anim.looped)
                     .put("fps", anim.frameRate)
-                    .put("anim", anim.name)
+                    .put("anim", if (anim.name.endsWith("-hold")) anim.name.removeSuffix("-hold") + "-loop" else anim.name)
                     .put("indices", JSONArray(anim.indices))
                     .put("name", anim.prefix)
             )
@@ -99,6 +101,89 @@ object VSliceToPsychCharacter {
                 "Positions were rebased for the ${slot.label.lowercase(Locale.US)} slot."
             )
         )
+        return ReverseResult("characters/$id.json", root.toString(2), report.build())
+    }
+
+    fun exactSymbol(atlas: AnimateAtlas, name: String): String =
+        if (atlas.symbols.keys.any { it != name && it.startsWith(name) }) "$name\\" else name
+
+    private fun convertAtlas(id: String, character: VCharacter, slot: CharacterSlot, atlas: AnimateAtlas): ReverseResult {
+        val report = ReportBuilder()
+        val s = character.scale
+        val idle = character.animations.firstOrNull { it.name == "danceLeft" }
+            ?: character.animations.firstOrNull { it.name == character.startingAnimation }
+            ?: character.animations.firstOrNull { it.name == "idle" }
+            ?: character.animations.firstOrNull()
+        val first = atlas.firstSprite
+        val w0 = first?.first ?: slot.stageAnchorX
+        val h0 = first?.second ?: slot.stageAnchorY
+        val missing = mutableListOf<String>()
+
+        data class Resolved(val psychName: String, val indices: List<Int>, val boundsX: Double, val boundsY: Double)
+
+        fun resolve(anim: VAnimation): Resolved? {
+            val label = if (anim.animType.equals("symbol", ignoreCase = true)) null else atlas.findLabel(anim.prefix)
+            if (label != null) {
+                val frames = if (anim.indices.isNotEmpty()) anim.indices.map { label.start + it } else (label.start until label.start + label.duration).toList()
+                return Resolved(exactSymbol(atlas, atlas.mainSymbol), frames, atlas.mainBounds.x, atlas.mainBounds.y)
+            }
+            val symbol = atlas.symbols[anim.prefix] ?: atlas.findSymbol(anim.prefix) ?: return null
+            return Resolved(exactSymbol(atlas, symbol.name), anim.indices, symbol.bounds.x, symbol.bounds.y)
+        }
+
+        val idleResolved = idle?.let(::resolve)
+        val idleX = (idle?.offsetX ?: 0.0) - character.offsetX + (idleResolved?.boundsX ?: 0.0)
+        val idleY = (idle?.offsetY ?: 0.0) - character.offsetY + (idleResolved?.boundsY ?: 0.0)
+        val posX = slot.stageAnchorX - s * w0 / 2.0 - s * idleX + character.offsetX
+        val posY = slot.stageAnchorY - s * h0 - s * idleY + character.offsetY
+        val camX = slot.cameraSign * (character.cameraX - posX + slot.stageAnchorX)
+        val camY = character.cameraY - posY + slot.stageAnchorY - s * h0 / 2.0
+
+        val animations = JSONArray()
+        character.animations.forEach { anim ->
+            val resolved = resolve(anim)
+            if (resolved == null) missing += "${anim.name} (\"${anim.prefix}\")"
+            val ox = anim.offsetX - character.offsetX + (resolved?.boundsX ?: 0.0)
+            val oy = anim.offsetY - character.offsetY + (resolved?.boundsY ?: 0.0)
+            animations.put(
+                JSONObject()
+                    .put("offsets", JSONArray(listOf(((ox - idleX) * s).toJsonNumber(), ((oy - idleY) * s).toJsonNumber())))
+                    .put("loop", anim.looped)
+                    .put("fps", anim.frameRate)
+                    .put("anim", if (anim.name.endsWith("-hold")) anim.name.removeSuffix("-hold") + "-loop" else anim.name)
+                    .put("indices", JSONArray(resolved?.indices ?: anim.indices))
+                    .put("name", resolved?.psychName ?: anim.prefix)
+            )
+        }
+        val root = JSONObject()
+            .put("animations", animations)
+            .put("image", character.assetPath)
+            .put("position", JSONArray(listOf(posX.toJsonNumber(), posY.toJsonNumber())))
+            .put("healthicon", character.healthIcon.ifEmpty { id })
+            .put("flip_x", character.flipX)
+            .put("healthbar_colors", JSONArray(defaultColors.getValue(slot)))
+            .put("camera_position", JSONArray(listOf(camX.toJsonNumber(), camY.toJsonNumber())))
+            .put("sing_duration", (character.singTime / 1.1).toJsonNumber())
+            .put("scale", s.toJsonNumber())
+            .put("no_antialiasing", character.isPixel)
+            .put("vocals_file", "")
+            .put("_editor_isPlayer", slot == CharacterSlot.PLAYER)
+
+        report.stat("Animations", character.animations.size)
+        report.stat("Render", "Animate atlas")
+        report.stat("Slot", slot.label)
+        report.stat("Accuracy", if (first != null && missing.isEmpty()) "Exact" else "Approximate")
+        if (missing.isNotEmpty()) report.warn("These animations match no symbol or frame label in Animation.json: ${missing.joinToString()}.")
+        if (first == null) report.warn("No spritemap JSON was found next to Animation.json, so the position is approximate.")
+        report.section(
+            "Animate atlas",
+            listOf(
+                "Frame label animations became indices of the main symbol (Psych only plays symbols); symbol names end with \"\\\" where Psych's prefix match would pick the wrong symbol.",
+                "Offsets include each symbol's bounds, so the atlas lands where V-Slice draws it.",
+                "Psych loads the atlas from images/${character.assetPath}/ (Animation.json + spritemap)."
+            )
+        )
+        report.section("Notes", listOf("Health bar color set to the default ${slot.label.lowercase(Locale.US)} color; change it in Psych's Character Editor."))
         return ReverseResult("characters/$id.json", root.toString(2), report.build())
     }
 }
@@ -170,7 +255,7 @@ object VSliceToPsychStage {
                     }
                     anims.put(
                         JSONObject()
-                            .put("anim", anim.name)
+                            .put("anim", if (anim.name.endsWith("-hold")) anim.name.removeSuffix("-hold") + "-loop" else anim.name)
                             .put("name", anim.prefix)
                             .put("fps", anim.frameRate)
                             .put("loop", anim.looped)

@@ -98,6 +98,7 @@ object PsychChartParser {
             girlfriend = girlfriend,
             stage = song.value("stage").asText().ifBlank { "stage" },
             arrowSkin = song.value("arrowSkin").asText(),
+            splashSkin = song.value("splashSkin").asText(),
             sections = sections,
             events = events.sortedBy { it.time },
             invalidNotes = invalidNotes,

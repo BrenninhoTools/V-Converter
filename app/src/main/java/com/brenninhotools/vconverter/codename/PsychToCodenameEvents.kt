@@ -1,5 +1,7 @@
 package com.brenninhotools.vconverter.codename
 
+import com.brenninhotools.vconverter.script.hx.HxSource
+
 object PsychToCodenameEvents {
     private val descriptions = mapOf(
         "Hey!" to listOf("Target (BF, GF or empty for both)", "Duration (seconds)"),
@@ -231,5 +233,20 @@ function onPlayerMiss(event)
 """.trimStart())
         }
         else -> null
+    }
+
+    fun noteSkinScript(skin: String): String {
+        val path = HxSource.hxString(skin)
+        return """
+function onNoteCreation(event)
+{
+  if (event.note.noteType == null || event.note.noteType == "") event.noteSprite = $path;
+}
+
+function onStrumCreation(event)
+{
+  event.sprite = $path;
+}
+""".trimStart()
     }
 }

@@ -96,12 +96,12 @@ class WeeksViewModel(application: Application) : BaseConverterViewModel(applicat
                 val menu = menuCharacters
                 val result = withContext(Dispatchers.Default) {
                     val combined = ReportBuilder()
-                    val files = snapshot.map { (item, id) ->
+                    val files = snapshot.flatMap { (item, id) ->
                         val converted = PsychToVSliceLevel.convert(WeekSource(id, item.week, menu))
                         combined.stat("$id songs", converted.songIds.size)
                         converted.report.sections.forEach { combined.section("$id · ${it.title}", it.lines) }
                         converted.report.warnings.forEach { combined.warn("$id: $it") }
-                        OutputFile(listOf("data", "levels"), "$id.json", converted.json)
+                        listOf(OutputFile(listOf("data", "levels"), "$id.json", converted.json)) + converted.extra.map { (path, text) -> OutputFile.of(path, text, null) }
                     }
                     combined.section(
                         "Notes",

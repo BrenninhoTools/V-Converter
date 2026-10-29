@@ -1066,7 +1066,7 @@ class LuaToHScript(
     override fun apiCall(name: String, args: List<Expr>, line: Int): String {
         if (name in PsychApi.notImplemented) {
             issue(line, "Psych function '$name' has no V-Slice equivalent yet; the call does nothing.")
-        } else if (name !in PsychApi.implemented) {
+        } else if (name !in PsychApi.implemented && name !in PsychNativeLibrary.supportedCalls) {
             issue(line, "Unknown function '$name' (not defined in this script); it has no V-Slice implementation and does nothing.")
         }
         return "psych(${hxString(name)}, [${args(args)}])"

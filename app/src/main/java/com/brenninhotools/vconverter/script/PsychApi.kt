@@ -55,16 +55,19 @@ object PsychApi {
         "setDataFromSave", "flushSaveData", "eraseSaveData", "callOnLuas", "callOnScripts", "callOnHScript", "setOnLuas",
         "setOnScripts", "setOnHScript", "callScript", "isRunning", "addCharacterToList", "checkFileExists", "getTextFromFile",
         "getModSetting", "setHealthBarColors", "setSpriteShader", "removeSpriteShader", "initLuaShader", "setShaderFloat",
-        "setShaderInt", "setShaderBool", "setShaderFloatArray", "getShaderFloat", "addHaxeLibrary", "cameraZoomOnBeat"
+        "setShaderInt", "setShaderBool", "setShaderFloatArray", "getShaderFloat", "addHaxeLibrary", "cameraZoomOnBeat",
+        "getShaderInt", "getShaderBool", "getShaderFloatArray", "getShaderIntArray", "getShaderBoolArray", "setShaderIntArray",
+        "setShaderBoolArray", "setShaderSampler2D", "makeFlxAnimateSprite", "loadAnimateAtlas", "addAnimationBySymbol",
+        "addAnimationBySymbolIndices", "instanceArg", "addCameraFollowPoint", "setCameraScroll", "addCameraScroll",
+        "getCameraScrollX", "getCameraScrollY", "gamepadAnalogX", "gamepadAnalogY", "gamepadJustPressed", "gamepadPressed",
+        "gamepadReleased", "anyGamepadJustPressed", "anyGamepadPressed", "anyGamepadReleased", "getPixelColor",
+        "loadMultipleFrames", "updateHitboxFromGroup", "directoryFileList", "loadSong", "startVideo", "createInstance",
+        "addInstance", "callMethodFromClass", "addToGroup", "removeFromGroup"
     )
 
     val notImplemented = setOf(
-        "openCustomSubstate", "closeCustomSubstate", "insertToCustomSubstate", "startDialogue", "startVideo", "loadSong",
-        "addLuaScript", "removeLuaScript", "addHScript", "removeHScript", "createInstance", "addInstance", "callMethodFromClass",
-        "addToGroup", "removeFromGroup", "loadMultipleFrames", "getPixelColor", "saveFile", "deleteFile", "directoryFileList",
-        "getRunningScripts", "gamepadAnalogX", "gamepadAnalogY", "gamepadJustPressed", "gamepadPressed", "gamepadReleased",
-        "anyGamepadJustPressed", "anyGamepadPressed", "anyGamepadReleased", "addCameraFollowPoint", "addCameraScroll",
-        "setCameraScroll", "getCameraScrollX", "getCameraScrollY", "updateHitboxFromGroup", "runHaxeCode", "runHaxeFunction"
+        "openCustomSubstate", "closeCustomSubstate", "insertToCustomSubstate", "startDialogue", "addLuaScript", "removeLuaScript",
+        "addHScript", "removeHScript", "saveFile", "deleteFile", "getRunningScripts", "runHaxeCode", "runHaxeFunction"
     )
 
     val callbacks = setOf(

@@ -1,6 +1,7 @@
 package com.brenninhotools.vconverter.codename
 
 import com.brenninhotools.vconverter.character.PsychCharacter
+import com.brenninhotools.vconverter.core.AnimateAtlas
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
@@ -29,7 +30,8 @@ object PsychToCodenameCharacter {
         else clean.substringAfterLast('/') to clean
     }
 
-    fun convert(id: String, character: PsychCharacter, slot: CharacterSlot, animate: Boolean = false, gameOverCharacter: String? = null): CodenamePsychResult {
+    fun convert(id: String, character: PsychCharacter, slot: CharacterSlot, atlas: AnimateAtlas? = null, gameOverCharacter: String? = null, atlasFiles: List<String> = emptyList()): CodenamePsychResult {
+        val animate = atlas != null
         val report = ReportBuilder()
         val scale = character.scale.takeIf { it > 0.0 } ?: 1.0
         val player = designedForPlayer(id, character)
@@ -38,6 +40,7 @@ object PsychToCodenameCharacter {
         val copies = mutableListOf<PsychCopy>()
         if (moved != null) {
             listOf("png", "xml", "txt", "json").forEach { ext -> copies += PsychCopy("images/$moved.$ext", "images/characters/$sprite.$ext") }
+            atlasFiles.forEach { name -> copies += PsychCopy("images/$moved/$name", "images/characters/$sprite/$name") }
             report.section("Spritesheet", listOf("images/$moved was copied to images/characters/$sprite (Codename loads characters from images/characters/)."))
         }
         val camX = when (slot) {
@@ -68,13 +71,17 @@ object PsychToCodenameCharacter {
             val path = extra.trim().removePrefix("images/").removeSuffix(".png")
             xml.leaf("spritesheet", "path" to path)
         }
+        val missingSymbols = mutableListOf<String>()
         character.animations.forEach { anim ->
+            val symbol = atlas?.findSymbol(anim.prefix)
+            if (atlas != null && symbol == null) missingSymbols += "${anim.anim} (\"${anim.prefix}\")"
+            val bounds = symbol?.bounds
             xml.leaf(
                 "anim",
                 "name" to anim.anim,
-                "anim" to anim.prefix,
-                "x" to round(anim.offsetX / scale),
-                "y" to round(anim.offsetY / scale),
+                "anim" to (symbol?.name ?: anim.prefix),
+                "x" to round(anim.offsetX / scale - (bounds?.x ?: 0.0)),
+                "y" to round(anim.offsetY / scale - (bounds?.y ?: 0.0)),
                 "fps" to anim.fps,
                 "loop" to anim.loop.toString(),
                 "indices" to anim.indices.takeIf { it.isNotEmpty() }?.let { numberRange(it) }
@@ -87,7 +94,11 @@ object PsychToCodenameCharacter {
         notes += "Offsets were divided by the scale ($scale): Codename scales animation offsets with the sprite, Psych does not."
         if (player) notes += "isPlayer=\"true\": Codename mirrors the character (and swaps singLEFT/singRIGHT) when it is used as the opponent."
         if (character.vocalsFile.isNotBlank()) notes += "Vocals file \"${character.vocalsFile}\" becomes the strumline vocals suffix in the converted charts."
-        if (animate) notes += "Animate atlas: centercam=\"true\" keeps Psych's centered camera."
+        if (animate) {
+            notes += "Animate atlas: centercam=\"true\" keeps Psych's centered camera."
+            notes += "Psych symbol names (prefix match) were resolved to the exact symbol names Codename's flixel-animate needs, and offsets account for each symbol's bounds."
+        }
+        if (missingSymbols.isNotEmpty()) report.warn("These animations have no matching symbol in Animation.json and will not play: ${missingSymbols.joinToString()}.")
         report.section("Notes", notes)
         if (slot == CharacterSlot.GIRLFRIEND && id.lowercase().startsWith("gf").not()) report.warn("Camera offsets were converted for the girlfriend slot.")
         return CodenamePsychResult(id, listOf(PsychFile("data/characters/$id.xml", xml.toString())), report.build(), copies)

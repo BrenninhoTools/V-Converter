@@ -34,6 +34,7 @@ import com.brenninhotools.vconverter.codename.PsychToCodenameChart
 import com.brenninhotools.vconverter.codename.PsychToCodenameEvents
 import com.brenninhotools.vconverter.codename.PsychToCodenameStage
 import com.brenninhotools.vconverter.codename.PsychToCodenameWeek
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
@@ -153,10 +154,11 @@ class CodenameToPsychCharactersConverter : CodenameToPsychConverter() {
 
     override fun downloadName() = "characters-psych.zip"
 
-    override fun accept(file: ImportedFile) = file.extension == "xml"
+    override fun accept(file: ImportedFile) = file.extension == "xml" || AnimateAtlases.isAtlasFile(file.name)
 
     override fun classify(file: ImportedFile, text: String): PickedText {
         val id = file.name.substringBeforeLast('.')
+        if (AnimateAtlases.isAtlasFile(file.name)) return PickedText(file.path, file.name, file.path, text, "animate", "Animate atlas · ${AnimateAtlases.key(file.path)}")
         if (CodenameCharacterParser.isCharacterXml(text)) {
             val character = CodenameCharacterParser.parse(id, text)
             return PickedText(file.path, file.name, file.path, text, "character", "${character.animations.size} anims", CodenamePsychCharacter.defaultSlot(character))
@@ -170,13 +172,14 @@ class CodenameToPsychCharactersConverter : CodenameToPsychConverter() {
 
     override fun build(items: List<PickedText>): ConvertedOutput {
         val atlases = items.filter { it.kind == "atlas" }.associate { PsychToVSliceCharacter.atlasKey(stem(it)) to SparrowAtlas.parse(it.text) }
+        val animates = AnimateAtlases.collect(items.filter { it.kind == "animate" }.map { it.path to it.text })
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
         items.filter { it.kind == "character" }.forEach { item ->
             val id = stem(item)
             val character = CodenameCharacterParser.parse(id, item.text)
             val slot = item.slot ?: CharacterSlot.OPPONENT
-            val result = CodenameToPsychCharacter.convert(character, slot, atlases)
+            val result = CodenameToPsychCharacter.convert(character, slot, atlases, animates[PsychToVSliceCharacter.atlasKey(character.sprite)])
             result.files.forEach { outputs += out(it.path, it.text) }
             if (!result.hooks.isEmpty) {
                 val script = CodenameToPsychScript(CodenameScriptTarget(CodenameScope.CHARACTER, id), CodenamePsychScriptContext(characterId = id, hooks = result.hooks)).convert("")
@@ -431,17 +434,23 @@ class PsychToCodenameCharactersConverter : PsychToCodenameConverter() {
     override fun accept(file: ImportedFile) = file.extension == "json"
 
     override fun classify(file: ImportedFile, text: String): PickedText {
+        if (AnimateAtlases.isAtlasFile(file.name)) return PickedText(file.path, file.name, file.path, text, "animate", "Animate atlas · ${AnimateAtlases.key(file.path)}")
         val id = file.name.substringBeforeLast('.')
         val character = PsychCharacterParser.parse(text)
         return PickedText(file.path, file.name, file.path, text, "character", "${character.animations.size} anims", PsychToCodenameCharacter.defaultSlot(id, character))
     }
 
+    override fun canConvert(items: List<PickedText>): Boolean = items.any { it.kind == "character" }
+
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
-        items.forEach { item ->
+        val animates = AnimateAtlases.collect(items.filter { it.kind == "animate" }.map { it.path to it.text })
+        items.filter { it.kind == "character" }.forEach { item ->
             val id = stem(item)
-            val result = PsychToCodenameCharacter.convert(id, PsychCharacterParser.parse(item.text), item.slot ?: CharacterSlot.OPPONENT)
+            val character = PsychCharacterParser.parse(item.text)
+            val atlas = animates[PsychToVSliceCharacter.atlasKey(character.image)]
+            val result = PsychToCodenameCharacter.convert(id, character, item.slot ?: CharacterSlot.OPPONENT, atlas)
             result.files.forEach { outputs += out(it.path, it.text) }
             result.report.stats.forEach { report.stat("$id ${it.label}", it.value) }
             result.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }

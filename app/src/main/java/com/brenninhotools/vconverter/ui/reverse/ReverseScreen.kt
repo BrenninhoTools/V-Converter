@@ -89,6 +89,7 @@ private fun kindLabel(kind: String): String = when (kind) {
     "metadata" -> "Metadata"
     "chart" -> "Chart"
     "atlas" -> "Spritesheet"
+    "animate" -> "Animate atlas"
     "character" -> "Character"
     "stage" -> "Stage"
     "level" -> "Level"
@@ -102,6 +103,6 @@ private fun kindLabel(kind: String): String = when (kind) {
 
 private fun kindColor(kind: String, accent: Color): Color = when (kind) {
     "metadata", "events", "event" -> Funkin.Warning
-    "atlas", "image", "menu" -> Funkin.Up
+    "atlas", "animate", "image", "menu" -> Funkin.Up
     else -> accent
 }

@@ -419,6 +419,67 @@ class LuaToCodename(
                     "psychRegister(${arg(0)}, $make)"
                 }
             }
+            "makeFlxAnimateSprite" -> {
+                use("sprite")
+                val folder = a.getOrNull(3)?.takeIf { it !is Expr.Nil }?.let { expr(it) } ?: "null"
+                val make = "psychMakeSprite($folder, ${arg(1, "0")}, ${arg(2, "0")}, true)"
+                val id = str(a, 0)?.let { tagIdentifier(it) }
+                if (id != null) {
+                    createdTags += id
+                    "$id = $make"
+                } else {
+                    use("object")
+                    "psychRegister(${arg(0)}, $make)"
+                }
+            }
+            "loadAnimateAtlas" -> "${obj(0)}.loadSprite(Paths.image(${arg(1)}))"
+            "addAnimationBySymbol" -> "${obj(0)}.anim.addBySymbol(${arg(1)}, ${arg(2)}, ${arg(3, "24")}, ${arg(4, "false")})"
+            "addAnimationBySymbolIndices" -> "${obj(0)}.anim.addBySymbolIndices(${arg(1)}, ${arg(2)}, ${indexList(a.getOrNull(3), line)}, ${arg(4, "24")}, ${arg(5, "false")})"
+            "instanceArg" -> {
+                val cls = str(a, 1)
+                if (cls != null) {
+                    imports += cls
+                    "${cls.substringAfterLast('.')}.${str(a, 0) ?: "null"}"
+                } else obj(0)
+            }
+            "addCameraFollowPoint" -> "{ camFollow.x += ${arg(0, "0")}; camFollow.y += ${arg(1, "0")}; }"
+            "setCameraScroll" -> "FlxG.camera.scroll.set(${arg(0, "0")} - FlxG.width / 2, ${arg(1, "0")} - FlxG.height / 2)"
+            "addCameraScroll" -> "FlxG.camera.scroll.add(${arg(0, "0")}, ${arg(1, "0")})"
+            "getCameraScrollX" -> "(FlxG.camera.scroll.x + FlxG.width / 2)"
+            "getCameraScrollY" -> "(FlxG.camera.scroll.y + FlxG.height / 2)"
+            "gamepadAnalogX", "gamepadAnalogY" -> {
+                use("gamepad")
+                "psychGamepadAxis(Std.int(${arg(0, "0")}), ${arg(1, "true")}, ${name.endsWith("X")})"
+            }
+            "gamepadJustPressed", "gamepadPressed", "gamepadReleased" -> {
+                use("gamepad")
+                val list = when (name) {
+                    "gamepadJustPressed" -> "justPressed"
+                    "gamepadPressed" -> "pressed"
+                    else -> "justReleased"
+                }
+                "psychGamepad(Std.int(${arg(0, "0")}), \"$list\", ${arg(1, "\"\"")})"
+            }
+            "anyGamepadJustPressed", "anyGamepadPressed", "anyGamepadReleased" -> {
+                use("gamepad")
+                val list = when (name) {
+                    "anyGamepadJustPressed" -> "justPressed"
+                    "anyGamepadPressed" -> "pressed"
+                    else -> "justReleased"
+                }
+                "psychAnyGamepad(\"$list\", ${arg(0, "\"\"")})"
+            }
+            "getPixelColor" -> "${obj(0)}.pixels.getPixel32(Std.int(${arg(1, "0")}), Std.int(${arg(2, "0")}))"
+            "loadMultipleFrames" -> {
+                val list = (a.getOrNull(1) as? Expr.Table)?.fields?.filterIsInstance<TableField.Positional>()?.map { expr(it.value) }
+                if (list != null && list.isNotEmpty()) "{ var frames:Dynamic = Paths.getFrames(Paths.image(${list.first()}));" + list.drop(1).joinToString("") { " frames.addAtlas(Paths.getFrames(Paths.image($it)));" } + " ${obj(0)}.frames = frames; }" else "null"
+            }
+            "updateHitboxFromGroup" -> "{ var g:Dynamic = getProperty(${arg(0)}); var list:Dynamic = g != null && g.members != null ? g.members : g; if (list != null && list[Std.int(${arg(1, "0")})] != null) list[Std.int(${arg(1, "0")})].updateHitbox(); }"
+            "directoryFileList" -> "Paths.getFolderContent(${arg(0)})"
+            "loadSong" -> {
+                issue(line, "loadSong() became PlayState.loadSong + a new PlayState; the difficulty number is mapped to easy/normal/hard.")
+                "{ var diffs:Array<String> = [\"easy\", \"normal\", \"hard\"]; var n:Int = Std.int(${arg(1, "-1")}); PlayState.loadSong(${arg(0, "PlayState.SONG.meta.name")}, n >= 0 && n < diffs.length ? diffs[n] : PlayState.difficulty); FlxG.switchState(new PlayState()); }"
+            }
             "makeLuaText" -> {
                 use("text")
                 val make = "psychMakeText(${arg(1, "\"\"")}, ${arg(2, "0")}, ${arg(3, "0")}, ${arg(4, "0")})"
@@ -897,7 +958,7 @@ class LuaToCodename(
                 use("shader")
                 "psychShaderSet(${obj(0)}, ${arg(1)}, Assets.getBitmapData(Paths.image(${arg(2)})))"
             }
-            "getShaderFloat", "getShaderInt", "getShaderBool", "getShaderFloatArray" -> {
+            "getShaderFloat", "getShaderInt", "getShaderBool", "getShaderFloatArray", "getShaderIntArray", "getShaderBoolArray" -> {
                 use("shader")
                 "psychShaderGet(${obj(0)}, ${arg(1)})"
             }
@@ -933,6 +994,15 @@ class LuaToCodename(
                 else issue(line, "Unknown function '$name' (not defined in this script) was removed.")
                 "null"
             }
+        }
+    }
+
+    private fun indexList(value: Expr?, line: Int): String = when (value) {
+        is Expr.Table -> "[" + value.fields.filterIsInstance<TableField.Positional>().joinToString(", ") { "Std.int(${expr(it.value)})" } + "]"
+        is Expr.Str -> "[" + value.value.split(',').mapNotNull { it.trim().toIntOrNull() }.joinToString(", ") + "]"
+        else -> {
+            issue(line, "Frame indices built at runtime were dropped; pass them as a table or a \"0,1,2\" string.")
+            "[]"
         }
     }
 

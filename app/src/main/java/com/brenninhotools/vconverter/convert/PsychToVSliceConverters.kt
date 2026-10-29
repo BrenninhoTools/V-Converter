@@ -5,9 +5,11 @@ import com.brenninhotools.vconverter.character.PsychCharacterParser
 import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
 import com.brenninhotools.vconverter.chart.ChartSource
 import com.brenninhotools.vconverter.chart.ConversionOptions
+import com.brenninhotools.vconverter.chart.PsychNoteStyles
 import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.chart.psych.PsychChartParser
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
+import com.brenninhotools.vconverter.core.AnimateAtlases
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
@@ -66,7 +68,12 @@ class PsychChartsConverter : PsychToVSliceConverter() {
             if (sources.isEmpty()) return@forEach
             val main = (sources.firstOrNull { it.difficulty == "normal" } ?: sources.first()).song
             val events = group.filter { it.kind == "events" }.flatMap { PsychChartParser.parseEventsOnly(it.text) }
-            val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = main.name.ifBlank { id }, extraEvents = events, keepPsychEvents = keepEvents))
+            val style = main.arrowSkin.takeIf { PsychNoteStyles.isCustom(it) }?.let { PsychNoteStyles.build(it, null) }
+            if (style != null) {
+                outputs += out("data/notestyles/${style.id}.json", style.json)
+                report.section(if (songs.size > 1) "$id · Note style ${style.id}" else "Note style ${style.id}", listOf("Made from the chart's arrowSkin \"${main.arrowSkin}\".") + style.notes)
+            }
+            val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = main.name.ifBlank { id }, extraEvents = events, keepPsychEvents = keepEvents, noteStyle = style?.id))
             conversion.files(id).forEach { (name, text) -> outputs += out("data/songs/$id/$name", text) }
             if (keepEvents) ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys).forEach { outputs += out(it.path, it.content) }
             val converted = conversion.report.toReport()
@@ -107,6 +114,9 @@ class PsychCharactersConverter : PsychToVSliceConverter() {
             require(atlas.frames.isNotEmpty()) { "not a Sparrow spritesheet" }
             return PickedText(file.path, file.name, file.path, text, "atlas", "${atlas.frames.size} frames")
         }
+        if (AnimateAtlases.isAtlasFile(file.name)) {
+            return PickedText(file.path, file.name, file.path, text, "animate", "Animate atlas · ${AnimateAtlases.key(file.path)}")
+        }
         val character = PsychCharacterParser.parse(text)
         val id = psychId(stem)
         return PickedText(file.path, file.name, file.path, text, "character", "${character.animations.size} anims", PsychToVSliceCharacter.defaultSlot(id, character))
@@ -116,16 +126,18 @@ class PsychCharactersConverter : PsychToVSliceConverter() {
 
     override fun build(items: List<PickedText>): ConvertedOutput {
         val atlases = items.filter { it.kind == "atlas" }.associate { PsychToVSliceCharacter.atlasKey(stem(it)) to SparrowAtlas.parse(it.text) }
+        val animates = AnimateAtlases.collect(items.filter { it.kind == "animate" }.map { it.path to it.text })
         val report = ReportBuilder()
         val outputs = items.filter { it.kind == "character" }.map { item ->
             val id = psychId(stem(item))
             val character = PsychCharacterParser.parse(item.text)
-            val converted = PsychToVSliceCharacter.convert(CharacterSource(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases))
+            val animate = animates[PsychToVSliceCharacter.atlasKey(character.image)]
+            val converted = PsychToVSliceCharacter.convert(CharacterSource(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases, animate = animate))
             converted.report.stats.firstOrNull { it.label == "Accuracy" }?.let { report.stat(id, it.value) }
             converted.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             converted.report.warnings.forEach { report.warn("$id: $it") }
-            val missing = character.atlasImages.ifEmpty { listOf(character.image) }.filter { PsychToVSliceCharacter.atlasKey(it) !in atlases }
-            if (missing.isNotEmpty()) report.warn("$id: add the spritesheet XML (${missing.joinToString()}) for exact offsets.")
+            val missing = character.atlasImages.ifEmpty { listOf(character.image) }.filter { PsychToVSliceCharacter.atlasKey(it) !in atlases && PsychToVSliceCharacter.atlasKey(it) !in animates }
+            if (missing.isNotEmpty()) report.warn("$id: add the spritesheet XML (${missing.joinToString()}), or Animation.json + spritemap for Animate atlases, for exact offsets.")
             out("data/characters/$id.json", converted.json)
         }
         return ConvertedOutput(outputs, report.build())
@@ -201,13 +213,13 @@ class PsychWeeksConverter : PsychToVSliceConverter() {
     override fun build(items: List<PickedText>): ConvertedOutput {
         val menu = items.filter { it.kind == "menu" }.associate { stem(it) to PsychWeekParser.parseMenuCharacter(it.text) }
         val report = ReportBuilder()
-        val outputs = items.filter { it.kind == "week" }.map { item ->
+        val outputs = items.filter { it.kind == "week" }.flatMap { item ->
             val id = stem(item)
             val converted = PsychToVSliceLevel.convert(WeekSource(id, PsychWeekParser.parse(item.text), menu))
             report.stat("$id songs", converted.songIds.size)
             converted.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             converted.report.warnings.forEach { report.warn("$id: $it") }
-            out("data/levels/$id.json", converted.json)
+            listOf(out("data/levels/$id.json", converted.json)) + converted.extra.map { (path, text) -> out(path, text) }
         }
         report.section("Notes", listOf("Song ids use Psych's song path format (\"Dad Battle\" → \"${SongPath.format("Dad Battle")}\"), matching the Charts converter."))
         return ConvertedOutput(outputs, report.build())
