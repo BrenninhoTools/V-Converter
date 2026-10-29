@@ -328,6 +328,8 @@ fun MainScreen() {
     val folderName = modFolder.folder?.let { modFolder.folderName }
 
     val cursor = rememberAppCursor()
+    val settings = rememberAppSettings()
+    var optionsOpen by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.appCursor(cursor),
@@ -337,6 +339,7 @@ fun MainScreen() {
             Header(
                 folderName = folderName,
                 onPickFolder = { folderPicker.launch(null) },
+                onOptions = { optionsOpen = true },
                 section = section,
                 onSection = { section = it },
                 direction = direction
@@ -429,19 +432,23 @@ fun MainScreen() {
                 Spacer(Modifier.size(24.dp))
             }
         }
-        FpsCounter(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
-        )
+        if (settings.fpsCounter) {
+            FpsCounter(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
+            )
+        }
         }
     }
+    if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
 }
 
 @Composable
 private fun Header(
     folderName: String?,
     onPickFolder: () -> Unit,
+    onOptions: () -> Unit,
     section: Section,
     onSection: (Section) -> Unit,
     direction: Direction
@@ -474,6 +481,8 @@ private fun Header(
             }
             Spacer(Modifier.width(8.dp))
             FolderChip(folderName, onPickFolder)
+            Spacer(Modifier.width(8.dp))
+            OptionsButton(onOptions)
         }
         SectionSwitch(section, onSection)
     }
@@ -486,7 +495,7 @@ private fun FolderChip(folderName: String?, onClick: () -> Unit) {
     val tint = if (picked) Funkin.Up else Funkin.Muted
     Row(
         modifier = Modifier
-            .widthIn(max = 150.dp)
+            .widthIn(max = 130.dp)
             .clip(shape)
             .background(if (picked) Funkin.Up.copy(alpha = 0.12f) else Funkin.Surface)
             .border(1.5.dp, if (picked) Funkin.Up.copy(alpha = 0.6f) else Funkin.Outline, shape)

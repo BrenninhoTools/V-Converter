@@ -43,6 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,7 +56,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brenninhotools.vconverter.convert.PickedText
+import com.brenninhotools.vconverter.overlay.CodePreviewText
 import com.brenninhotools.vconverter.overlay.FpsCounter
+import com.brenninhotools.vconverter.overlay.PreviewText
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 
@@ -155,7 +160,7 @@ private fun Content(state: AppState) {
     val scroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 28.dp, vertical = 22.dp),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 28.dp, end = 28.dp, top = 48.dp, bottom = 22.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Hero(state)
@@ -163,7 +168,13 @@ private fun Content(state: AppState) {
             Spacer(Modifier.height(8.dp))
         }
         VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp))
-        FpsCounter(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 16.dp))
+        Row(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (AppSettings.fpsCounter) {
+                FpsCounter()
+                Spacer(Modifier.width(10.dp))
+            }
+            OptionsButton()
+        }
     }
 }
 
@@ -509,6 +520,9 @@ internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
             }
         }
         files.preview?.let { file ->
+            val shown by produceState<PreviewText?>(null, file) {
+                value = withContext(Dispatchers.Default) { if (file.bytes != null) null else CodePreviewText.prepare(file.content, 1500) }
+            }
             val vertical = rememberScrollState()
             val horizontal = rememberScrollState()
             Box(
@@ -517,7 +531,12 @@ internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
             ) {
                 SelectionContainer {
                     Text(
-                        if (file.bytes != null) "(${file.bytes!!.size} bytes)" else file.content,
+                        when {
+                            file.bytes != null -> "(${file.bytes!!.size} bytes)"
+                            shown == null -> "Loading…"
+                            shown!!.truncated -> shown!!.text + "\n\n… ${shown!!.totalLines} lines in total; save the file to see all of it."
+                            else -> shown!!.text
+                        },
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         color = Palette.Text,

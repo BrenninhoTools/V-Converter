@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -45,7 +46,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brenninhotools.vconverter.R
 import com.brenninhotools.vconverter.ui.theme.Funkin
+import com.brenninhotools.vconverter.overlay.CodePreviewText
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 private const val COLLAPSED_LINES = 18
 private const val EXPANDED_LINES = 800
@@ -126,12 +130,12 @@ fun highlight(code: String): AnnotatedString = buildAnnotatedString {
     }
 }
 
+private data class PreparedCode(val body: AnnotatedString, val gutter: String, val total: Int, val shown: Int)
+
 @Composable
 fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Down) {
     val clipboard = LocalClipboardManager.current
-    val text = remember(code) { code.trimEnd().replace("\t", "  ") }
-    val lines = remember(text) { text.lines() }
-    var expanded by rememberSaveable(text.hashCode()) { mutableStateOf(false) }
+    var expanded by rememberSaveable(code.length, code.hashCode()) { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
         if (copied) {
@@ -139,9 +143,13 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
             copied = false
         }
     }
-    val shown = lines.take(if (expanded) EXPANDED_LINES else COLLAPSED_LINES)
-    val body = remember(shown.size, text) { highlight(shown.joinToString("\n")) }
-    val gutter = remember(shown.size) { (1..shown.size).joinToString("\n") }
+    val prepared by produceState<PreparedCode?>(null, code, expanded) {
+        value = withContext(Dispatchers.Default) {
+            val preview = CodePreviewText.prepare(code, if (expanded) EXPANDED_LINES else COLLAPSED_LINES)
+            PreparedCode(highlight(preview.text), (1..preview.shownLines).joinToString("\n"), preview.totalLines, preview.shownLines)
+        }
+    }
+    val total = prepared?.total ?: 0
     val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = Modifier
@@ -164,14 +172,14 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
             }
             Spacer(Modifier.width(6.dp))
             Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = Funkin.Muted, modifier = Modifier.weight(1f), maxLines = 1)
-            Text("${lines.size} lines", style = MaterialTheme.typography.labelSmall, color = Funkin.Muted.copy(alpha = 0.7f))
+            Text("$total lines", style = MaterialTheme.typography.labelSmall, color = Funkin.Muted.copy(alpha = 0.7f))
             Spacer(Modifier.width(6.dp))
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (copied) Funkin.Up.copy(alpha = 0.18f) else accent.copy(alpha = 0.12f))
                     .clickable {
-                        clipboard.setText(AnnotatedString(text))
+                        clipboard.setText(AnnotatedString(code.trimEnd()))
                         copied = true
                     }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -187,9 +195,12 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
                 Text(if (copied) "COPIED" else "COPY", style = MaterialTheme.typography.labelSmall, color = if (copied) Funkin.Up else accent)
             }
         }
-        Row(modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 10.dp)) {
+        val ready = prepared
+        if (ready == null) {
+            Text("Loading…", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted, modifier = Modifier.padding(14.dp))
+        } else Row(modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 10.dp)) {
             Text(
-                gutter,
+                ready.gutter,
                 color = Funkin.Muted.copy(alpha = 0.45f),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
@@ -199,7 +210,7 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
                 modifier = Modifier.padding(start = 10.dp, end = 10.dp)
             )
             Text(
-                body,
+                ready.body,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
@@ -207,7 +218,7 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
                 modifier = Modifier.padding(end = 14.dp)
             )
         }
-        if (lines.size > COLLAPSED_LINES) {
+        if (total > COLLAPSED_LINES) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -219,8 +230,8 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
             ) {
                 Text(
                     when {
-                        !expanded && lines.size > EXPANDED_LINES -> "SHOW FIRST $EXPANDED_LINES LINES"
-                        !expanded -> "SHOW ALL ${lines.size} LINES"
+                        !expanded && total > EXPANDED_LINES -> "SHOW FIRST $EXPANDED_LINES LINES"
+                        !expanded -> "SHOW ALL $total LINES"
                         else -> "SHOW LESS"
                     },
                     style = MaterialTheme.typography.labelSmall,
