@@ -38,6 +38,14 @@ class AppSettings(context: Context) {
     var fpsCounter by mutableStateOf(prefs.getBoolean(KEY_FPS, true))
         private set
 
+    var touchCursor by mutableStateOf(prefs.getBoolean(KEY_TOUCH_CURSOR, true))
+        private set
+
+    fun updateTouchCursor(value: Boolean) {
+        touchCursor = value
+        prefs.edit().putBoolean(KEY_TOUCH_CURSOR, value).apply()
+    }
+
     fun updateFpsCounter(value: Boolean) {
         fpsCounter = value
         prefs.edit().putBoolean(KEY_FPS, value).apply()
@@ -45,6 +53,7 @@ class AppSettings(context: Context) {
 
     private companion object {
         const val KEY_FPS = "fps_counter"
+        const val KEY_TOUCH_CURSOR = "touch_cursor"
     }
 }
 
@@ -90,6 +99,13 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                 onChange = settings::updateFpsCounter,
                 accent = Funkin.Down,
                 hint = "Shows \"FPS:\" in the top-right corner."
+            )
+            ToggleRow(
+                label = "Touch Cursor",
+                checked = settings.touchCursor,
+                onChange = settings::updateTouchCursor,
+                accent = Funkin.Down,
+                hint = "Shows the cursor where you touch the screen."
             )
             Text("Options are saved on this device.", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
             ChunkyButton(text = "Done", accent = Funkin.Down, onClick = onDismiss, icon = R.drawable.ic_check)

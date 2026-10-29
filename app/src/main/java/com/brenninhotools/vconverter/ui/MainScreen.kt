@@ -330,116 +330,121 @@ fun MainScreen() {
     val cursor = rememberAppCursor()
     val settings = rememberAppSettings()
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
+    val touchCursor = remember { TouchCursorState() }
+    val cursorImage = rememberCursorImage()
 
-    Scaffold(
-        modifier = Modifier.appCursor(cursor),
-        containerColor = Funkin.Background,
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            Header(
-                folderName = folderName,
-                onPickFolder = { folderPicker.launch(null) },
-                onOptions = { optionsOpen = true },
-                section = section,
-                onSection = { section = it },
-                direction = direction
-            )
-        },
-        bottomBar = {
-            FunkinNavBar(if (section == Section.CONVERTER) Tab.entries else GenTab.entries, tab) { selected ->
-                when (selected) {
-                    is Tab -> converterTab = selected
-                    is GenTab -> generatorTab = selected
+    Box(Modifier.fillMaxSize().then(if (settings.touchCursor) Modifier.touchCursor(touchCursor) else Modifier)) {
+        Scaffold(
+            modifier = Modifier.appCursor(cursor),
+            containerColor = Funkin.Background,
+            contentWindowInsets = WindowInsets(0),
+            topBar = {
+                Header(
+                    folderName = folderName,
+                    onPickFolder = { folderPicker.launch(null) },
+                    onOptions = { optionsOpen = true },
+                    section = section,
+                    onSection = { section = it },
+                    direction = direction
+                )
+            },
+            bottomBar = {
+                FunkinNavBar(if (section == Section.CONVERTER) Tab.entries else GenTab.entries, tab) { selected ->
+                    when (selected) {
+                        is Tab -> converterTab = selected
+                        is GenTab -> generatorTab = selected
+                    }
                 }
             }
-        }
-    ) { padding ->
-        Box(Modifier.fillMaxSize()) {
-        AnimatedContent(
-            targetState = tab to (if (section == Section.CONVERTER) direction else Direction.PSYCH_TO_VSLICE),
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding(),
-            label = "tab"
-        ) { (current, currentDirection) ->
-            Column(
+        ) { padding ->
+            Box(Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = tab to (if (section == Section.CONVERTER) direction else Direction.PSYCH_TO_VSLICE),
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)
-            ) {
-                if (current is Tab) {
-                    EngineBridge(currentDirection) { direction = it }
-                    Spacer(Modifier.size(12.dp))
+                    .padding(padding)
+                    .imePadding(),
+                label = "tab"
+            ) { (current, currentDirection) ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)
+                ) {
+                    if (current is Tab) {
+                        EngineBridge(currentDirection) { direction = it }
+                        Spacer(Modifier.size(12.dp))
+                    }
+                    TabHero(current, currentDirection)
+                    Spacer(Modifier.size(16.dp))
+                    if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
+                        Tab.MOD -> CodenameModScreen(cnMod, folderName, save)
+                        Tab.CHARTS -> ChartsScreen(cnCharts, folderName, save)
+                        Tab.CHARACTERS -> ReverseScreen(cnCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) for exact positions. Add <name>-dead.xml to merge the game over animations.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to V-Slice")
+                        Tab.STAGES -> ReverseScreen(cnStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Add the stage images (.png and spritesheet .xml) so scaled sprites keep their exact spot.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to V-Slice")
+                        Tab.WEEKS -> ReverseScreen(cnWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml plus data/weeks/characters/*.xml for the menu characters.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to V-Slice")
+                        Tab.SCRIPTS -> ReverseScreen(cnScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts get the right scope.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to V-Slice")
+                    } else if (currentDirection == Direction.CODENAME_TO_PSYCH && current is Tab) when (current) {
+                        Tab.MOD -> CodenameModScreen(
+                            c2pMod, folderName, save,
+                            intro = "Convert a whole Codename Engine mod to Psych: songs and variants, characters, stages (with their scripts), weeks, HScript scripts, events, note types, images and audio.",
+                            infoNote = "Written to pack.json (read from data/config/modpack.ini). icon.png becomes pack.png.",
+                            convertNote = "Download the converted mod as a .zip (unzip it into Psych's mods folder), or write it straight into an empty mod folder."
+                        )
+                        Tab.CHARTS -> ChartsScreen(c2pCharts, folderName, save)
+                        Tab.CHARACTERS -> ReverseScreen(c2pCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…), or Animation.json + spritemap*.json for Animate atlases, so offsets stay exact.", R.drawable.ic_tab_character, folderName, save)
+                        Tab.STAGES -> ReverseScreen(c2pStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Sprites become stage objects; beat dancers, blends and extra settings go into a stage script.", R.drawable.ic_tab_stage, folderName, save)
+                        Tab.WEEKS -> ReverseScreen(c2pWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml, data/weeks/characters/*.xml and the songs' meta.json for freeplay icons and colors.", R.drawable.ic_tab_week, folderName, save)
+                        Tab.SCRIPTS -> ReverseScreen(c2pScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts land in the right Psych folder.", R.drawable.ic_tab_script, folderName, save)
+                    } else if (currentDirection == Direction.PSYCH_TO_CODENAME && current is Tab) when (current) {
+                        Tab.MOD -> ModScreen(
+                            p2cMod, folderName, save,
+                            intro = "Convert a whole Psych Engine mod to Codename: songs, characters, stages, weeks, Lua/HScript scripts, custom events, note types, images and audio.",
+                            infoNote = "Written to data/config/modpack.ini. pack.png becomes icon.png.",
+                            convertNote = "Download the converted mod as a .zip (unzip it into Codename's mods folder), or write it straight into an empty mod folder."
+                        )
+                        Tab.CHARTS -> ChartsScreen(p2cCharts, folderName, save)
+                        Tab.CHARACTERS -> ReverseScreen(p2cCharacters, Funkin.Left, "Characters", "Add Psych characters", "Pick characters/*.json. Offsets are scaled for Codename and the side decides the camera offsets. Add Animation.json + spritemap*.json for Animate atlas characters.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to Codename")
+                        Tab.STAGES -> ReverseScreen(p2cStages, Funkin.Up, "Stages", "Add Psych stages", "Pick stages/*.json and, if the stage builds its sprites in Lua, stages/<stage>.lua: those sprites move into the stage XML.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to Codename")
+                        Tab.WEEKS -> ReverseScreen(p2cWeeks, Funkin.Right, "Weeks", "Add Psych weeks", "Pick weeks/*.json and images/menucharacters/*.json.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to Codename")
+                        Tab.SCRIPTS -> ReverseScreen(p2cScripts, Funkin.Lavender, "Scripts", "Add Lua / HScript", "Pick .lua and .hx scripts. Archives keep the folders, so scripts/, data/<song>/, stages/, custom_events/ and custom_notetypes/ land in the right Codename folder. Add stages/*.json for stage scripts.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to Codename")
+                    } else if (currentDirection == Direction.VSLICE_TO_PSYCH) when (current) {
+                        Tab.MOD -> ReverseModScreen(revMod, folderName, save)
+                        Tab.CHARTS -> ChartsScreen(revCharts, folderName, save)
+                        Tab.CHARACTERS -> ReverseScreen(revCharacters, Funkin.Left, "Characters", "Add V-Slice characters", "Pick data/characters/*.json with their spritesheet .xml (images/…), or Animation.json + spritemap*.json for Animate atlases, for exact positions. Archives work too.", R.drawable.ic_tab_character, folderName, save)
+                        Tab.STAGES -> ReverseScreen(revStages, Funkin.Up, "Stages", "Add V-Slice stages", "Pick data/stages/*.json. Props, layers, scroll and animations become Psych stage objects.", R.drawable.ic_tab_stage, folderName, save)
+                        Tab.WEEKS -> ReverseScreen(revWeeks, Funkin.Right, "Levels", "Add V-Slice levels", "Pick data/levels/*.json, plus the songs' -metadata.json files for names, icons and difficulties.", R.drawable.ic_tab_week, folderName, save)
+                        Tab.SCRIPTS -> ReverseScreen(revScripts, Funkin.Lavender, "Scripts", "Add .hxc scripts", "Pick V-Slice .hxc scripts. Modules, songs, stages, characters, song events and note kinds become Psych HScript files in the right folders.", R.drawable.ic_tab_script, folderName, save)
+                        else -> Unit
+                    } else when (current) {
+                        Tab.MOD -> ModScreen(mod, folderName, save)
+                        Tab.CHARTS -> ChartsScreen(charts, folderName, save)
+                        Tab.CHARACTERS -> CharactersScreen(characters, folderName, save)
+                        Tab.STAGES -> StagesScreen(stages, folderName, save)
+                        Tab.WEEKS -> WeeksScreen(weeks, folderName, save)
+                        Tab.SCRIPTS -> ScriptsScreen(scripts, folderName, save)
+                        GenTab.MOD -> ModGenScreen(genMod, folderName, save)
+                        GenTab.SONG -> ChartEditorScreen(genSong, folderName, save)
+                        GenTab.CHARACTER -> CharacterGenScreen(genCharacter, folderName, save)
+                        GenTab.STAGE -> StageGenScreen(genStage, folderName, save)
+                        GenTab.LEVEL -> LevelGenScreen(genLevel, folderName, save)
+                        GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)
+                    }
+                    Spacer(Modifier.size(24.dp))
                 }
-                TabHero(current, currentDirection)
-                Spacer(Modifier.size(16.dp))
-                if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
-                    Tab.MOD -> CodenameModScreen(cnMod, folderName, save)
-                    Tab.CHARTS -> ChartsScreen(cnCharts, folderName, save)
-                    Tab.CHARACTERS -> ReverseScreen(cnCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) for exact positions. Add <name>-dead.xml to merge the game over animations.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to V-Slice")
-                    Tab.STAGES -> ReverseScreen(cnStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Add the stage images (.png and spritesheet .xml) so scaled sprites keep their exact spot.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to V-Slice")
-                    Tab.WEEKS -> ReverseScreen(cnWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml plus data/weeks/characters/*.xml for the menu characters.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to V-Slice")
-                    Tab.SCRIPTS -> ReverseScreen(cnScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts get the right scope.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to V-Slice")
-                } else if (currentDirection == Direction.CODENAME_TO_PSYCH && current is Tab) when (current) {
-                    Tab.MOD -> CodenameModScreen(
-                        c2pMod, folderName, save,
-                        intro = "Convert a whole Codename Engine mod to Psych: songs and variants, characters, stages (with their scripts), weeks, HScript scripts, events, note types, images and audio.",
-                        infoNote = "Written to pack.json (read from data/config/modpack.ini). icon.png becomes pack.png.",
-                        convertNote = "Download the converted mod as a .zip (unzip it into Psych's mods folder), or write it straight into an empty mod folder."
-                    )
-                    Tab.CHARTS -> ChartsScreen(c2pCharts, folderName, save)
-                    Tab.CHARACTERS -> ReverseScreen(c2pCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…), or Animation.json + spritemap*.json for Animate atlases, so offsets stay exact.", R.drawable.ic_tab_character, folderName, save)
-                    Tab.STAGES -> ReverseScreen(c2pStages, Funkin.Up, "Stages", "Add Codename stages", "Pick data/stages/*.xml. Sprites become stage objects; beat dancers, blends and extra settings go into a stage script.", R.drawable.ic_tab_stage, folderName, save)
-                    Tab.WEEKS -> ReverseScreen(c2pWeeks, Funkin.Right, "Weeks", "Add Codename weeks", "Pick data/weeks/weeks/*.xml, data/weeks/characters/*.xml and the songs' meta.json for freeplay icons and colors.", R.drawable.ic_tab_week, folderName, save)
-                    Tab.SCRIPTS -> ReverseScreen(c2pScripts, Funkin.Lavender, "Scripts", "Add Codename scripts", "Pick .hx scripts. Add the stage XML for stage scripts and data/events/*.json for custom events. Archives keep the folders, so song, stage, event and note scripts land in the right Psych folder.", R.drawable.ic_tab_script, folderName, save)
-                } else if (currentDirection == Direction.PSYCH_TO_CODENAME && current is Tab) when (current) {
-                    Tab.MOD -> ModScreen(
-                        p2cMod, folderName, save,
-                        intro = "Convert a whole Psych Engine mod to Codename: songs, characters, stages, weeks, Lua/HScript scripts, custom events, note types, images and audio.",
-                        infoNote = "Written to data/config/modpack.ini. pack.png becomes icon.png.",
-                        convertNote = "Download the converted mod as a .zip (unzip it into Codename's mods folder), or write it straight into an empty mod folder."
-                    )
-                    Tab.CHARTS -> ChartsScreen(p2cCharts, folderName, save)
-                    Tab.CHARACTERS -> ReverseScreen(p2cCharacters, Funkin.Left, "Characters", "Add Psych characters", "Pick characters/*.json. Offsets are scaled for Codename and the side decides the camera offsets. Add Animation.json + spritemap*.json for Animate atlas characters.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to Codename")
-                    Tab.STAGES -> ReverseScreen(p2cStages, Funkin.Up, "Stages", "Add Psych stages", "Pick stages/*.json and, if the stage builds its sprites in Lua, stages/<stage>.lua: those sprites move into the stage XML.", R.drawable.ic_tab_stage, folderName, save, buttonText = "Convert to Codename")
-                    Tab.WEEKS -> ReverseScreen(p2cWeeks, Funkin.Right, "Weeks", "Add Psych weeks", "Pick weeks/*.json and images/menucharacters/*.json.", R.drawable.ic_tab_week, folderName, save, buttonText = "Convert to Codename")
-                    Tab.SCRIPTS -> ReverseScreen(p2cScripts, Funkin.Lavender, "Scripts", "Add Lua / HScript", "Pick .lua and .hx scripts. Archives keep the folders, so scripts/, data/<song>/, stages/, custom_events/ and custom_notetypes/ land in the right Codename folder. Add stages/*.json for stage scripts.", R.drawable.ic_tab_script, folderName, save, buttonText = "Convert to Codename")
-                } else if (currentDirection == Direction.VSLICE_TO_PSYCH) when (current) {
-                    Tab.MOD -> ReverseModScreen(revMod, folderName, save)
-                    Tab.CHARTS -> ChartsScreen(revCharts, folderName, save)
-                    Tab.CHARACTERS -> ReverseScreen(revCharacters, Funkin.Left, "Characters", "Add V-Slice characters", "Pick data/characters/*.json with their spritesheet .xml (images/…), or Animation.json + spritemap*.json for Animate atlases, for exact positions. Archives work too.", R.drawable.ic_tab_character, folderName, save)
-                    Tab.STAGES -> ReverseScreen(revStages, Funkin.Up, "Stages", "Add V-Slice stages", "Pick data/stages/*.json. Props, layers, scroll and animations become Psych stage objects.", R.drawable.ic_tab_stage, folderName, save)
-                    Tab.WEEKS -> ReverseScreen(revWeeks, Funkin.Right, "Levels", "Add V-Slice levels", "Pick data/levels/*.json, plus the songs' -metadata.json files for names, icons and difficulties.", R.drawable.ic_tab_week, folderName, save)
-                    Tab.SCRIPTS -> ReverseScreen(revScripts, Funkin.Lavender, "Scripts", "Add .hxc scripts", "Pick V-Slice .hxc scripts. Modules, songs, stages, characters, song events and note kinds become Psych HScript files in the right folders.", R.drawable.ic_tab_script, folderName, save)
-                    else -> Unit
-                } else when (current) {
-                    Tab.MOD -> ModScreen(mod, folderName, save)
-                    Tab.CHARTS -> ChartsScreen(charts, folderName, save)
-                    Tab.CHARACTERS -> CharactersScreen(characters, folderName, save)
-                    Tab.STAGES -> StagesScreen(stages, folderName, save)
-                    Tab.WEEKS -> WeeksScreen(weeks, folderName, save)
-                    Tab.SCRIPTS -> ScriptsScreen(scripts, folderName, save)
-                    GenTab.MOD -> ModGenScreen(genMod, folderName, save)
-                    GenTab.SONG -> ChartEditorScreen(genSong, folderName, save)
-                    GenTab.CHARACTER -> CharacterGenScreen(genCharacter, folderName, save)
-                    GenTab.STAGE -> StageGenScreen(genStage, folderName, save)
-                    GenTab.LEVEL -> LevelGenScreen(genLevel, folderName, save)
-                    GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)
-                }
-                Spacer(Modifier.size(24.dp))
+            }
+            if (settings.fpsCounter) {
+                FpsCounter(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
+                )
+            }
             }
         }
-        if (settings.fpsCounter) {
-            FpsCounter(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
-            )
-        }
-        }
+        if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
     }
     if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
 }
