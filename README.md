@@ -57,7 +57,7 @@ Every push to `main` is built by [GitHub Actions](https://github.com/BrenninhoTo
 | Codename → Psych | Codename HScript → Psych HScript |
 | Psych → Codename | Lua / HScript → Codename HScript |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window.
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad) and show an `FPS:` counter in the top-right corner.
 
 ## Generator
 

@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brenninhotools.vconverter.convert.PickedText
+import com.brenninhotools.vconverter.overlay.FpsCounter
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
 
@@ -162,6 +163,7 @@ private fun Content(state: AppState) {
             Spacer(Modifier.height(8.dp))
         }
         VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp))
+        FpsCounter(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 16.dp))
     }
 }
 

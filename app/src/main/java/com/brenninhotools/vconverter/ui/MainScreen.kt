@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.brenninhotools.vconverter.R
+import com.brenninhotools.vconverter.overlay.FpsCounter
 import com.brenninhotools.vconverter.ui.characters.CharactersScreen
 import com.brenninhotools.vconverter.ui.characters.CharactersViewModel
 import com.brenninhotools.vconverter.ui.charts.ChartsScreen
@@ -326,7 +327,10 @@ fun MainScreen() {
     }
     val folderName = modFolder.folder?.let { modFolder.folderName }
 
+    val cursor = rememberAppCursor()
+
     Scaffold(
+        modifier = Modifier.appCursor(cursor),
         containerColor = Funkin.Background,
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -347,6 +351,7 @@ fun MainScreen() {
             }
         }
     ) { padding ->
+        Box(Modifier.fillMaxSize()) {
         AnimatedContent(
             targetState = tab to (if (section == Section.CONVERTER) direction else Direction.PSYCH_TO_VSLICE),
             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -360,7 +365,7 @@ fun MainScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)
             ) {
                 if (current is Tab) {
                     EngineBridge(currentDirection) { direction = it }
@@ -423,6 +428,12 @@ fun MainScreen() {
                 }
                 Spacer(Modifier.size(24.dp))
             }
+        }
+        FpsCounter(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
+        )
         }
     }
 }

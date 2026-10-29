@@ -29,6 +29,7 @@ kotlin {
             "com/brenninhotools/vconverter/io/TreeStorage.kt"
         )
         resources.srcDir("../app/src/main/resources")
+        resources.srcDir("../assets")
     }
 }
 

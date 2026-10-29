@@ -1,6 +1,11 @@
 package com.brenninhotools.vconverter.desktop
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.unit.DpSize
@@ -38,6 +43,7 @@ fun main() {
         ) {
             window.minimumSize = java.awt.Dimension(980, 640)
             DisposableEffect(Unit) {
+                AppCursor.cursor?.let { window.cursor = it }
                 Dialogs.owner = window
                 window.dropTarget = DropTarget(window, DnDConstants.ACTION_COPY, object : DropTargetAdapter() {
                     override fun drop(event: DropTargetDropEvent) {
@@ -51,7 +57,12 @@ fun main() {
                 }, true)
                 onDispose { Dialogs.owner = null }
             }
-            AppTheme { App(state) }
+            AppTheme {
+                val cursor = AppCursor.cursor
+                Box(if (cursor != null) Modifier.fillMaxSize().pointerHoverIcon(PointerIcon(cursor), overrideDescendants = true) else Modifier.fillMaxSize()) {
+                    App(state)
+                }
+            }
         }
     }
 }
