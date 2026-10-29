@@ -15,6 +15,10 @@ enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphic
         "Chart Editor", Palette.Down,
         "Start a song or open any chart, then click the lanes to place notes. Space plays, the mouse wheel scrolls by the snap, Ctrl+Z / Ctrl+Y undo and redo, Q / E change a hold, Delete removes the selection. The left lane holds events."
     ),
+    STAGE(
+        "Stage Editor", Palette.Up,
+        "Open a stage or start from your images. Click a prop or a character to select it and drag it to move it; dragging elsewhere moves the view and the wheel zooms. The arrow keys nudge the selection (Shift for 10), Delete removes a prop, Ctrl+D duplicates, Ctrl+Z / Ctrl+Y undo and redo."
+    ),
     CHARACTER(
         "Character Editor", Palette.Left,
         "Open a character or a spritesheet, then drag the sprite to fix the offsets of each animation. Space plays, the arrow keys move the offset (Shift for 10), W / S pick the animation, Ctrl+Z / Ctrl+Y undo and redo, the mouse wheel zooms."
@@ -28,6 +32,7 @@ class AppState(private val scope: CoroutineScope) {
     var tool by mutableStateOf<EditorTool?>(null)
     val editor = DesktopEditor(scope)
     val characterEditor = DesktopCharacterEditor(scope)
+    val stageEditor = DesktopStageEditor(scope)
 
     private val mods = Direction.entries.associateWith { ModTabState(it) }
     private val tabs = HashMap<Pair<Direction, Tab>, FileTabState>()
@@ -53,6 +58,7 @@ class AppState(private val scope: CoroutineScope) {
         when (tool) {
             EditorTool.CHART -> editor.open(list)
             EditorTool.CHARACTER -> characterEditor.open(list)
+            EditorTool.STAGE -> stageEditor.open(list)
             null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
         }
     }

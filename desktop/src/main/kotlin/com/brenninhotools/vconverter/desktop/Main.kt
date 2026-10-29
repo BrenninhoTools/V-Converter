@@ -46,6 +46,7 @@ fun main() {
                 event.type == KeyEventType.KeyDown && when (state.tool) {
                     EditorTool.CHART -> editorShortcut(state.editor.editor, event)
                     EditorTool.CHARACTER -> characterShortcut(state.characterEditor.editor, event)
+                    EditorTool.STAGE -> stageShortcut(state.stageEditor.editor, event)
                     null -> false
                 }
             }

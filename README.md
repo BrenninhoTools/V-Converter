@@ -24,7 +24,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
-- [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor)
+- [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
 - [Building](#building)
 
@@ -67,7 +67,7 @@ The Android app has two sections, switched at the top: **Converter** and **Gener
 | Mod | `_polymod_meta.json`, `_polymod_icon.png` and an optional starter module script |
 | Chart | The [Chart Editor](#chart-editor): start a song or open any chart and edit it to the music |
 | Character | The [Character Editor](#character-editor): open any character or a spritesheet and fix its animations and offsets |
-| Stage | `data/stages/<id>.json` from your images (positions, scroll, scale, in front/behind), with the base game character positions |
+| Stage | The [Stage Editor](#stage-editor): open any stage or start from your images and lay it out with the game camera in view |
 | Level | `data/levels/<id>.json` with songs, background color, title image and base or custom menu characters |
 | Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
 
@@ -97,6 +97,17 @@ The **Char** tab of the Generator on Android, and **Character Editor** in the si
 - **Export**: V-Slice (`data/characters/<id>.json` + `images/…`), Psych Engine (`characters/<id>.json`, offsets and position converted for the chosen side) or Codename Engine (`data/characters/<id>.xml` + `images/characters/…`), always with the spritesheet.
 
 On Windows: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
+
+## Stage Editor
+
+The **Stage** tab of the Generator on Android, and **Stage Editor** in the sidebar on Windows.
+
+- **Open anything**: a V-Slice or Psych stage `.json` (with its `.lua` when it builds sprites there) or a Codename stage `.xml`, together with the stage images; opening a whole mod folder or archive finds every image the stage uses. A new stage starts with the base game character positions.
+- **Layout**: every prop drawn with its image (the first frame for animated Sparrow props), scale, scroll factor, alpha, angle and flips, plus boxes for the player, opponent and girlfriend at their feet position with their camera points. A dashed frame shows the game camera at the stage's zoom, and parallax follows the scroll factors as you move the view.
+- **Editing**: tap or click to select, drag to move, arrow buttons to nudge, layers sorted by `zIndex` with bring forward / send back, duplicate and delete, solid color props, images added from `.png` (+ `.xml` for animations), stage name, zoom and library. Undo and redo cover every change.
+- **Export**: V-Slice (`data/stages/<id>.json`), Psych Engine (`stages/<id>.json` plus a Lua script for what Psych JSON can't hold) or Codename Engine (`data/stages/<id>.xml`), always with the images in `images/`.
+
+On Windows: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
 
 ---
 

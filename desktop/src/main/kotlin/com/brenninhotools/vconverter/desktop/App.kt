@@ -183,6 +183,7 @@ private fun Content(state: AppState) {
             when {
                 state.tool == EditorTool.CHART -> EditorScreen(state)
                 state.tool == EditorTool.CHARACTER -> CharacterEditorScreen(state)
+                state.tool == EditorTool.STAGE -> StageEditorScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)
                 else -> FilesScreen(state)
             }
