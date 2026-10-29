@@ -3,7 +3,15 @@ name: Build
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
 
 concurrency:
@@ -12,8 +20,16 @@ concurrency:
 
 jobs:
   android:
-    name: Android APKs
+    name: Android ${{ matrix.variant }} APK
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: Release
+            folder: release
+          - variant: Debug
+            folder: debug
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,22 +44,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
+          gradle-home-cache-cleanup: true
 
-      - name: Build debug and release APKs
-        run: ./gradlew assembleDebug assembleRelease --build-cache --configuration-cache --parallel
+      - name: Build ${{ matrix.folder }} APK
+        run: ./gradlew :app:assemble${{ matrix.variant }}
 
-      - name: Upload debug APK
+      - name: Upload ${{ matrix.folder }} APK
         uses: actions/upload-artifact@v4
         with:
-          name: V-Converter-debug
-          path: app/build/outputs/apk/debug/*.apk
-          compression-level: 0
-
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: V-Converter-release
-          path: app/build/outputs/apk/release/*.apk
+          name: V-Converter-${{ matrix.folder }}
+          path: app/build/outputs/apk/${{ matrix.folder }}/*.apk
           compression-level: 0
 
   windows:
@@ -63,10 +73,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
+          gradle-home-cache-cleanup: true
 
       - name: Build installers and portable app
         shell: bash
-        run: ./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable --build-cache --parallel
+        run: ./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable
 
       - name: Zip portable app
         shell: pwsh
