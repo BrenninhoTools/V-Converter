@@ -39,7 +39,7 @@ object Resources {
     fun image(path: String): ImageBitmap? = bytes(path)?.let { org.jetbrains.skia.Image.makeFromEncoded(it).toComposeImageBitmap() }
 }
 
-private val Display: FontFamily = Resources.bytes("font/lilita_one.ttf")?.let { FontFamily(Font("lilita_one", it)) } ?: FontFamily.Default
+private val Display: FontFamily = Resources.bytes("fonts/funkin.ttf")?.let { FontFamily(Font("funkin", it)) } ?: FontFamily.Default
 
 private val Colors = darkColorScheme(
     primary = Palette.Down,

@@ -4,12 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
-import com.brenninhotools.vconverter.R
 
 object Funkin {
     val Background = Color(0xFF0F0C18)
@@ -31,8 +32,6 @@ object Funkin {
     val Lavender = Color(0xFFB98CFF)
     val Orange = Color(0xFFFF9A3C)
 }
-
-val Display = FontFamily(Font(R.font.lilita_one))
 
 private val Colors = darkColorScheme(
     primary = Funkin.Down,
@@ -58,22 +57,29 @@ private val Colors = darkColorScheme(
 
 private val Base = Typography()
 
-private val AppTypography = Typography(
-    displaySmall = Base.displaySmall.copy(fontFamily = Display),
-    headlineMedium = Base.headlineMedium.copy(fontFamily = Display),
-    headlineSmall = Base.headlineSmall.copy(fontFamily = Display, fontSize = 26.sp),
-    titleLarge = Base.titleLarge.copy(fontFamily = Display, fontSize = 22.sp, letterSpacing = 0.5.sp),
-    titleMedium = Base.titleMedium.copy(fontFamily = Display, fontSize = 18.sp, letterSpacing = 0.4.sp),
-    titleSmall = Base.titleSmall.copy(fontFamily = Display, letterSpacing = 0.4.sp),
-    labelLarge = TextStyle(fontFamily = Display, fontSize = 17.sp, letterSpacing = 1.sp),
-    labelMedium = Base.labelMedium.copy(fontFamily = Display, letterSpacing = 0.6.sp),
+private fun appTypography(display: FontFamily) = Typography(
+    displaySmall = Base.displaySmall.copy(fontFamily = display),
+    headlineMedium = Base.headlineMedium.copy(fontFamily = display),
+    headlineSmall = Base.headlineSmall.copy(fontFamily = display, fontSize = 26.sp),
+    titleLarge = Base.titleLarge.copy(fontFamily = display, fontSize = 22.sp, letterSpacing = 0.5.sp),
+    titleMedium = Base.titleMedium.copy(fontFamily = display, fontSize = 18.sp, letterSpacing = 0.4.sp),
+    titleSmall = Base.titleSmall.copy(fontFamily = display, letterSpacing = 0.4.sp),
+    labelLarge = TextStyle(fontFamily = display, fontSize = 17.sp, letterSpacing = 1.sp),
+    labelMedium = Base.labelMedium.copy(fontFamily = display, letterSpacing = 0.6.sp),
     bodyLarge = Base.bodyLarge,
     bodyMedium = Base.bodyMedium,
     bodySmall = Base.bodySmall,
     labelSmall = Base.labelSmall
 )
 
+private const val FONT_ASSET = "fonts/funkin.ttf"
+
 @Composable
 fun VConverterTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = Colors, typography = AppTypography, content = content)
+    val assets = LocalContext.current.assets
+    val typography = remember(assets) {
+        val family = runCatching { FontFamily(Font(FONT_ASSET, assets)) }.getOrDefault(FontFamily.Default)
+        appTypography(family)
+    }
+    MaterialTheme(colorScheme = Colors, typography = typography, content = content)
 }

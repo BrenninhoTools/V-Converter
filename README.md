@@ -286,7 +286,7 @@ The Windows app is a [Compose Multiplatform](https://www.jetbrains.com/compose-m
 ### Credits
 
 - Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows (RAR, RAR5, 7z)
-- The UI uses [Lilita One](https://fonts.google.com/specimen/Lilita+One) (SIL Open Font License, see `licenses/`)
+- The UI uses the Friday Night Funkin' style font in `assets/fonts/funkin.ttf`
 
 ## References
 
