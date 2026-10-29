@@ -130,31 +130,6 @@ fun <T> ChoiceField(label: String, value: T, choices: List<Pair<T, String>>, mod
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EditorToolbar(state: ChartEditorState, modifier: Modifier = Modifier) {
-    val conductor = state.document.conductor
-    val position = state.position
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            EditorChip(if (state.playing) "Pause" else "Play", state.playing) { state.togglePlay() }
-            EditorChip("|<", false) { state.seek(0.0) }
-            EditorChip("< Measure", false) { state.jumpMeasure(-1) }
-            EditorChip("Measure >", false) { state.jumpMeasure(1) }
-            EditorChip("Undo", false) { if (state.canUndo) state.undo() }
-            EditorChip("Redo", false) { if (state.canRedo) state.redo() }
-            EditorChip("Hitsounds", state.hitsounds) { state.hitsounds = !state.hitsounds }
-            EditorChip("Zoom -", false) { state.zoom = (state.zoom / 1.25f).coerceAtLeast(0.25f) }
-            EditorChip("Zoom +", false) { state.zoom = (state.zoom * 1.25f).coerceAtMost(6f) }
-        }
-        Text(
-            "${formatTime(position)}  ·  Measure ${conductor.measureAt(position) + 1}  ·  Beat ${"%.2f".format(conductor.beatAt(position))}  ·  ${trim(conductor.change(position).bpm)} BPM",
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
 fun DifficultyPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
     var name by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -187,17 +162,6 @@ fun DifficultyPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
             }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun SnapPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        EditorSectionTitle("Snap")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            state.snaps.forEach { snap -> EditorChip("1/$snap", snap == state.snap) { state.snap = snap } }
-        }
     }
 }
 
@@ -249,7 +213,7 @@ fun SelectionPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
                 EditorSectionTitle("Editing")
                 Text(
                     "Tap a lane to place a note, tap it again to select, and tap a selected note to delete it. " +
-                        "The left lane holds events. Drag or use the mouse wheel to scroll.",
+                        "The lane on the right holds events. Drag or use the mouse wheel to scroll, or tap the mini-map to jump.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -371,11 +335,3 @@ fun SongInfoPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun EditorLegend(modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Events", fontSize = 11.sp, color = EditorColors.event)
-        Text("Opponent", fontSize = 11.sp, color = Color(0xFFB9B4D6), modifier = Modifier.weight(1f))
-        Text("Player", fontSize = 11.sp, color = Color(0xFFB9B4D6), modifier = Modifier.weight(1f))
-    }
-}

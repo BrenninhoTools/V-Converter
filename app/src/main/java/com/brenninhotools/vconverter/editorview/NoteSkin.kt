@@ -43,6 +43,7 @@ class NoteSkin(val image: ImageBitmap, frames: Map<String, SkinFrame>) {
     companion object {
         const val IMAGE = "images/ui/NOTE_assets.png"
         const val ATLAS = "images/ui/NOTE_assets.xml"
+        const val EVENT_ICON = "images/ui/charter/event.png"
 
         private val subTexture = Regex("<SubTexture\\b[^>]*>")
         private fun attr(tag: String, name: String): String? = Regex("\\b$name=\"([^\"]*)\"").find(tag)?.groupValues?.get(1)

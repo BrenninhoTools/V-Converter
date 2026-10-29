@@ -54,6 +54,10 @@ class ChartEditorState(initial: ChartDocument) {
         private set
     var revision by mutableIntStateOf(0)
         private set
+    var gridHeightPx by mutableFloatStateOf(0f)
+    var basePxPerMs by mutableFloatStateOf(1f)
+
+    val visibleMs: Double get() = if (gridHeightPx <= 0f) 4000.0 else (gridHeightPx / (basePxPerMs * zoom)).toDouble()
 
     val snaps = listOf(4, 8, 12, 16, 24, 32, 48, 64, 96, 192)
 

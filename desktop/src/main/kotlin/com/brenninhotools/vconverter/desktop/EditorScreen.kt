@@ -36,17 +36,10 @@ import com.brenninhotools.vconverter.editor.EditorAudio
 import com.brenninhotools.vconverter.editor.ExportTarget
 import com.brenninhotools.vconverter.editor.SongLoader
 import com.brenninhotools.vconverter.editorview.ChartEditorState
-import com.brenninhotools.vconverter.editorview.DifficultyPanel
 import com.brenninhotools.vconverter.editorview.EditorChip
-import com.brenninhotools.vconverter.editorview.EditorGrid
-import com.brenninhotools.vconverter.editorview.EditorLegend
-import com.brenninhotools.vconverter.editorview.EditorToolbar
+import com.brenninhotools.vconverter.editorview.ChartEditorWorkspace
 import com.brenninhotools.vconverter.editorview.NoteSkin
 import com.brenninhotools.vconverter.editorview.EditorTyping
-import com.brenninhotools.vconverter.editorview.SelectionPanel
-import com.brenninhotools.vconverter.editorview.SnapPanel
-import com.brenninhotools.vconverter.editorview.SongInfoPanel
-import com.brenninhotools.vconverter.editorview.TimingPanel
 import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.io.Archives
 import kotlinx.coroutines.CoroutineScope
@@ -252,6 +245,8 @@ fun EditorScreen(state: AppState) {
         }
     }
 
+    val eventIcon = remember { Resources.image(NoteSkin.EVENT_ICON) }
+
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { if (editor.playing) editor.togglePlay() } }
 
@@ -301,30 +296,10 @@ fun EditorScreen(state: AppState) {
         }
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(Modifier.weight(1.25f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SectionTitle("Chart", accent)
-                EditorToolbar(editor)
-                EditorLegend()
-                EditorGrid(
-                    editor,
-                    Modifier.fillMaxWidth().height(640.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp)),
-                    skin
-                )
-            }
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SelectionPanel(editor)
-                SnapPanel(editor)
-            }
-            Card { DifficultyPanel(editor) }
-            Card { TimingPanel(editor) }
-        }
+    Card {
+        SectionTitle("Chart", accent)
+        ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 680.dp)
     }
-
-    Card { SongInfoPanel(editor) }
 
     val output = model.output
     Card(accent = if (output != null) accent else null) {

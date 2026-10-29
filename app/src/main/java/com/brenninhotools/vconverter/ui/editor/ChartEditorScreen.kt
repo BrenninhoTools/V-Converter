@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -35,15 +36,8 @@ import com.brenninhotools.vconverter.editor.EditorAudio
 import com.brenninhotools.vconverter.editor.ExportTarget
 import com.brenninhotools.vconverter.editor.SongLoader
 import com.brenninhotools.vconverter.editorview.ChartEditorState
-import com.brenninhotools.vconverter.editorview.DifficultyPanel
-import com.brenninhotools.vconverter.editorview.EditorGrid
-import com.brenninhotools.vconverter.editorview.EditorLegend
-import com.brenninhotools.vconverter.editorview.EditorToolbar
+import com.brenninhotools.vconverter.editorview.ChartEditorWorkspace
 import com.brenninhotools.vconverter.editorview.NoteSkin
-import com.brenninhotools.vconverter.editorview.SelectionPanel
-import com.brenninhotools.vconverter.editorview.SnapPanel
-import com.brenninhotools.vconverter.editorview.SongInfoPanel
-import com.brenninhotools.vconverter.editorview.TimingPanel
 import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.io.DocumentIO
 import com.brenninhotools.vconverter.ui.BaseConverterViewModel
@@ -232,6 +226,11 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
             }.getOrNull()
         }
     }
+    val eventIcon by produceState<ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { context.assets.open(NoteSkin.EVENT_ICON).use { BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull()
+        }
+    }
 
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { viewModel.pause() } }
@@ -286,34 +285,10 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         }
         FunkinCard {
             SectionTitle("Chart", accent, 3)
-            EditorToolbar(editor)
-            EditorLegend()
-            EditorGrid(
-                editor,
-                Modifier
-                    .fillMaxWidth()
-                    .height(520.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp)),
-                skin
-            )
-            SelectionPanel(editor)
-            SnapPanel(editor)
+            ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 540.dp)
         }
         FunkinCard {
-            SectionTitle("Difficulties", accent, 4)
-            DifficultyPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Timing", accent, 5)
-            TimingPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Song info", accent, 6)
-            SongInfoPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Export format", accent, 7)
+            SectionTitle("Export format", accent, 4)
             ChoiceChips(
                 options = ExportTarget.entries,
                 label = { it.label },
@@ -336,7 +311,7 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         ConvertSection(
             viewModel = viewModel,
             accent = accent,
-            step = 8,
+            step = 5,
             canConvert = true,
             onConvert = viewModel::export,
             onSave = onSave,

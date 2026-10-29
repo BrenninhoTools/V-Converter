@@ -13,7 +13,7 @@ import java.io.File
 enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphics.Color, val hint: String) {
     CHART(
         "Chart Editor", Palette.Down,
-        "Start a song or open any chart, then click the lanes to place notes. Space plays, the mouse wheel scrolls by the snap, Ctrl+Z / Ctrl+Y undo and redo, Q / E change a hold, Delete removes the selection. The left lane holds events."
+        "Start a song or open any chart, then click the lanes to place notes. Space plays, the mouse wheel scrolls by the snap, Ctrl+Z / Ctrl+Y undo and redo, Q / E change a hold, Delete removes the selection. The lane on the right holds events and the mini-map jumps around the song."
     ),
     STAGE(
         "Stage Editor", Palette.Up,

@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -37,17 +39,25 @@ import kotlin.math.roundToInt
 
 object EditorColors {
     val lanes = listOf(Color(0xFFC24B99), Color(0xFF00FFFF), Color(0xFF12FA05), Color(0xFFF9393F))
-    val background = Color(0xFF15131F)
-    val laneDark = Color(0xFF1D1A2B)
-    val laneLight = Color(0xFF221F33)
-    val eventLane = Color(0xFF2A1F2E)
-    val measure = Color(0xFFB9B4D6)
-    val beat = Color(0xFF5E5878)
-    val sub = Color(0xFF332F47)
+    val cellLight = Color(0xFFE4E0EC)
+    val cellDark = Color(0xFFCFC9DB)
+    val eventLight = Color(0xFFD9CFE3)
+    val eventDark = Color(0xFFC6B9D4)
+    val measure = Color(0xFF3B3550)
+    val beat = Color(0xFF7A7392)
+    val sub = Color(0xFFA9A2BE)
+    val label = Color(0xFF3B3550)
+    val divider = Color(0xFF2A2438)
+    val outside = Color(0xFF15131F)
+    val strumBand = Color(0xFF15131F)
     val playhead = Color(0xFFFF4F7B)
     val event = Color(0xFFFFC94A)
+    val timing = Color(0xFFFF8A3D)
+    val selected = Color(0xFFFFC94A)
     val draft = Color(0xFFFFFFFF)
 }
+
+const val STRUMLINE = 0.15f
 
 private val arrowPath: Path = Path().apply {
     moveTo(0f, -0.46f)
@@ -74,12 +84,12 @@ private fun DrawScope.arrow(center: Offset, size: Float, direction: Int, color: 
 }
 
 @Composable
-fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: NoteSkin? = null) {
+fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: NoteSkin? = null, eventIcon: ImageBitmap? = null) {
     val density = LocalDensity.current
-    val eventLaneWidth = with(density) { 34.dp.toPx() }
+    val eventLaneWidth = with(density) { 44.dp.toPx() }
     val basePxPerMs = with(density) { 0.32.dp.toPx() }
     val measurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(color = EditorColors.measure, fontSize = 10.sp)
+    val labelStyle = TextStyle(color = EditorColors.label, fontSize = 10.sp)
 
     LaunchedEffect(state.playing) {
         while (state.playing) withFrameNanos { state.tick(it) }
@@ -89,12 +99,16 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
 
     Box(
         modifier
+            .onSizeChanged {
+                state.gridHeightPx = it.height.toFloat()
+                state.basePxPerMs = basePxPerMs
+            }
             .pointerInput(state) {
                 detectTapGestures { offset ->
-                    val playheadY = size.height * 0.3f
+                    val playheadY = size.height * STRUMLINE
                     val time = state.position + (offset.y - playheadY) / pxPerMs()
                     val laneWidth = (size.width - eventLaneWidth) / 8f
-                    val column = if (offset.x < eventLaneWidth) -1 else ((offset.x - eventLaneWidth) / laneWidth).toInt().coerceIn(0, 7)
+                    val column = if (offset.x >= size.width - eventLaneWidth) -1 else (offset.x / laneWidth).toInt().coerceIn(0, 7)
                     if (time >= 0) state.tap(time, column)
                 }
             }
@@ -127,50 +141,54 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
             val conductor = document.conductor
             val position = state.position
             val pxPerMs = pxPerMs()
-            val playheadY = size.height * 0.3f
-            val laneWidth = (size.width - eventLaneWidth) / 8f
+            val playheadY = size.height * STRUMLINE
+            val lanesWidth = size.width - eventLaneWidth
+            val laneWidth = lanesWidth / 8f
             val noteSize = minOf(laneWidth * 0.86f, 64.dp.toPx())
             val from = position - playheadY / pxPerMs - 200
             val to = position + (size.height - playheadY) / pxPerMs + 200
             fun y(time: Double) = (playheadY + (time - position) * pxPerMs).toFloat()
-            fun laneX(column: Int) = eventLaneWidth + laneWidth * column
+            fun laneX(column: Int) = laneWidth * column
+            val eventX = lanesWidth
 
-            drawRect(EditorColors.background)
-            drawRect(EditorColors.eventLane, size = Size(eventLaneWidth, size.height))
-            for (column in 0 until 8) {
-                drawRect(if (column % 2 == 0) EditorColors.laneDark else EditorColors.laneLight, Offset(laneX(column), 0f), Size(laneWidth, size.height))
+            drawRect(EditorColors.outside)
+            val songTop = y(0.0).coerceIn(0f, size.height)
+            val songBottom = y(state.songLength).coerceIn(0f, size.height)
+            if (songBottom > songTop) {
+                val steps = conductor.gridLines(maxOf(from, 0.0), minOf(to, state.songLength), 16)
+                val edges = steps.map { it.first } + minOf(to, state.songLength)
+                for (i in 0 until edges.size - 1) {
+                    val top = y(edges[i]).coerceIn(songTop, songBottom)
+                    val bottom = y(edges[i + 1]).coerceIn(songTop, songBottom)
+                    if (bottom <= top) continue
+                    val stepIndex = Math.round(conductor.beatAt(edges[i]) * 4).toInt()
+                    for (column in 0 until 8) {
+                        val light = (stepIndex + column) % 2 == 0
+                        drawRect(if (light) EditorColors.cellLight else EditorColors.cellDark, Offset(laneX(column), top), Size(laneWidth + 0.5f, bottom - top))
+                    }
+                    drawRect(if (stepIndex % 2 == 0) EditorColors.eventLight else EditorColors.eventDark, Offset(eventX, top), Size(eventLaneWidth, bottom - top))
+                }
             }
-            val songTop = y(0.0)
-            if (songTop > 0) drawRect(Color.Black.copy(alpha = 0.45f), size = Size(size.width, songTop))
-            val songEnd = y(state.songLength)
-            if (songEnd < size.height) drawRect(Color.Black.copy(alpha = 0.45f), Offset(0f, songEnd), Size(size.width, size.height - songEnd))
 
             conductor.gridLines(maxOf(from, 0.0), minOf(to, state.songLength), state.snap).forEach { (time, kind) ->
                 val ly = y(time)
                 val color = when (kind) { 2 -> EditorColors.measure; 1 -> EditorColors.beat; else -> EditorColors.sub }
-                drawLine(color, Offset(eventLaneWidth, ly), Offset(size.width, ly), strokeWidth = if (kind == 2) 2.dp.toPx() else 1.dp.toPx())
+                drawLine(color, Offset(0f, ly), Offset(size.width, ly), strokeWidth = when (kind) { 2 -> 2.dp.toPx(); 1 -> 1.dp.toPx(); else -> 0.6.dp.toPx() })
                 if (kind == 2) {
                     val label = measurer.measure((conductor.measureAt(time) + 1).toString(), labelStyle)
-                    drawText(label, topLeft = Offset(4.dp.toPx(), ly - label.size.height - 1.dp.toPx()))
+                    drawText(label, topLeft = Offset(eventX + 3.dp.toPx(), ly + 1.dp.toPx()))
                 }
             }
             document.timing.forEach { timing ->
                 if (timing.time in from..to) {
                     val ly = y(timing.time)
-                    drawLine(EditorColors.event.copy(alpha = 0.6f), Offset(0f, ly), Offset(size.width, ly), strokeWidth = 1.dp.toPx())
-                    val label = measurer.measure("${trim(timing.bpm)} BPM ${timing.numerator}/4", labelStyle.copy(color = EditorColors.event))
-                    drawText(label, topLeft = Offset(size.width - label.size.width - 4.dp.toPx(), ly + 2.dp.toPx()))
+                    drawLine(EditorColors.timing, Offset(0f, ly), Offset(size.width, ly), strokeWidth = 2.dp.toPx())
+                    val label = measurer.measure("${trim(timing.bpm)} BPM ${timing.numerator}/4", labelStyle.copy(color = EditorColors.timing, fontSize = 9.sp))
+                    drawText(label, topLeft = Offset(lanesWidth - label.size.width - 3.dp.toPx(), ly - label.size.height - 1.dp.toPx()))
                 }
             }
-            drawLine(Color.White.copy(alpha = 0.35f), Offset(laneX(4), 0f), Offset(laneX(4), size.height), strokeWidth = 2.dp.toPx())
-            drawLine(Color.White.copy(alpha = 0.2f), Offset(eventLaneWidth, 0f), Offset(eventLaneWidth, size.height), strokeWidth = 1.dp.toPx())
-
-            for (column in 0 until 8) {
-                val center = Offset(laneX(column) + laneWidth / 2, playheadY)
-                val receptor = skin?.receptors?.get(column % 4)
-                if (skin != null && receptor != null) sprite(skin, receptor, center, noteSize, alpha = 0.55f)
-                else arrow(center, noteSize, column % 4, Color.White.copy(alpha = 0.18f), null, filled = false)
-            }
+            drawLine(EditorColors.divider, Offset(laneX(4), 0f), Offset(laneX(4), size.height), strokeWidth = 3.dp.toPx())
+            drawLine(EditorColors.divider, Offset(eventX, 0f), Offset(eventX, size.height), strokeWidth = 3.dp.toPx())
 
             val selected = state.selectedNote
             val notes = document.notes(state.difficulty)
@@ -182,46 +200,64 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
                     val frame = skin?.notes?.get(note.direction)
                     if (skin != null && frame != null) {
                         sprite(skin, frame, center, noteSize, colorFilter = if (note.kind.isNotEmpty()) kindTint else null)
-                        if (note == selected) {
-                            val half = noteSize / 2 + 2.dp.toPx()
-                            drawRoundRect(
-                                Color.White,
-                                topLeft = Offset(center.x - half, center.y - half),
-                                size = Size(half * 2, half * 2),
-                                cornerRadius = CornerRadius(8.dp.toPx()),
-                                style = Stroke(2.5.dp.toPx())
-                            )
-                        }
                     } else {
-                        arrow(center, noteSize, note.direction, color, if (note == selected) Color.White else Color.Black.copy(alpha = 0.55f))
+                        arrow(center, noteSize, note.direction, color, Color.Black.copy(alpha = 0.55f))
+                    }
+                    if (note == selected) {
+                        val half = noteSize / 2 + 2.dp.toPx()
+                        drawRoundRect(
+                            EditorColors.selected,
+                            topLeft = Offset(center.x - half, center.y - half),
+                            size = Size(half * 2, half * 2),
+                            cornerRadius = CornerRadius(8.dp.toPx()),
+                            style = Stroke(3.dp.toPx())
+                        )
                     }
                     if (note.kind.isNotEmpty()) {
                         val label = measurer.measure(note.kind.take(6), labelStyle.copy(color = Color.White, fontSize = 8.sp))
+                        drawRoundRect(EditorColors.divider.copy(alpha = 0.8f), Offset(center.x - label.size.width / 2f - 3f, center.y + noteSize * 0.3f), Size(label.size.width + 6f, label.size.height.toFloat()), CornerRadius(4f))
                         drawText(label, topLeft = Offset(center.x - label.size.width / 2f, center.y + noteSize * 0.3f))
                     }
                 }
             }
 
-            val diamond = 9.dp.toPx()
-            document.events.forEach { event ->
-                if (event.time in from..to) {
-                    val center = Offset(eventLaneWidth / 2, y(event.time))
+            val iconSize = minOf(eventLaneWidth * 0.82f, 36.dp.toPx())
+            fun eventMark(time: Double, alpha: Float, highlight: Boolean) {
+                val center = Offset(eventX + eventLaneWidth / 2, y(time))
+                if (eventIcon != null) {
+                    drawImage(
+                        eventIcon,
+                        dstOffset = IntOffset((center.x - iconSize / 2).roundToInt(), (center.y - iconSize / 2).roundToInt()),
+                        dstSize = IntSize(iconSize.roundToInt(), iconSize.roundToInt()),
+                        alpha = alpha,
+                        filterQuality = FilterQuality.Low
+                    )
+                } else {
+                    val d = iconSize / 2.4f
                     val path = Path().apply {
-                        moveTo(center.x, center.y - diamond)
-                        lineTo(center.x + diamond, center.y)
-                        lineTo(center.x, center.y + diamond)
-                        lineTo(center.x - diamond, center.y)
+                        moveTo(center.x, center.y - d)
+                        lineTo(center.x + d, center.y)
+                        lineTo(center.x, center.y + d)
+                        lineTo(center.x - d, center.y)
                         close()
                     }
-                    drawPath(path, EditorColors.event)
-                    if (event == state.selectedEvent) drawPath(path, Color.White, style = Stroke(2.dp.toPx()))
+                    drawPath(path, EditorColors.event, alpha = alpha)
+                }
+                if (highlight) {
+                    val half = iconSize / 2 + 2.dp.toPx()
+                    drawRoundRect(EditorColors.selected, Offset(center.x - half, center.y - half), Size(half * 2, half * 2), CornerRadius(6.dp.toPx()), style = Stroke(3.dp.toPx()))
                 }
             }
-            state.eventDraftTime?.let { time ->
-                val ly = y(time)
-                drawCircle(EditorColors.draft, radius = 5.dp.toPx(), center = Offset(eventLaneWidth / 2, ly), style = Stroke(2.dp.toPx()))
-            }
+            document.events.forEach { event -> if (event.time in from..to) eventMark(event.time, 1f, event == state.selectedEvent) }
+            state.eventDraftTime?.let { eventMark(it, 0.45f, true) }
 
+            drawRect(EditorColors.strumBand.copy(alpha = 0.35f), Offset(0f, playheadY - noteSize / 2 - 4.dp.toPx()), Size(lanesWidth, noteSize + 8.dp.toPx()))
+            for (column in 0 until 8) {
+                val center = Offset(laneX(column) + laneWidth / 2, playheadY)
+                val receptor = skin?.receptors?.get(column % 4)
+                if (skin != null && receptor != null) sprite(skin, receptor, center, noteSize, alpha = 0.9f)
+                else arrow(center, noteSize, column % 4, Color.White.copy(alpha = 0.7f), null, filled = false)
+            }
             drawLine(EditorColors.playhead, Offset(0f, playheadY), Offset(size.width, playheadY), strokeWidth = 2.dp.toPx())
         }
     }
