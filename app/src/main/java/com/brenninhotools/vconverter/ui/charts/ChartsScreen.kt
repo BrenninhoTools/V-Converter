@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.ui.charts
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -9,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -237,7 +237,7 @@ private fun Segmented(options: List<String>, selected: Int, accent: Color, onSel
             val active = index == selected
             Box(
                 Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (active) accent else Color.Transparent)
-                    .clickable { onSelect(index) }.padding(vertical = 9.dp),
+                    .soundClickable { onSelect(index) }.padding(vertical = 9.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (active) Funkin.Ink else Funkin.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)

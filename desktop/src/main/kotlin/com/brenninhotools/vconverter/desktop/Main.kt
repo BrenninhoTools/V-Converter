@@ -71,6 +71,7 @@ fun main() {
                 val cursor = AppCursor.cursor
                 Box(if (cursor != null) Modifier.fillMaxSize().pointerHoverIcon(PointerIcon(cursor), overrideDescendants = true) else Modifier.fillMaxSize()) {
                     App(state)
+                    UiSounds()
                     MenuMusic(suppressed = windowState.isMinimized || state.editor.editor.playing)
                 }
             }

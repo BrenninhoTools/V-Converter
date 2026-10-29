@@ -1,7 +1,7 @@
 package com.brenninhotools.vconverter.editorview
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -74,7 +74,7 @@ fun AnimationListPanel(state: CharacterEditorState, modifier: Modifier = Modifie
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                     .background(if (active) scheme.primary else scheme.surfaceVariant)
-                    .clickable { state.select(index) }
+                    .soundClickable { state.select(index) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.ui.components
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
@@ -8,7 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,7 +68,7 @@ fun OutlineButton(
             .clip(shape)
             .background(tint.copy(alpha = 0.08f))
             .border(2.dp, tint.copy(alpha = if (enabled) 0.8f else 0.3f), shape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .soundClickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically

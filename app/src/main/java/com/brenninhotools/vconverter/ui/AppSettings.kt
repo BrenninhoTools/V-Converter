@@ -1,9 +1,9 @@
 package com.brenninhotools.vconverter.ui
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +57,14 @@ class AppSettings(context: Context) {
         prefs.edit().putBoolean(KEY_MUSIC, value).apply()
     }
 
+    var uiSounds by mutableStateOf(prefs.getBoolean(KEY_UI_SOUNDS, true))
+        private set
+
+    fun updateUiSounds(value: Boolean) {
+        uiSounds = value
+        prefs.edit().putBoolean(KEY_UI_SOUNDS, value).apply()
+    }
+
     var musicVolume by mutableStateOf(prefs.getFloat(KEY_VOLUME, 0.5f))
         private set
 
@@ -74,6 +82,7 @@ class AppSettings(context: Context) {
         const val KEY_FPS = "fps_counter"
         const val KEY_TOUCH_CURSOR = "touch_cursor"
         const val KEY_MUSIC = "menu_music"
+        const val KEY_UI_SOUNDS = "ui_sounds"
         const val KEY_VOLUME = "music_volume"
     }
 }
@@ -93,7 +102,7 @@ fun OptionsButton(onClick: () -> Unit) {
             .clip(shape)
             .background(Funkin.Surface)
             .border(1.5.dp, Funkin.Outline, shape)
-            .clickable(onClick = onClick),
+            .soundClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(OverlayIcons.Gear, contentDescription = "Options", tint = Funkin.Text, modifier = Modifier.size(22.dp))
@@ -127,6 +136,13 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                 onChange = settings::updateTouchCursor,
                 accent = Funkin.Down,
                 hint = "Shows the cursor where you touch the screen."
+            )
+            ToggleRow(
+                label = "UI Sounds",
+                checked = settings.uiSounds,
+                onChange = settings::updateUiSounds,
+                accent = Funkin.Down,
+                hint = "Plays scrollMenu when you tap tabs and buttons."
             )
             ToggleRow(
                 label = "Menu Music",

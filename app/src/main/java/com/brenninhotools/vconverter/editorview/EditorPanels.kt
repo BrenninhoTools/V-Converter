@@ -1,7 +1,8 @@
 package com.brenninhotools.vconverter.editorview
 
+import com.brenninhotools.vconverter.overlay.UiSound
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -79,7 +80,7 @@ fun EditorChip(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (selected) scheme.primary else scheme.surfaceVariant)
-            .clickable(onClick = onClick)
+            .soundClickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     )
 }
@@ -116,12 +117,12 @@ fun <T> ChoiceField(label: String, value: T, choices: List<Pair<T, String>>, mod
     var open by remember { mutableStateOf(false) }
     Column(modifier) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = UiSound.wrap { open = true }, modifier = Modifier.fillMaxWidth()) {
             Text(choices.firstOrNull { it.first == value }?.second ?: value.toString())
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             choices.forEach { (key, title) ->
-                DropdownMenuItem(text = { Text(title) }, onClick = { open = false; onValue(key) })
+                DropdownMenuItem(text = { Text(title) }, onClick = { UiSound.click(); open = false; onValue(key) })
             }
         }
     }
@@ -319,7 +320,7 @@ fun TimingPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
         EditorSectionTitle("BPM & time signature")
         timing.forEachIndexed { index, change ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(formatTime(change.time), fontSize = 12.sp, modifier = Modifier.width(70.dp).clickable { state.seek(change.time) })
+                Text(formatTime(change.time), fontSize = 12.sp, modifier = Modifier.width(70.dp).soundClickable { state.seek(change.time) })
                 NumberField("BPM", change.bpm, Modifier.weight(1f)) { bpm ->
                     if (bpm > 0) state.edit { doc -> doc.withTiming(doc.timing.mapIndexed { i, t -> if (i == index) t.copy(bpm = bpm) else t }) }
                 }

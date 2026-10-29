@@ -1,10 +1,11 @@
 package com.brenninhotools.vconverter.ui.components
 
+import com.brenninhotools.vconverter.overlay.UiSound
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,7 +84,7 @@ fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, acce
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled) { onChange(!checked) }
+            .soundClickable(enabled = enabled) { onChange(!checked) }
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -93,7 +94,7 @@ fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, acce
         }
         Switch(
             checked = checked,
-            onCheckedChange = onChange,
+            onCheckedChange = { UiSound.click(); onChange(it) },
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Funkin.Ink,
@@ -137,7 +138,7 @@ fun Chip(text: String, selected: Boolean, accent: Color, enabled: Boolean = true
             .clip(shape)
             .background(if (selected) accent else Funkin.Surface)
             .border(1.5.dp, if (selected) Funkin.Ink else Funkin.Outline, shape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .soundClickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     )
 }
@@ -167,7 +168,7 @@ fun AssetPicker(
             .clip(shape)
             .background(if (picked) accent.copy(alpha = 0.10f) else Funkin.SurfaceHigh)
             .border(1.5.dp, if (picked) accent.copy(alpha = 0.6f) else Funkin.Outline, shape)
-            .clickable(enabled = enabled) { launcher.launch(mimeTypes) }
+            .soundClickable(enabled = enabled) { launcher.launch(mimeTypes) }
             .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -197,7 +198,7 @@ fun AssetPicker(
             )
         }
         if (picked) {
-            IconButton(onClick = onClear, enabled = enabled) {
+            IconButton(onClick = UiSound.wrap(onClear), enabled = enabled) {
                 Icon(painterResource(R.drawable.ic_close), contentDescription = "Remove $label", tint = Funkin.Muted, modifier = Modifier.size(18.dp))
             }
         }

@@ -1,11 +1,12 @@
 package com.brenninhotools.vconverter.desktop
 
+import com.brenninhotools.vconverter.overlay.UiSound
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -97,7 +98,7 @@ private fun Sidebar(state: AppState) {
                 Modifier.size(40.dp).clip(CircleShape)
                     .background(Brush.linearGradient(listOf(state.direction.from.color, state.direction.to.color)))
                     .border(2.dp, Palette.Ink, CircleShape)
-                    .clickable(enabled = canSwap) { state.swap() },
+                    .soundClickable(enabled = canSwap) { state.swap() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(if (canSwap) "⇅" else "↓", color = Palette.Ink, fontSize = 20.sp)
@@ -111,7 +112,7 @@ private fun Sidebar(state: AppState) {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                         .background(if (active) tab.accent else Color.Transparent)
-                        .clickable { state.tab = tab; state.tool = null }
+                        .soundClickable { state.tab = tab; state.tool = null }
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -127,7 +128,7 @@ private fun Sidebar(state: AppState) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                     .background(if (active) tool.accent else Palette.SurfaceHigh)
-                    .clickable { state.tool = tool }
+                    .soundClickable { state.tool = tool }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -138,7 +139,7 @@ private fun Sidebar(state: AppState) {
         }
         Spacer(Modifier.weight(1f))
         state.lastOutput?.let { file ->
-            OutlinedButton(onClick = { Dialogs.reveal(file) }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Palette.Outline)) {
+            OutlinedButton(onClick = UiSound.wrap { Dialogs.reveal(file) }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Palette.Outline)) {
                 Text("Show last output", color = Palette.Muted, maxLines = 1)
             }
         }
@@ -157,7 +158,7 @@ private fun EnginePicker(caption: String, selected: Engine, all: List<Engine>, e
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                     .background(if (active) engine.color.copy(alpha = 0.22f) else Palette.SurfaceHigh.copy(alpha = if (usable) 1f else 0.4f))
                     .border(1.5.dp, if (active) engine.color else Color.Transparent, RoundedCornerShape(10.dp))
-                    .clickable(enabled = usable) { onSelect(engine) }
+                    .soundClickable(enabled = usable) { onSelect(engine) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -255,7 +256,7 @@ internal fun SectionTitle(text: String, accent: Color) {
 @Composable
 internal fun Primary(text: String, accent: Color, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
-        onClick = onClick,
+        onClick = UiSound.wrap(onClick),
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Palette.Ink, disabledContainerColor = Palette.SurfaceHigh, disabledContentColor = Palette.Muted)
@@ -264,7 +265,7 @@ internal fun Primary(text: String, accent: Color, enabled: Boolean = true, onCli
 
 @Composable
 internal fun Secondary(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.5.dp, Palette.Outline)) {
+    OutlinedButton(onClick = UiSound.wrap(onClick), enabled = enabled, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.5.dp, Palette.Outline)) {
         Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) Palette.Text else Palette.Muted)
     }
 }
@@ -347,7 +348,7 @@ internal fun ReportView(report: Report, accent: Color) {
             var open by remember(section) { mutableStateOf(false) }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.SurfaceHigh)) {
                 Row(
-                    Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().soundClickable { open = !open }.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(if (open) "▾" else "▸", color = accent)
@@ -513,12 +514,13 @@ internal fun FilesCard(
 internal fun SlotPicker(slot: CharacterSlot, enabled: Boolean, onSelect: (CharacterSlot) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }, enabled = enabled, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Palette.Outline)) {
+        OutlinedButton(onClick = UiSound.wrap { open = true }, enabled = enabled, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Palette.Outline)) {
             Text(slot.label + " ▾", style = MaterialTheme.typography.labelMedium, color = Palette.Text)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             CharacterSlot.entries.forEach { option ->
                 DropdownMenuItem(text = { Text(option.label) }, onClick = {
+                    UiSound.click()
                     open = false
                     onSelect(option)
                 })
@@ -551,7 +553,7 @@ internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                         .background(if (active) accent else Palette.SurfaceHigh)
-                        .clickable { files.preview = file }
+                        .soundClickable { files.preview = file }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }

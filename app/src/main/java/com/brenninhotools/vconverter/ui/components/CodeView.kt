@@ -1,9 +1,9 @@
 package com.brenninhotools.vconverter.ui.components
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -178,7 +178,7 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (copied) Funkin.Up.copy(alpha = 0.18f) else accent.copy(alpha = 0.12f))
-                    .clickable {
+                    .soundClickable {
                         clipboard.setText(AnnotatedString(code.trimEnd()))
                         copied = true
                     }
@@ -223,7 +223,7 @@ fun CodeView(code: String, title: String = "Preview", accent: Color = Funkin.Dow
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Funkin.Surface)
-                    .clickable { expanded = !expanded }
+                    .soundClickable { expanded = !expanded }
                     .padding(vertical = 9.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -265,7 +265,7 @@ fun CodeFiles(files: List<Pair<String, String>>, accent: Color) {
                             .clip(shape)
                             .background(if (active) accent else Funkin.SurfaceHigh)
                             .border(1.dp, if (active) Funkin.Ink else Funkin.Outline, shape)
-                            .clickable { selected = i }
+                            .soundClickable { selected = i }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }

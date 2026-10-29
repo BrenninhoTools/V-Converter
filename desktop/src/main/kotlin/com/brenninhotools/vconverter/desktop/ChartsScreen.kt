@@ -1,8 +1,8 @@
 package com.brenninhotools.vconverter.desktop
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -137,7 +137,7 @@ private fun PreviewCard(state: AppState, files: FileTabState, accent: Color) {
                         style = MaterialTheme.typography.labelMedium,
                         color = if (active) Palette.Ink else Palette.Text,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (active) accent else Palette.SurfaceHigh)
-                            .clickable { files.selected = files.key(preview) }.padding(horizontal = 12.dp, vertical = 5.dp)
+                            .soundClickable { files.selected = files.key(preview) }.padding(horizontal = 12.dp, vertical = 5.dp)
                     )
                 }
             }
@@ -168,7 +168,7 @@ private fun Toggle(options: List<String>, selected: Int, accent: Color, onSelect
                 style = MaterialTheme.typography.labelMedium,
                 color = if (active) Palette.Ink else Palette.Muted,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (active) accent else Color.Transparent)
-                    .clickable { onSelect(index) }.padding(horizontal = 10.dp, vertical = 4.dp)
+                    .soundClickable { onSelect(index) }.padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }
     }
@@ -291,7 +291,7 @@ private fun OptionsCard(files: FileTabState, accent: Color) {
             }
         }
         if (ChartField.KEEP_EVENTS in fields) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(enabled = enabled) { files.updateTweaks { it.copy(keepUnknownEvents = !it.keepUnknownEvents) } }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.soundClickable(enabled = enabled) { files.updateTweaks { it.copy(keepUnknownEvents = !it.keepUnknownEvents) } }) {
                 Checkbox(
                     checked = tweaks.keepUnknownEvents,
                     onCheckedChange = { value -> files.updateTweaks { it.copy(keepUnknownEvents = value) } },

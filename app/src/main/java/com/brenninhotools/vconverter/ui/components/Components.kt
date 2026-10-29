@@ -1,5 +1,7 @@
 package com.brenninhotools.vconverter.ui.components
 
+import com.brenninhotools.vconverter.overlay.UiSound
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -9,7 +11,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -133,7 +134,7 @@ fun ChunkyButton(
                 .clip(shape)
                 .background(fill)
                 .border(3.dp, Funkin.Ink, shape)
-                .clickable(interactionSource = interaction, indication = null, enabled = enabled && !loading, onClick = onClick),
+                .soundClickable(interactionSource = interaction, indication = null, enabled = enabled && !loading, onClick = onClick),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -172,7 +173,7 @@ fun DropZone(
                     cornerRadius = CornerRadius(20.dp.toPx())
                 )
             }
-            .clickable(enabled = enabled, onClick = onClick)
+            .soundClickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 22.dp, horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -240,7 +241,7 @@ fun FileItem(
                 modifier = Modifier.weight(1f),
                 maxLines = 1
             )
-            IconButton(onClick = onRemove, enabled = enabled) {
+            IconButton(onClick = UiSound.wrap(onRemove), enabled = enabled) {
                 Icon(painterResource(R.drawable.ic_close), contentDescription = "Remove $title", tint = Funkin.Muted, modifier = Modifier.size(20.dp))
             }
         }
@@ -324,7 +325,7 @@ fun StatusBanner(status: StatusMessage?, onDismiss: () -> Unit) {
                     .weight(1f)
                     .padding(vertical = 8.dp)
             )
-            IconButton(onClick = onDismiss) {
+            IconButton(onClick = UiSound.wrap(onDismiss)) {
                 Icon(painterResource(R.drawable.ic_close), contentDescription = "Dismiss", tint = Funkin.Muted, modifier = Modifier.size(18.dp))
             }
         }
@@ -409,7 +410,7 @@ fun Collapsible(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { open = !open }
+                .soundClickable { open = !open }
                 .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

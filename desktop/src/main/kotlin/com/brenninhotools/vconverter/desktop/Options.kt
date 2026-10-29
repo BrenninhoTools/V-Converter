@@ -1,8 +1,8 @@
 package com.brenninhotools.vconverter.desktop
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +53,14 @@ object AppSettings {
         runCatching { prefs?.putBoolean("menuMusic", value) }
     }
 
+    var uiSounds by mutableStateOf(prefs?.getBoolean("uiSounds", true) ?: true)
+        private set
+
+    fun updateUiSounds(value: Boolean) {
+        uiSounds = value
+        runCatching { prefs?.putBoolean("uiSounds", value) }
+    }
+
     var musicVolume by mutableStateOf(prefs?.getFloat("musicVolume", 0.5f) ?: 0.5f)
         private set
 
@@ -70,7 +78,7 @@ fun OptionsButton() {
             Modifier.size(32.dp).clip(RoundedCornerShape(10.dp))
                 .background(if (open) Palette.SurfaceHigh else Palette.Surface)
                 .border(1.dp, Palette.Outline, RoundedCornerShape(10.dp))
-                .clickable { open = !open },
+                .soundClickable { open = !open },
             contentAlignment = Alignment.Center
         ) {
             Icon(OverlayIcons.Gear, contentDescription = "Options", tint = Palette.Text, modifier = Modifier.size(20.dp))
@@ -79,6 +87,7 @@ fun OptionsButton() {
             Column(Modifier.widthIn(min = 280.dp).padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("OPTIONS", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
                 OptionToggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", AppSettings.fpsCounter, AppSettings::updateFpsCounter)
+                OptionToggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", AppSettings.uiSounds, AppSettings::updateUiSounds)
                 OptionToggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", AppSettings.menuMusic, AppSettings::updateMenuMusic)
                 if (AppSettings.menuMusic) {
                     Text("Music volume: ${(AppSettings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
@@ -96,7 +105,7 @@ fun OptionsButton() {
 @Composable
 private fun OptionToggle(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.clip(RoundedCornerShape(10.dp)).clickable { onChange(!checked) }.padding(vertical = 4.dp),
+        Modifier.clip(RoundedCornerShape(10.dp)).soundClickable { onChange(!checked) }.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {

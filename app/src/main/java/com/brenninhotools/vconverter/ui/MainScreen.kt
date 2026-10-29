@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.ui
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -448,6 +448,7 @@ fun MainScreen() {
     }
     if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
     MenuMusic(settings.menuMusic, settings.musicVolume, suppressed = genSong.editor.playing)
+    UiSounds(settings.uiSounds)
 }
 
 @Composable
@@ -505,7 +506,7 @@ private fun FolderChip(folderName: String?, onClick: () -> Unit) {
             .clip(shape)
             .background(if (picked) Funkin.Up.copy(alpha = 0.12f) else Funkin.Surface)
             .border(1.5.dp, if (picked) Funkin.Up.copy(alpha = 0.6f) else Funkin.Outline, shape)
-            .clickable(onClick = onClick)
+            .soundClickable(onClick = onClick)
             .padding(start = 10.dp, end = 12.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -597,7 +598,7 @@ private fun FunkinNavBar(tabs: List<AppTab>, selected: AppTab, onSelect: (AppTab
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { onSelect(item) }
+                        .soundClickable { onSelect(item) }
                         .padding(vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -649,7 +650,7 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
                     .height(42.dp)
                     .clip(shape)
                     .background(fill)
-                    .clickable { onSelect(item) },
+                    .soundClickable { onSelect(item) },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -684,7 +685,7 @@ private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
                     .clip(CircleShape)
                     .background(Brush.linearGradient(listOf(from.color, to.color)))
                     .border(2.5.dp, Funkin.Ink, CircleShape)
-                    .clickable(enabled = direction.canSwap) { onChange(direction.swapped()) },
+                    .soundClickable(enabled = direction.canSwap) { onChange(direction.swapped()) },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -728,7 +729,7 @@ private fun SourcePicker(caption: String, selected: Engine, enabled: List<Engine
                     .height(32.dp)
                     .clip(shape)
                     .background(fill)
-                    .clickable(enabled = usable) { onSelect(engine) },
+                    .soundClickable(enabled = usable) { onSelect(engine) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(engine.label, style = MaterialTheme.typography.labelMedium, color = content, maxLines = 1)
@@ -746,7 +747,7 @@ private fun EngineCard(role: String, engine: Engine, modifier: Modifier, onClick
             .clip(shape)
             .background(Brush.verticalGradient(listOf(color.copy(alpha = 0.16f), Funkin.Surface)))
             .border(1.5.dp, color.copy(alpha = 0.55f), shape)
-            .clickable(onClick = onClick)
+            .soundClickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalAlignment = if (role == "From") Alignment.Start else Alignment.End
     ) {

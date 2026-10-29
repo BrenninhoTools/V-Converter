@@ -1,7 +1,7 @@
 package com.brenninhotools.vconverter.editorview
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -87,7 +87,7 @@ fun StageLayersPanel(state: StageEditorState, modifier: Modifier = Modifier, onA
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                     .background(if (active) scheme.primary else if (item is StageSelection.Spot) scheme.secondaryContainer else scheme.surfaceVariant)
-                    .clickable { state.focus(item) }
+                    .soundClickable { state.focus(item) }
                     .padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

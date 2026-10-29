@@ -1,10 +1,10 @@
 package com.brenninhotools.vconverter.ui.scripts
 
+import com.brenninhotools.vconverter.overlay.soundClickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -102,7 +102,7 @@ private fun ScopeChip(text: String, selected: Boolean, accent: Color, enabled: B
             .clip(shape)
             .background(if (selected) accent else Funkin.Surface)
             .border(1.5.dp, if (selected) Funkin.Ink else Funkin.Outline, shape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .soundClickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     )
 }
