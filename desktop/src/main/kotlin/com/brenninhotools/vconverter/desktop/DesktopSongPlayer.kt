@@ -117,6 +117,15 @@ class DesktopSongPlayer private constructor(private val pcm: ShortArray, private
         }
     }
 
+    fun setVolume(volume: Float) {
+        val l = line ?: return
+        runCatching {
+            val control = l.getControl(javax.sound.sampled.FloatControl.Type.MASTER_GAIN) as javax.sound.sampled.FloatControl
+            val db = if (volume <= 0.0001f) control.minimum else (20.0 * kotlin.math.log10(volume.toDouble())).toFloat()
+            control.value = db.coerceIn(control.minimum, control.maximum)
+        }
+    }
+
     override fun hitsound() {
         val c = clip ?: return
         c.stop()

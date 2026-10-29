@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +33,7 @@ import com.brenninhotools.vconverter.ui.components.ChunkyButton
 import com.brenninhotools.vconverter.ui.components.SectionTitle
 import com.brenninhotools.vconverter.ui.components.ToggleRow
 import com.brenninhotools.vconverter.ui.theme.Funkin
+import kotlin.math.roundToInt
 
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -46,6 +49,22 @@ class AppSettings(context: Context) {
         prefs.edit().putBoolean(KEY_TOUCH_CURSOR, value).apply()
     }
 
+    var menuMusic by mutableStateOf(prefs.getBoolean(KEY_MUSIC, true))
+        private set
+
+    fun updateMenuMusic(value: Boolean) {
+        menuMusic = value
+        prefs.edit().putBoolean(KEY_MUSIC, value).apply()
+    }
+
+    var musicVolume by mutableStateOf(prefs.getFloat(KEY_VOLUME, 0.5f))
+        private set
+
+    fun updateMusicVolume(value: Float) {
+        musicVolume = value.coerceIn(0f, 1f)
+        prefs.edit().putFloat(KEY_VOLUME, musicVolume).apply()
+    }
+
     fun updateFpsCounter(value: Boolean) {
         fpsCounter = value
         prefs.edit().putBoolean(KEY_FPS, value).apply()
@@ -54,6 +73,8 @@ class AppSettings(context: Context) {
     private companion object {
         const val KEY_FPS = "fps_counter"
         const val KEY_TOUCH_CURSOR = "touch_cursor"
+        const val KEY_MUSIC = "menu_music"
+        const val KEY_VOLUME = "music_volume"
     }
 }
 
@@ -107,6 +128,21 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                 accent = Funkin.Down,
                 hint = "Shows the cursor where you touch the screen."
             )
+            ToggleRow(
+                label = "Menu Music",
+                checked = settings.menuMusic,
+                onChange = settings::updateMenuMusic,
+                accent = Funkin.Down,
+                hint = "Plays freakyMenu while you work. It pauses while the Chart Editor plays a song."
+            )
+            if (settings.menuMusic) {
+                Text("Music volume: ${(settings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
+                Slider(
+                    value = settings.musicVolume,
+                    onValueChange = settings::updateMusicVolume,
+                    colors = SliderDefaults.colors(thumbColor = Funkin.Down, activeTrackColor = Funkin.Down)
+                )
+            }
             Text("Options are saved on this device.", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
             ChunkyButton(text = "Done", accent = Funkin.Down, onClick = onDismiss, icon = R.drawable.ic_check)
         }

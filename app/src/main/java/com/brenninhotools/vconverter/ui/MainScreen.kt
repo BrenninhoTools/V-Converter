@@ -447,6 +447,7 @@ fun MainScreen() {
         if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
     }
     if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
+    MenuMusic(settings.menuMusic, settings.musicVolume, suppressed = genSong.editor.playing)
 }
 
 @Composable
