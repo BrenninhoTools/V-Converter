@@ -107,11 +107,11 @@ private fun Sidebar(state: AppState) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Outline))
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Tab.entries.forEach { tab ->
-                val active = !state.editorOpen && tab == state.tab
+                val active = state.tool == null && tab == state.tab
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                         .background(if (active) tab.accent else Color.Transparent)
-                        .clickable { state.tab = tab; state.editorOpen = false }
+                        .clickable { state.tab = tab; state.tool = null }
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -122,16 +122,19 @@ private fun Sidebar(state: AppState) {
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Outline))
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .background(if (state.editorOpen) Palette.Down else Palette.SurfaceHigh)
-                .clickable { state.editorOpen = true }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(if (state.editorOpen) Palette.Ink else Palette.Down))
-            Spacer(Modifier.width(12.dp))
-            Text("CHART EDITOR", style = MaterialTheme.typography.labelLarge, color = if (state.editorOpen) Palette.Ink else Palette.Text)
+        EditorTool.entries.forEach { tool ->
+            val active = state.tool == tool
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .background(if (active) tool.accent else Palette.SurfaceHigh)
+                    .clickable { state.tool = tool }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(if (active) Palette.Ink else tool.accent))
+                Spacer(Modifier.width(12.dp))
+                Text(tool.title.uppercase(), style = MaterialTheme.typography.labelLarge, color = if (active) Palette.Ink else Palette.Text)
+            }
         }
         Spacer(Modifier.weight(1f))
         state.lastOutput?.let { file ->
@@ -178,7 +181,8 @@ private fun Content(state: AppState) {
         ) {
             Hero(state)
             when {
-                state.editorOpen -> EditorScreen(state)
+                state.tool == EditorTool.CHART -> EditorScreen(state)
+                state.tool == EditorTool.CHARACTER -> CharacterEditorScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)
                 else -> FilesScreen(state)
             }
@@ -199,17 +203,18 @@ private fun Content(state: AppState) {
 private fun Hero(state: AppState) {
     val tab = state.tab
     val shape = RoundedCornerShape(18.dp)
-    if (state.editorOpen) {
+    val tool = state.tool
+    if (tool != null) {
         Column(
             Modifier.fillMaxWidth().clip(shape)
-                .background(Brush.linearGradient(listOf(Palette.Down.copy(alpha = 0.24f), Palette.Surface, Palette.Surface)))
-                .border(1.5.dp, Palette.Down.copy(alpha = 0.4f), shape)
+                .background(Brush.linearGradient(listOf(tool.accent.copy(alpha = 0.24f), Palette.Surface, Palette.Surface)))
+                .border(1.5.dp, tool.accent.copy(alpha = 0.4f), shape)
                 .padding(18.dp)
         ) {
-            Text("CHART EDITOR", style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
-            Text("V-Slice, with Psych and Codename export", style = MaterialTheme.typography.titleSmall, color = Palette.Down)
+            Text(tool.title.uppercase(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
+            Text("V-Slice, with Psych and Codename export", style = MaterialTheme.typography.titleSmall, color = tool.accent)
             Spacer(Modifier.height(4.dp))
-            Text("Start a song or open any chart, then click the lanes to place notes. Space plays, the mouse wheel scrolls by the snap, Ctrl+Z / Ctrl+Y undo and redo, Q / E change a hold, Delete removes the selection. The left lane holds events.", style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
+            Text(tool.hint, style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
         }
         return
     }

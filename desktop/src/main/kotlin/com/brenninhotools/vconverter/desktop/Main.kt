@@ -42,7 +42,13 @@ fun main() {
             title = "V-Converter",
             icon = icon,
             state = windowState,
-            onKeyEvent = { event -> state.editorOpen && event.type == KeyEventType.KeyDown && editorShortcut(state.editor.editor, event) }
+            onKeyEvent = { event ->
+                event.type == KeyEventType.KeyDown && when (state.tool) {
+                    EditorTool.CHART -> editorShortcut(state.editor.editor, event)
+                    EditorTool.CHARACTER -> characterShortcut(state.characterEditor.editor, event)
+                    null -> false
+                }
+            }
         ) {
             window.minimumSize = java.awt.Dimension(980, 640)
             DisposableEffect(Unit) {

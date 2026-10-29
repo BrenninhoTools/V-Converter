@@ -78,8 +78,8 @@ import com.brenninhotools.vconverter.ui.mod.ModViewModel
 import com.brenninhotools.vconverter.ui.weeks.WeeksScreen
 import com.brenninhotools.vconverter.ui.weeks.WeeksViewModel
 import com.brenninhotools.vconverter.ui.theme.Funkin
-import com.brenninhotools.vconverter.ui.generator.CharacterGenScreen
-import com.brenninhotools.vconverter.ui.generator.CharacterGenViewModel
+import com.brenninhotools.vconverter.ui.editor.CharacterEditorScreen
+import com.brenninhotools.vconverter.ui.editor.CharacterEditorViewModel
 import com.brenninhotools.vconverter.ui.generator.LevelGenScreen
 import com.brenninhotools.vconverter.ui.generator.LevelGenViewModel
 import com.brenninhotools.vconverter.ui.generator.ModGenScreen
@@ -210,7 +210,7 @@ enum class GenTab(
 ) : AppTab {
     MOD("Mod", R.drawable.ic_tab_mod, Funkin.Pink, "New mod", "A ready V-Slice mod folder with metadata and icon."),
     SONG("Chart", R.drawable.ic_tab_chart, Funkin.Down, "Chart Editor", "Start a song or open any chart, then place notes, events and BPM changes to the music."),
-    CHARACTER("Char", R.drawable.ic_tab_character, Funkin.Left, "New character", "A character JSON from a Sparrow spritesheet."),
+    CHARACTER("Char", R.drawable.ic_tab_character, Funkin.Left, "Character Editor", "Open any character or a spritesheet, then preview the animations and fix offsets, camera and scale."),
     STAGE("Stage", R.drawable.ic_tab_stage, Funkin.Up, "New stage", "A stage from your images, with base game positions."),
     LEVEL("Level", R.drawable.ic_tab_week, Funkin.Right, "New level", "A story mode week with songs and menu characters."),
     SCRIPT("Script", R.drawable.ic_tab_script, Funkin.Lavender, "New script", "Ready-to-edit .hxc classes for V-Slice.")
@@ -227,7 +227,7 @@ fun MainScreen() {
     val scripts: ScriptsViewModel = viewModel()
     val genMod: ModGenViewModel = viewModel()
     val genSong: ChartEditorViewModel = viewModel()
-    val genCharacter: CharacterGenViewModel = viewModel()
+    val genCharacter: CharacterEditorViewModel = viewModel()
     val genStage: StageGenViewModel = viewModel()
     val genLevel: LevelGenViewModel = viewModel()
     val genScript: ScriptGenViewModel = viewModel()
@@ -427,7 +427,7 @@ fun MainScreen() {
                         Tab.SCRIPTS -> ScriptsScreen(scripts, folderName, save)
                         GenTab.MOD -> ModGenScreen(genMod, folderName, save)
                         GenTab.SONG -> ChartEditorScreen(genSong, folderName, save)
-                        GenTab.CHARACTER -> CharacterGenScreen(genCharacter, folderName, save)
+                        GenTab.CHARACTER -> CharacterEditorScreen(genCharacter, folderName, save)
                         GenTab.STAGE -> StageGenScreen(genStage, folderName, save)
                         GenTab.LEVEL -> LevelGenScreen(genLevel, folderName, save)
                         GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)

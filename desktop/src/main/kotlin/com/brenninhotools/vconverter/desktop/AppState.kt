@@ -10,12 +10,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphics.Color, val hint: String) {
+    CHART(
+        "Chart Editor", Palette.Down,
+        "Start a song or open any chart, then click the lanes to place notes. Space plays, the mouse wheel scrolls by the snap, Ctrl+Z / Ctrl+Y undo and redo, Q / E change a hold, Delete removes the selection. The left lane holds events."
+    ),
+    CHARACTER(
+        "Character Editor", Palette.Left,
+        "Open a character or a spritesheet, then drag the sprite to fix the offsets of each animation. Space plays, the arrow keys move the offset (Shift for 10), W / S pick the animation, Ctrl+Z / Ctrl+Y undo and redo, the mouse wheel zooms."
+    )
+}
+
 class AppState(private val scope: CoroutineScope) {
     var direction by mutableStateOf(Direction.PSYCH_TO_VSLICE)
     var tab by mutableStateOf(Tab.MOD)
     var lastOutput by mutableStateOf<File?>(null)
-    var editorOpen by mutableStateOf(false)
+    var tool by mutableStateOf<EditorTool?>(null)
     val editor = DesktopEditor(scope)
+    val characterEditor = DesktopCharacterEditor(scope)
 
     private val mods = Direction.entries.associateWith { ModTabState(it) }
     private val tabs = HashMap<Pair<Direction, Tab>, FileTabState>()
@@ -38,7 +50,11 @@ class AppState(private val scope: CoroutineScope) {
 
     fun drop(list: List<File>) {
         if (list.isEmpty()) return
-        if (editorOpen) editor.open(list) else if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
+        when (tool) {
+            EditorTool.CHART -> editor.open(list)
+            EditorTool.CHARACTER -> characterEditor.open(list)
+            null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
+        }
     }
 
     fun openMod(source: File) {

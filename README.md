@@ -24,7 +24,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
-- [Generator](#generator) · [Chart Editor](#chart-editor)
+- [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
 - [Building](#building)
 
@@ -58,7 +58,7 @@ Every push to `main` is built by [GitHub Actions](https://github.com/BrenninhoTo
 | Codename → Psych | Codename HScript → Psych HScript |
 | Psych → Codename | Lua / HScript → Codename HScript |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) and show an `FPS:` counter in the top-right corner, which can be turned off in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use an original FNF-style icon (a microphone and the four arrows) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) and show an `FPS:` counter in the top-right corner, which can be turned off in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -66,7 +66,7 @@ The Android app has two sections, switched at the top: **Converter** and **Gener
 | --- | --- |
 | Mod | `_polymod_meta.json`, `_polymod_icon.png` and an optional starter module script |
 | Chart | The [Chart Editor](#chart-editor): start a song or open any chart and edit it to the music |
-| Character | `data/characters/<id>.json` from a Sparrow XML, guessing `idle`, `singLEFT`…, misses and `danceLeft`/`danceRight` from frame prefixes |
+| Character | The [Character Editor](#character-editor): open any character or a spritesheet and fix its animations and offsets |
 | Stage | `data/stages/<id>.json` from your images (positions, scroll, scale, in front/behind), with the base game character positions |
 | Level | `data/levels/<id>.json` with songs, background color, title image and base or custom menu characters |
 | Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
@@ -85,6 +85,18 @@ The **Chart** tab of the Generator on Android, and **Chart Editor** in the sideb
 - **Export**: V-Slice (`data/songs/<id>/` + `songs/<id>/` audio), Psych Engine (`data/<id>/` charts and `events.json`, `songs/<id>/Inst.ogg` and `Voices*.ogg`) or Codename Engine (`songs/<id>/meta.json`, `charts/` and `song/` audio, with the strumlines pointed at split voices), as a `.zip` or straight into a mod folder.
 
 On Windows: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
+
+## Character Editor
+
+The **Char** tab of the Generator on Android, and **Character Editor** in the sidebar on Windows.
+
+- **Open anything**: a V-Slice or Psych character `.json` or a Codename character `.xml`, together with its spritesheet `.png` + `.xml` (folders and archives work too). A spritesheet alone starts a new character with the animations guessed from the frame names (`idle`, `singLEFT`…, misses, `danceLeft`/`danceRight`).
+- **Animation preview**: plays every animation from the spritesheet with its frame rate, loop and indices, frame by frame if you want, drawn the way V-Slice places characters (feet on the floor line, offsets scaled with the sprite).
+- **Offsets**: drag the sprite or use the arrow buttons to move the selected animation, with a ghost of the idle (or any other animation) behind it. Undo and redo cover every change.
+- **Character settings**: side (player, opponent, girlfriend), scale, position, camera offset (dragged on the preview too), flip X, pixel art, health icon, sing time, dance rate and starting animation.
+- **Export**: V-Slice (`data/characters/<id>.json` + `images/…`), Psych Engine (`characters/<id>.json`, offsets and position converted for the chosen side) or Codename Engine (`data/characters/<id>.xml` + `images/characters/…`), always with the spritesheet.
+
+On Windows: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
 
 ---
 
