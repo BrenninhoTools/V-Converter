@@ -73,7 +73,7 @@ class DesktopEditor(private val scope: CoroutineScope) {
     val difficultyOptions = listOf("easy", "normal", "hard", "erect", "nightmare")
 
     init {
-        setAudio(emptyList())
+        useAudio(emptyList())
     }
 
     fun changed(revision: Int) {
@@ -132,7 +132,7 @@ class DesktopEditor(private val scope: CoroutineScope) {
             try {
                 val song = withContext(Dispatchers.IO) { SongLoader.load(readAll(sources)) }
                 editor.load(song.document)
-                setAudio(song.audio)
+                useAudio(song.audio)
                 source = "${song.source} · ${song.document.id}"
                 output = null
                 status = Status.Info(
@@ -163,16 +163,16 @@ class DesktopEditor(private val scope: CoroutineScope) {
             status = Status.Error(it.message ?: "Could not read ${file.name}.")
             return
         }
-        setAudio(audio.filterNot { ChartBundle.role(it, doc) == role } + track)
+        useAudio(audio.filterNot { ChartBundle.role(it, doc) == role } + track)
         output = null
     }
 
     fun clearAudio(role: AudioRole) {
-        setAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role })
+        useAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role })
         output = null
     }
 
-    private fun setAudio(tracks: List<EditorAudio>) {
+    private fun useAudio(tracks: List<EditorAudio>) {
         audio = tracks.sortedByDescending { ChartBundle.role(it, editor.document) == AudioRole.INST }
         if (editor.playing) editor.togglePlay()
         editor.attach(null)

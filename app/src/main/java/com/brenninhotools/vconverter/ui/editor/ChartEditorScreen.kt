@@ -72,7 +72,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
     private var exportedRevision = -1
 
     init {
-        setAudio(emptyList())
+        useAudio(emptyList())
     }
 
     val difficultyOptions = listOf("easy", "normal", "hard", "erect", "nightmare")
@@ -114,7 +114,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
                 val loaded = load(uris, { it.extension in setOf("json", "ogg", "mp3", "wav") }) { file -> file.path to file.open().use { it.readBytes() } }
                 val song = withContext(Dispatchers.Default) { SongLoader.load(loaded.items) }
                 editor.load(song.document)
-                setAudio(song.audio)
+                useAudio(song.audio)
                 source = "${song.source} · ${song.document.id}"
                 invalidate()
                 status = StatusMessage.Info(
@@ -138,7 +138,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
                     require(ext in setOf("ogg", "mp3", "wav")) { "$name is not an .ogg, .mp3 or .wav file." }
                     EditorAudio(roleName(role) + "." + ext, DocumentIO.readBytes(context, uri))
                 }
-                setAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role } + track)
+                useAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role } + track)
                 invalidate()
                 status = null
             } catch (e: Exception) {
@@ -148,7 +148,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
     }
 
     fun clearAudio(role: AudioRole) {
-        setAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role })
+        useAudio(audio.filterNot { ChartBundle.role(it, editor.document) == role })
         invalidate()
     }
 
@@ -163,7 +163,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
         }
     }
 
-    private fun setAudio(tracks: List<EditorAudio>) {
+    private fun useAudio(tracks: List<EditorAudio>) {
         audio = tracks.sortedByDescending { ChartBundle.role(it, editor.document) == AudioRole.INST }
         if (editor.playing) editor.togglePlay()
         editor.attach(null)
