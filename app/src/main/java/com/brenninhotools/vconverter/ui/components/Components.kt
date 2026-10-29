@@ -503,10 +503,10 @@ fun AppLogo(size: Int = 44) {
         modifier = Modifier
             .size(size.dp)
             .clip(shape)
-            .background(Brush.linearGradient(listOf(Funkin.Purple, Funkin.Pink)))
             .border(2.dp, Funkin.Ink, shape),
         contentAlignment = Alignment.Center
     ) {
+        Image(painterResource(R.drawable.ic_launcher_background), contentDescription = null, modifier = Modifier.size((size * 1.5f).dp))
         Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size((size * 1.5f).dp))
     }
 }
