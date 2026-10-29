@@ -12,6 +12,8 @@ sevenZip = "Release-16.02-2.03"
 sevenZipDesktop = "16.02-2.01"
 composeMultiplatform = "1.7.3"
 coroutines = "1.9.0"
+vorbisspi = "1.0.3.3"
+mp3spi = "1.9.5.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -27,6 +29,8 @@ sevenzip-desktop = { group = "net.sf.sevenzipjbinding", name = "sevenzipjbinding
 sevenzip-desktop-platforms = { group = "net.sf.sevenzipjbinding", name = "sevenzipjbinding-all-platforms", version.ref = "sevenZipDesktop" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+vorbisspi = { group = "com.googlecode.soundlibs", name = "vorbisspi", version.ref = "vorbisspi" }
+mp3spi = { group = "com.googlecode.soundlibs", name = "mp3spi", version.ref = "mp3spi" }
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]

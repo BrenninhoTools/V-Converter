@@ -14,6 +14,8 @@ class AppState(private val scope: CoroutineScope) {
     var direction by mutableStateOf(Direction.PSYCH_TO_VSLICE)
     var tab by mutableStateOf(Tab.MOD)
     var lastOutput by mutableStateOf<File?>(null)
+    var editorOpen by mutableStateOf(false)
+    val editor = DesktopEditor(scope)
 
     private val mods = Direction.entries.associateWith { ModTabState(it) }
     private val tabs = HashMap<Pair<Direction, Tab>, FileTabState>()
@@ -36,7 +38,7 @@ class AppState(private val scope: CoroutineScope) {
 
     fun drop(list: List<File>) {
         if (list.isEmpty()) return
-        if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
+        if (editorOpen) editor.open(list) else if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
     }
 
     fun openMod(source: File) {

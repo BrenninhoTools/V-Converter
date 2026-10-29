@@ -40,6 +40,8 @@ dependencies {
     implementation(libs.sevenzip.desktop)
     implementation(libs.sevenzip.desktop.platforms)
     implementation(libs.kotlinx.coroutines.swing)
+    implementation(libs.vorbisspi)
+    implementation(libs.mp3spi)
 }
 
 compose.desktop {

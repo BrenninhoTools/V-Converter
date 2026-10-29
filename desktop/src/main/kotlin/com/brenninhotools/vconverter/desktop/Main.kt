@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.runtime.remember
@@ -39,7 +41,8 @@ fun main() {
             },
             title = "V-Converter",
             icon = icon,
-            state = windowState
+            state = windowState,
+            onKeyEvent = { event -> state.editorOpen && event.type == KeyEventType.KeyDown && editorShortcut(state.editor.editor, event) }
         ) {
             window.minimumSize = java.awt.Dimension(980, 640)
             DisposableEffect(Unit) {

@@ -24,7 +24,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
-- [Generator](#generator)
+- [Generator](#generator) · [Chart Editor](#chart-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
 - [Building](#building)
 
@@ -65,13 +65,26 @@ The Android app has two sections, switched at the top: **Converter** and **Gener
 | Tab | Creates |
 | --- | --- |
 | Mod | `_polymod_meta.json`, `_polymod_icon.png` and an optional starter module script |
-| Song | `<song>-metadata.json` and empty `<song>-chart.json` (BPM, time signature, difficulties incl. an `erect` variation, characters, stage, note style), plus `Inst.ogg` / `Voices*.ogg` |
+| Chart | The [Chart Editor](#chart-editor): start a song or open any chart and edit it to the music |
 | Character | `data/characters/<id>.json` from a Sparrow XML, guessing `idle`, `singLEFT`…, misses and `danceLeft`/`danceRight` from frame prefixes |
 | Stage | `data/stages/<id>.json` from your images (positions, scroll, scale, in front/behind), with the base game character positions |
 | Level | `data/levels/<id>.json` with songs, background color, title image and base or custom menu characters |
 | Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
 
 Every tab can download the result as a `.zip` or write it into the mod folder.
+
+## Chart Editor
+
+The **Chart** tab of the Generator on Android, and **Chart Editor** in the sidebar on Windows.
+
+- **New or existing charts**: start a song from a name, BPM and difficulties, or open V-Slice `<song>-metadata.json` + `<song>-chart.json`, Psych chart `.json` files or a Codename song (`meta.json` + `charts/*.json`). Folders and `.zip`/`.rar`/`.7z` archives work too, and `Inst`/`Voices` audio found next to the charts is loaded with them.
+- **Note grid**: opponent lanes on the left, player lanes on the right and an event lane at the far left. Tap/click a lane to place a note snapped to the grid (1/4 up to 1/192), tap it again to select it and once more to delete it. Selected notes get a hold length and a note kind (`alt`, `hurt`…). Drag or use the mouse wheel to scroll, zoom in and out, jump by measures, undo and redo.
+- **Music**: plays the instrumental with the voices mixed in (one shared voices file or split player/opponent), with optional hitsounds while the chart scrolls past the strumline. Without audio the chart still plays at its BPM.
+- **Events and BPM**: `FocusCamera`, `PlayAnimation`, `ZoomCamera`, `ScrollSpeed` and `SetCameraBop` with their own fields, or any custom event with a JSON value. BPM and time signature changes go on the timing list; the grid follows them.
+- **Difficulties**: add empty or copied difficulties, remove them, mirror or clear notes and set the scroll speed of each one. The song info (name, artist, charter, characters, stage, note style, offset, variation) is edited in place.
+- **Export**: V-Slice (`data/songs/<id>/` + `songs/<id>/` audio), Psych Engine (`data/<id>/` charts and `events.json`, `songs/<id>/Inst.ogg` and `Voices*.ogg`) or Codename Engine (`songs/<id>/meta.json`, `charts/` and `song/` audio, with the strumlines pointed at split voices), as a `.zip` or straight into a mod folder.
+
+On Windows: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
 
 ---
 
@@ -270,11 +283,13 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 
 ## Building
 
-Android (debug APK):
+Android (debug and release APKs):
 
 ```
-./gradlew assembleDebug
+./gradlew assembleDebug assembleRelease
 ```
+
+Release APKs are signed with the keystore in `keystore/` (`v-converter.jks`, settings in `keystore/keystore.properties`), so every release build has the same signature and installs as an update over the previous one. Builds made before the keystore was added were signed with a debug key: uninstall that version once before installing a new release APK. The keystore is public in this repository, so anyone can sign an APK with it; only install the APKs from this repository's Actions runs.
 
 Windows (installers and portable app, run on Windows with JDK 17):
 
@@ -287,6 +302,7 @@ The Windows app is a [Compose Multiplatform](https://www.jetbrains.com/compose-m
 ### Credits
 
 - Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows (RAR, RAR5, 7z)
+- The Windows Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI
 - The UI uses the Friday Night Funkin' style font in `assets/fonts/funkin.ttf`
 
 ## References
