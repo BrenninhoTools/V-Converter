@@ -16,6 +16,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +41,7 @@ import com.brenninhotools.vconverter.editorview.EditorChip
 import com.brenninhotools.vconverter.editorview.EditorGrid
 import com.brenninhotools.vconverter.editorview.EditorLegend
 import com.brenninhotools.vconverter.editorview.EditorToolbar
+import com.brenninhotools.vconverter.editorview.NoteSkin
 import com.brenninhotools.vconverter.editorview.EditorTyping
 import com.brenninhotools.vconverter.editorview.SelectionPanel
 import com.brenninhotools.vconverter.editorview.SnapPanel
@@ -240,6 +242,16 @@ fun EditorScreen(state: AppState) {
     var showNew by remember { mutableStateOf(false) }
     var split by remember { mutableStateOf<Boolean?>(null) }
 
+    val skin by produceState<NoteSkin?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val image = Resources.image(NoteSkin.IMAGE)
+                val xml = Resources.bytes(NoteSkin.ATLAS)?.toString(Charsets.UTF_8)
+                if (image != null && xml != null) NoteSkin.create(image, xml) else null
+            }.getOrNull()
+        }
+    }
+
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { if (editor.playing) editor.togglePlay() } }
 
@@ -297,7 +309,8 @@ fun EditorScreen(state: AppState) {
                 EditorLegend()
                 EditorGrid(
                     editor,
-                    Modifier.fillMaxWidth().height(640.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp))
+                    Modifier.fillMaxWidth().height(640.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp)),
+                    skin
                 )
             }
         }

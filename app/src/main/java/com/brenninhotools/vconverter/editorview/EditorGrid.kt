@@ -11,7 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -24,9 +27,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brenninhotools.vconverter.editor.EditorNote
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 object EditorColors {
     val lanes = listOf(Color(0xFFC24B99), Color(0xFF00FFFF), Color(0xFF12FA05), Color(0xFFF9393F))
@@ -67,7 +74,7 @@ private fun DrawScope.arrow(center: Offset, size: Float, direction: Int, color: 
 }
 
 @Composable
-fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier) {
+fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: NoteSkin? = null) {
     val density = LocalDensity.current
     val eventLaneWidth = with(density) { 34.dp.toPx() }
     val basePxPerMs = with(density) { 0.32.dp.toPx() }
@@ -159,17 +166,35 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier) {
             drawLine(Color.White.copy(alpha = 0.2f), Offset(eventLaneWidth, 0f), Offset(eventLaneWidth, size.height), strokeWidth = 1.dp.toPx())
 
             for (column in 0 until 8) {
-                arrow(Offset(laneX(column) + laneWidth / 2, playheadY), noteSize, column % 4, Color.White.copy(alpha = 0.18f), null, filled = false)
+                val center = Offset(laneX(column) + laneWidth / 2, playheadY)
+                val receptor = skin?.receptors?.get(column % 4)
+                if (skin != null && receptor != null) sprite(skin, receptor, center, noteSize, alpha = 0.55f)
+                else arrow(center, noteSize, column % 4, Color.White.copy(alpha = 0.18f), null, filled = false)
             }
 
             val selected = state.selectedNote
             val notes = document.notes(state.difficulty)
-            notes.forEach { note -> if (note.length > 0 && note.time <= to && note.time + note.length >= from) drawHold(note, laneX(note.column), laneWidth, noteSize, ::y) }
+            notes.forEach { note -> if (note.length > 0 && note.time <= to && note.time + note.length >= from) drawHold(note, laneX(note.column), laneWidth, noteSize, skin, ::y) }
             notes.forEach { note ->
                 if (note.time in from..to) {
                     val color = EditorColors.lanes[note.direction].let { if (note.kind.isNotEmpty()) it.copy(red = it.red * 0.7f, green = it.green * 0.7f, blue = it.blue * 0.7f) else it }
                     val center = Offset(laneX(note.column) + laneWidth / 2, y(note.time))
-                    arrow(center, noteSize, note.direction, color, if (note == selected) Color.White else Color.Black.copy(alpha = 0.55f))
+                    val frame = skin?.notes?.get(note.direction)
+                    if (skin != null && frame != null) {
+                        sprite(skin, frame, center, noteSize, colorFilter = if (note.kind.isNotEmpty()) kindTint else null)
+                        if (note == selected) {
+                            val half = noteSize / 2 + 2.dp.toPx()
+                            drawRoundRect(
+                                Color.White,
+                                topLeft = Offset(center.x - half, center.y - half),
+                                size = Size(half * 2, half * 2),
+                                cornerRadius = CornerRadius(8.dp.toPx()),
+                                style = Stroke(2.5.dp.toPx())
+                            )
+                        }
+                    } else {
+                        arrow(center, noteSize, note.direction, color, if (note == selected) Color.White else Color.Black.copy(alpha = 0.55f))
+                    }
                     if (note.kind.isNotEmpty()) {
                         val label = measurer.measure(note.kind.take(6), labelStyle.copy(color = Color.White, fontSize = 8.sp))
                         drawText(label, topLeft = Offset(center.x - label.size.width / 2f, center.y + noteSize * 0.3f))
@@ -202,13 +227,65 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier) {
     }
 }
 
-private fun DrawScope.drawHold(note: EditorNote, x: Float, laneWidth: Float, noteSize: Float, y: (Double) -> Float) {
+private val kindTint = ColorFilter.tint(Color.Black.copy(alpha = 0.35f), BlendMode.SrcAtop)
+
+private fun DrawScope.sprite(skin: NoteSkin, frame: SkinFrame, center: Offset, size: Float, alpha: Float = 1f, colorFilter: ColorFilter? = null) {
+    val scale = size / max(frame.size.width, frame.size.height)
+    val width = frame.size.width * scale
+    val height = frame.size.height * scale
+    drawImage(
+        skin.image,
+        srcOffset = frame.offset,
+        srcSize = frame.size,
+        dstOffset = IntOffset((center.x - width / 2).roundToInt(), (center.y - height / 2).roundToInt()),
+        dstSize = IntSize(width.roundToInt().coerceAtLeast(1), height.roundToInt().coerceAtLeast(1)),
+        alpha = alpha,
+        colorFilter = colorFilter,
+        filterQuality = FilterQuality.Low
+    )
+}
+
+private fun DrawScope.drawHold(note: EditorNote, x: Float, laneWidth: Float, noteSize: Float, skin: NoteSkin?, y: (Double) -> Float) {
     val top = y(note.time)
     val bottom = y(note.time + note.length)
+    val centerX = x + laneWidth / 2
+    val piece = skin?.holdPieces?.get(note.direction)
+    val end = skin?.holdEnds?.get(note.direction)
+    val head = skin?.notes?.get(note.direction)
+    if (skin != null && piece != null && end != null && head != null) {
+        val scale = noteSize / max(head.size.width, head.size.height)
+        val width = (piece.size.width * scale).roundToInt().coerceAtLeast(1)
+        val endHeight = end.size.height * scale
+        val left = (centerX - width / 2f).roundToInt()
+        val endTop = max(top, bottom - endHeight)
+        if (endTop > top) {
+            drawImage(
+                skin.image,
+                srcOffset = IntOffset(piece.offset.x, piece.offset.y + 1),
+                srcSize = IntSize(piece.size.width, (piece.size.height - 2).coerceAtLeast(1)),
+                dstOffset = IntOffset(left, top.roundToInt()),
+                dstSize = IntSize(width, (endTop - top).roundToInt().coerceAtLeast(1)),
+                alpha = 0.9f,
+                filterQuality = FilterQuality.Low
+            )
+        }
+        val shown = (bottom - endTop).roundToInt().coerceAtLeast(1)
+        val srcHeight = (shown / scale).roundToInt().coerceIn(1, end.size.height)
+        drawImage(
+            skin.image,
+            srcOffset = IntOffset(end.offset.x, end.offset.y + end.size.height - srcHeight),
+            srcSize = IntSize(end.size.width, srcHeight),
+            dstOffset = IntOffset(left, endTop.roundToInt()),
+            dstSize = IntSize(width, shown),
+            alpha = 0.9f,
+            filterQuality = FilterQuality.Low
+        )
+        return
+    }
     val width = noteSize * 0.3f
     drawRoundRect(
         EditorColors.lanes[note.direction].copy(alpha = 0.75f),
-        topLeft = Offset(x + laneWidth / 2 - width / 2, top),
+        topLeft = Offset(centerX - width / 2, top),
         size = Size(width, (bottom - top).coerceAtLeast(1f)),
         cornerRadius = CornerRadius(width / 2, width / 2)
     )

@@ -1,6 +1,7 @@
 package com.brenninhotools.vconverter.ui.editor
 
 import android.app.Application
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,10 +18,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import com.brenninhotools.vconverter.R
@@ -35,6 +39,7 @@ import com.brenninhotools.vconverter.editorview.DifficultyPanel
 import com.brenninhotools.vconverter.editorview.EditorGrid
 import com.brenninhotools.vconverter.editorview.EditorLegend
 import com.brenninhotools.vconverter.editorview.EditorToolbar
+import com.brenninhotools.vconverter.editorview.NoteSkin
 import com.brenninhotools.vconverter.editorview.SelectionPanel
 import com.brenninhotools.vconverter.editorview.SnapPanel
 import com.brenninhotools.vconverter.editorview.SongInfoPanel
@@ -217,6 +222,17 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
     var showNew by remember { mutableStateOf(false) }
     var splitVoices by remember { mutableIntStateOf(-1) }
 
+    val context = LocalContext.current
+    val skin by produceState<NoteSkin?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val image = context.assets.open(NoteSkin.IMAGE).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
+                val xml = context.assets.open(NoteSkin.ATLAS).use { it.readBytes().toString(Charsets.UTF_8) }
+                NoteSkin.create(image, xml)
+            }.getOrNull()
+        }
+    }
+
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { viewModel.pause() } }
 
@@ -278,7 +294,8 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
                     .fillMaxWidth()
                     .height(520.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp))
+                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp)),
+                skin
             )
             SelectionPanel(editor)
             SnapPanel(editor)
