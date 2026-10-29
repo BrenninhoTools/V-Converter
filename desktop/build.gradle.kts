@@ -50,7 +50,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "V-Converter"
-            packageVersion = "0.2.0"
+            packageVersion = "0.0.1"
             description = "Friday Night Funkin' converter for Psych Engine, Codename Engine and V-Slice"
             vendor = "BrenninhoTools"
             modules("java.naming", "jdk.unsupported")

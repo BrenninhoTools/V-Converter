@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (reads docs/releases/v<version>.md)"
+        required: true
+        default: "0.0.1"
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: V Converter-Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        run: ./gradlew :app:assembleRelease
+
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/*.apk "out/V Converter-Android.apk"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-Android
+          path: out/V Converter-Android.apk
+          compression-level: 0
+
+  windows:
+    name: V Converter-Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build installer
+        shell: bash
+        run: ./gradlew :desktop:packageExe
+
+      - name: Name the installer
+        shell: bash
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/exe/*.exe "out/V Converter-Windows.exe"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-Windows
+          path: out/V Converter-Windows.exe
+          compression-level: 0
+
+  release:
+    name: Publish v${{ inputs.version }}
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check the changelog
+        run: test -f "docs/releases/v${{ inputs.version }}.md" || { echo "docs/releases/v${{ inputs.version }}.md is missing"; exit 1; }
+
+      - name: Download builds
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "V-Converter v${{ inputs.version }}" \
+            --notes-file "docs/releases/v${{ inputs.version }}.md" \
+            ${{ inputs.prerelease && '--prerelease' || '' }} \
+            "out/V Converter-Android.apk#V Converter-Android.apk" \
+            "out/V Converter-Windows.exe#V Converter-Windows.exe"

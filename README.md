@@ -30,7 +30,9 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 
 ## Download
 
-Every push to `main` is built by [GitHub Actions](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml). Open the latest successful run and grab one of its artifacts:
+Get the latest version from [Releases](https://github.com/BrenninhoTools/V-Converter/releases): `V Converter-Android.apk` for Android and `V Converter-Windows.exe` (installer) for Windows. Each release's changelog lives in [`docs/releases`](docs/releases). Releases are published by the [Release workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/release.yml), started by hand with the version to publish.
+
+Every push to `main` is also built by [GitHub Actions](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml). Open the latest successful run and grab one of its artifacts:
 
 | Artifact | Platform | What it is |
 | --- | --- | --- |
