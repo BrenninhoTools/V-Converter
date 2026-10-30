@@ -9,6 +9,7 @@
 [![Build](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml)
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
 ![Vibe coded](https://img.shields.io/badge/vibe%20coded-%E2%9C%A8-ff69b4)
@@ -18,7 +19,7 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android** and **Windows**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **Windows** and **Linux**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
 
 ## Contents
 
@@ -36,10 +37,9 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 
 | Artifact | Platform | What it is |
 | --- | --- | --- |
-| `V-Converter-release` | 📱 Android | Optimized APK (R8), the fastest one to use |
-| `V-Converter-debug` | 📱 Android | Debug APK, for testing |
-| `V-Converter-windows-installer` | 🪟 Windows | `.msi` and `.exe` installers |
-| `V-Converter-windows-portable` | 🪟 Windows | Portable folder, no install needed |
+| `V Converter-Android` | 📱 Android | `V Converter-Android.apk`, the optimized (R8) signed APK |
+| `V Converter-Windows` | 🪟 Windows | `V Converter-Windows.exe`, the installer |
+| `V Converter-Linux` | 🐧 Linux | `V Converter-Linux.deb` for Debian/Ubuntu and `V Converter-Linux.tar.gz`, a portable folder for any distro (run `V-Converter/bin/V-Converter`) |
 
 ## Supported conversions
 
@@ -60,7 +60,7 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | Codename → Psych | Codename HScript → Psych HScript |
 | Psych → Codename | Lua / HScript → Codename HScript |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use an original FNF-style icon (a microphone and the four arrows) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows and Linux the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use an original FNF-style icon (a microphone and the four arrows) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -77,7 +77,7 @@ Every tab can download the result as a `.zip` or write it into the mod folder.
 
 ## Chart Editor
 
-The **Chart** tab of the Generator on Android, and **Chart Editor** in the sidebar on Windows.
+The **Chart** tab of the Generator on Android, and **Chart Editor** in the sidebar on Windows and Linux.
 
 - **New or existing charts**: start a song from a name, BPM and difficulties, or open V-Slice `<song>-metadata.json` + `<song>-chart.json`, Psych chart `.json` files or a Codename song (`meta.json` + `charts/*.json`). Folders and `.zip`/`.rar`/`.7z` archives work too, and `Inst`/`Voices` audio found next to the charts is loaded with them.
 - **Note grid**: a V-Slice style checkerboard with the strumline on top, notes, holds and receptors drawn with the base game sprites from `assets/images/ui/NOTE_assets.png`, opponent lanes on the left, player lanes on the right and the event lane last, with events shown with `assets/images/ui/charter/event.png`. Tap/click a lane to place a note snapped to the grid (1/4 up to 1/192), tap it again to select it and once more to delete it. Selected notes get a hold length and a note kind (`alt`, `hurt`…). Drag or use the mouse wheel to scroll, zoom in and out, jump by measures, undo and redo from the toolbar, and tap or drag the mini-map next to the grid to jump around the song. On wide screens the grid sits between the side panels; on phones the panels are tabs under it.
@@ -86,11 +86,11 @@ The **Chart** tab of the Generator on Android, and **Chart Editor** in the sideb
 - **Difficulties**: add empty or copied difficulties, remove them, mirror or clear notes and set the scroll speed of each one. The song info (name, artist, charter, characters, stage, note style, offset, variation) is edited in place.
 - **Export**: V-Slice (`data/songs/<id>/` + `songs/<id>/` audio), Psych Engine (`data/<id>/` charts and `events.json`, `songs/<id>/Inst.ogg` and `Voices*.ogg`) or Codename Engine (`songs/<id>/meta.json`, `charts/` and `song/` audio, with the strumlines pointed at split voices), as a `.zip` or straight into a mod folder.
 
-On Windows: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
+On Windows and Linux: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
 
 ## Character Editor
 
-The **Char** tab of the Generator on Android, and **Character Editor** in the sidebar on Windows.
+The **Char** tab of the Generator on Android, and **Character Editor** in the sidebar on Windows and Linux.
 
 - **Open anything**: a V-Slice or Psych character `.json` or a Codename character `.xml`, together with its spritesheet `.png` + `.xml` (folders and archives work too). A spritesheet alone starts a new character with the animations guessed from the frame names (`idle`, `singLEFT`…, misses, `danceLeft`/`danceRight`).
 - **Animation preview**: plays every animation from the spritesheet with its frame rate, loop and indices, frame by frame if you want, drawn the way V-Slice places characters (feet on the floor line, offsets scaled with the sprite).
@@ -99,18 +99,18 @@ The **Char** tab of the Generator on Android, and **Character Editor** in the si
 - **Character settings**: side (player, opponent, girlfriend), scale, position, camera offset (dragged on the preview too), flip X, pixel art, health icon, sing time, dance rate and starting animation.
 - **Export**: V-Slice (`data/characters/<id>.json` + `images/…`), Psych Engine (`characters/<id>.json`, offsets and position converted for the chosen side) or Codename Engine (`data/characters/<id>.xml` + `images/characters/…`), always with the spritesheet.
 
-On Windows: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
+On Windows and Linux: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
 
 ## Stage Editor
 
-The **Stage** tab of the Generator on Android, and **Stage Editor** in the sidebar on Windows.
+The **Stage** tab of the Generator on Android, and **Stage Editor** in the sidebar on Windows and Linux.
 
 - **Open anything**: a V-Slice or Psych stage `.json` (with its `.lua` when it builds sprites there) or a Codename stage `.xml`, together with the stage images; opening a whole mod folder or archive finds every image the stage uses. A new stage starts with the base game character positions.
 - **Layout**: every prop drawn with its image (the first frame for animated Sparrow props), scale, scroll factor, alpha, angle and flips, plus boxes for the player, opponent and girlfriend at their feet position with their camera points. A dashed frame shows the game camera at the stage's zoom, and parallax follows the scroll factors as you move the view.
 - **Editing**: tap or click to select, drag to move, arrow buttons to nudge, layers sorted by `zIndex` with bring forward / send back, duplicate and delete, solid color props, images added from `.png` (+ `.xml` for animations), stage name, zoom and library. Undo and redo cover every change.
 - **Export**: V-Slice (`data/stages/<id>.json`), Psych Engine (`stages/<id>.json` plus a Lua script for what Psych JSON can't hold) or Codename Engine (`data/stages/<id>.xml`), always with the images in `images/`.
 
-On Windows: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
+On Windows and Linux: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
 
 ---
 
@@ -151,7 +151,7 @@ Drop that folder inside `data/songs/` of your V-Slice mod.
 
 ### The Charts tab
 
-The same Charts tab is used for every direction (Psych ↔ V-Slice, Codename → V-Slice, Codename ↔ Psych), on Android and on Windows:
+The same Charts tab is used for every direction (Psych ↔ V-Slice, Codename → V-Slice, Codename ↔ Psych), on Android, Windows and Linux:
 
 1. **Files**, grouped by song. Psych difficulties can be renamed in place (handy for `song-insane.json` style names).
 2. **Preview**: a minimap of the whole chart with the opponent and player lanes (and girlfriend lanes when used), holds, camera focus, BPM and time signature changes and events, with a zoom toggle. After converting, switch between the source and the converted chart: the app checks that every note, hold and BPM change made it across.
@@ -330,12 +330,18 @@ Windows (installers and portable app, run on Windows with JDK 17):
 ./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable
 ```
 
-The Windows app is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
+Linux (`.deb` package and portable app, run on Linux with JDK 17):
+
+```
+./gradlew :desktop:packageDeb :desktop:createDistributable
+```
+
+The desktop app (Windows and Linux) is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
 
 ### Credits
 
-- Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows (RAR, RAR5, 7z)
-- The Windows Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI
+- Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows and Linux (RAR, RAR5, 7z)
+- The desktop Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI
 - The UI uses the Friday Night Funkin' style font in `assets/fonts/funkin.ttf`
 
 ## References

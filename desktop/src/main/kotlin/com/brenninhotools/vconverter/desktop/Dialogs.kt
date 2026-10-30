@@ -60,7 +60,12 @@ object Dialogs {
                 if (file.isDirectory) ProcessBuilder("explorer.exe", file.absolutePath).start()
                 else ProcessBuilder("explorer.exe", "/select,", file.absolutePath).start()
             } else {
-                java.awt.Desktop.getDesktop().open(if (file.isDirectory) file else file.parentFile)
+                val folder = if (file.isDirectory) file else file.parentFile
+                val opened = runCatching {
+                    java.awt.Desktop.isDesktopSupported() && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.OPEN) &&
+                        run { java.awt.Desktop.getDesktop().open(folder); true }
+                }.getOrDefault(false)
+                if (!opened) ProcessBuilder(if (System.getProperty("os.name").lowercase().contains("mac")) "open" else "xdg-open", folder.absolutePath).start()
             }
         }
     }

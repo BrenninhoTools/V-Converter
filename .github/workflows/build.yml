@@ -20,16 +20,8 @@ concurrency:
 
 jobs:
   android:
-    name: Android ${{ matrix.variant }} APK
+    name: V Converter-Android
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: Release
-            folder: release
-          - variant: Debug
-            folder: debug
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,18 +38,23 @@ jobs:
           cache-read-only: false
           gradle-home-cache-cleanup: true
 
-      - name: Build ${{ matrix.folder }} APK
-        run: ./gradlew :app:assemble${{ matrix.variant }}
+      - name: Build release APK
+        run: ./gradlew :app:assembleRelease
 
-      - name: Upload ${{ matrix.folder }} APK
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/*.apk "out/V Converter-Android.apk"
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: V-Converter-${{ matrix.folder }}
-          path: app/build/outputs/apk/${{ matrix.folder }}/*.apk
+          name: V Converter-Android
+          path: out/V Converter-Android.apk
           compression-level: 0
 
   windows:
-    name: Windows App
+    name: V Converter-Windows
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -75,26 +72,56 @@ jobs:
           cache-read-only: false
           gradle-home-cache-cleanup: true
 
-      - name: Build installers and portable app
+      - name: Build installer
         shell: bash
-        run: ./gradlew :desktop:packageMsi :desktop:packageExe :desktop:createDistributable
+        run: ./gradlew :desktop:packageExe
 
-      - name: Zip portable app
-        shell: pwsh
-        run: Compress-Archive -Path desktop/build/compose/binaries/main/app/V-Converter -DestinationPath V-Converter-windows-portable.zip
+      - name: Name the installer
+        shell: bash
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/exe/*.exe "out/V Converter-Windows.exe"
 
-      - name: Upload installers
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: V-Converter-windows-installer
-          path: |
-            desktop/build/compose/binaries/main/msi/*.msi
-            desktop/build/compose/binaries/main/exe/*.exe
+          name: V Converter-Windows
+          path: out/V Converter-Windows.exe
           compression-level: 0
 
-      - name: Upload portable app
+  linux:
+    name: V Converter-Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          gradle-home-cache-cleanup: true
+
+      - name: Build package and portable app
+        run: ./gradlew :desktop:packageDeb :desktop:createDistributable
+
+      - name: Name the builds
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/deb/*.deb "out/V Converter-Linux.deb"
+          tar -czf "out/V Converter-Linux.tar.gz" -C desktop/build/compose/binaries/main/app V-Converter
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: V-Converter-windows-portable
-          path: V-Converter-windows-portable.zip
+          name: V Converter-Linux
+          path: |
+            out/V Converter-Linux.deb
+            out/V Converter-Linux.tar.gz
           compression-level: 0
