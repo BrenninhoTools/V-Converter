@@ -7,7 +7,8 @@ class PsychHScriptWrapper(
     private val siblings: List<String> = emptyList(),
     private val noteTypes: String = "[]",
     private val eventNames: Map<String, String> = emptyMap(),
-    private val ownEvent: String? = null
+    private val ownEvent: String? = null,
+    private val memberPrefix: String = "h_"
 ) {
     private enum class Kind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
@@ -275,6 +276,9 @@ class PsychHScriptWrapper(
             seg.name to if (inner.isBlank()) 0 else inner.split(',').size
         }
         PsychApi.callbacks.filter { it in functions }.forEach { callbacks[it] = CallbackRef(arities[it], true) }
+        segs.filter { it.kind == "function" && it.name in PsychApi.unsupportedCallbacks }.forEach {
+            issue(it.line, "Psych callback '${it.name}' has no V-Slice event, so it never runs.")
+        }
 
         val text = ModuleWriter.write(
             ModuleSpec(
@@ -301,6 +305,68 @@ class PsychHScriptWrapper(
         }
         return GeneratedScript(className, moduleId, adaptReflect(text), issues.sortedBy { it.line }, callbacks.keys.toList(), emptySet())
     }
+
+    class InlineHaxe(
+        val imports: List<String>,
+        val fields: List<String>,
+        val functions: Map<String, Int>,
+        val members: List<String>,
+        val body: List<String>,
+        val issues: List<ScriptIssue>
+    )
+
+    fun declared(code: String): Pair<Set<String>, Set<String>> {
+        val segs = segments(tokenize(ReflectCalls.toVSlice(code).text))
+        return segs.filter { it.kind == "function" }.map { it.name }.toSet() to segs.filter { it.kind == "var" && it.name.isNotEmpty() }.map { it.name }.toSet()
+    }
+
+    fun inline(code: String, knownFunctions: Set<String>, knownFields: Set<String>): InlineHaxe {
+        issues.clear()
+        val reflect = ReflectCalls.toVSlice(code)
+        reflect.unsupported.forEach { issue(0, "$it doesn't exist in V-Slice's Reflect (funkin.util.ReflectUtil); rewrite that part.") }
+        val segs = segments(tokenize(reflect.text))
+        val functions = knownFunctions + segs.filter { it.kind == "function" }.map { it.name }
+        val fields = knownFields + segs.filter { it.kind == "var" && it.name.isNotEmpty() }.map { it.name }
+        val imports = linkedSetOf<String>()
+        segs.filter { it.kind == "import" }.forEach { seg ->
+            val path = seg.head.filter { it.kind != Kind.SPACE }.drop(1).takeWhile { !(it.kind == Kind.PUNCT && it.text == ";") }.joinToString("") { it.text }
+            val mapped = importMap[path]
+            when {
+                mapped != null -> imports += mapped
+                droppedPackages.any { path.startsWith(it) } -> issue(seg.line, "Import '$path' is Psych-specific and was dropped.")
+                path.isNotEmpty() -> imports += path
+            }
+        }
+        val body = mutableListOf<String>()
+        val declaredFields = mutableListOf<String>()
+        segs.forEach { seg ->
+            when (seg.kind) {
+                "var" -> {
+                    declaredFields += memberPrefix + seg.name
+                    if (seg.body.isNotEmpty()) body += "$memberPrefix${seg.name} = ${rewrite(seg.body, functions, fields).trim()};"
+                }
+                "statement" -> body += rewrite(seg.body, functions, fields).trim().lines().map { it.trimEnd() }.filter { it.isNotBlank() }
+                else -> Unit
+            }
+        }
+        val members = mutableListOf<String>()
+        val arities = LinkedHashMap<String, Int>()
+        segs.filter { it.kind == "function" }.forEach { seg ->
+            val head = rewrite(seg.head, functions, fields).trim()
+            val inner = seg.head.joinToString("") { it.text }.substringAfter('(').substringBeforeLast(')')
+            arities[seg.name] = if (inner.isBlank()) 0 else inner.split(',').size
+            members += ""
+            members += "function $memberPrefix${seg.name}$head"
+            members += "{"
+            val bodyLines = rewrite(seg.body, functions, fields).trimEnd().lines().filter { it.isNotBlank() }
+            val indent = bodyLines.minOfOrNull { line -> line.length - line.trimStart().length } ?: 0
+            bodyLines.forEach { members += "  " + it.drop(indent).trimEnd() }
+            members += "}"
+        }
+        return InlineHaxe(imports.toList(), declaredFields, arities, members, body, issues.toList())
+    }
+
+    fun helpersFor(code: String): List<String> = usedHelpers(code)
 
     private fun adaptReflect(text: String): String =
         if (Regex("(?<![\\w.])invokeFunction\\s*\\(").containsMatchIn(text) && !Regex("function\\s+invokeFunction\\s*\\(").containsMatchIn(text)) ReflectCalls.insertMember(text, ReflectCalls.invokeMember)
@@ -391,8 +457,8 @@ class PsychHScriptWrapper(
                 continue
             }
             when {
-                t.text in functions -> sb.append("h_").append(t.text)
-                t.text in fields -> sb.append("h_").append(t.text)
+                t.text in functions -> sb.append(memberPrefix).append(t.text)
+                t.text in fields -> sb.append(memberPrefix).append(t.text)
                 t.text in bareVariables && !(tokens.getOrNull(n1)?.let { it.kind == Kind.PUNCT && it.text == ":" } == true) -> sb.append(bareVariables.getValue(t.text))
                 t.text in psychClasses -> {
                     issue(t.line, "Psych class '${t.text}' does not exist in V-Slice.")

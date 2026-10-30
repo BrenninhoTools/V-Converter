@@ -25,6 +25,9 @@ object VSliceToPsychCharacter {
         CharacterSlot.GIRLFRIEND to listOf(165, 0, 77)
     )
 
+    fun defaultSlot(id: String, character: VCharacter): CharacterSlot =
+        if (!id.lowercase().startsWith("gf") && character.animations.any { it.name == "firstDeath" }) CharacterSlot.PLAYER else defaultSlot(id)
+
     fun defaultSlot(id: String): CharacterSlot = when {
         id.lowercase().startsWith("gf") -> CharacterSlot.GIRLFRIEND
         id.lowercase().startsWith("bf") || id.lowercase().startsWith("pico-playable") -> CharacterSlot.PLAYER
@@ -33,159 +36,225 @@ object VSliceToPsychCharacter {
 
     fun atlasKey(path: String): String = path.trim().replace('\\', '/').substringAfterLast('/').substringBeforeLast(".png").lowercase()
 
-    fun convert(id: String, character: VCharacter, slot: CharacterSlot, atlases: Map<String, SparrowAtlas>, animate: AnimateAtlas? = null): ReverseResult {
-        if (animate != null && character.renderType.equals("animateatlas", ignoreCase = true)) return convertAtlas(id, character, slot, animate)
-        val report = ReportBuilder()
-        val s = character.scale
-        val images = (listOf(character.assetPath) + character.animations.map { it.assetPath }).filter { it.isNotBlank() }.distinct()
-        val main = images.firstOrNull() ?: "characters/$id"
-        val idle = character.animations.firstOrNull { it.name == "danceLeft" }
+    private val deathNames = setOf("firstDeath", "deathLoop", "deathConfirm")
+
+    fun imagePath(path: String): String = path.trim().replace('\\', '/').substringAfter(':').removePrefix("images/").removeSuffix(".png")
+
+    private class Basis(val fw0: Double, val fh0: Double, val fwi: Double, val fhi: Double, val idleX: Double, val idleY: Double, val exact: Boolean)
+
+    private class Placed(val animations: JSONArray, val posX: Double, val posY: Double, val camX: Double, val camY: Double, val missing: List<String>)
+
+    private fun idleOf(character: VCharacter): VAnimation? =
+        character.animations.firstOrNull { it.name == "danceLeft" }
             ?: character.animations.firstOrNull { it.name == character.startingAnimation }
             ?: character.animations.firstOrNull { it.name == "idle" }
             ?: character.animations.firstOrNull()
-        val firstFrame = atlases[atlasKey(main)]?.firstFrame
-        val idleFrame = idle?.let { anim -> images.firstNotNullOfOrNull { atlases[atlasKey(it)]?.firstFrameOf(anim.prefix, anim.indices) } }
-        val exact = firstFrame != null && idleFrame != null
+
+    private fun psychAnimName(name: String) = if (name.endsWith("-hold")) name.removeSuffix("-hold") + "-loop" else name
+
+    private fun sparrowBasis(character: VCharacter, slot: CharacterSlot, atlases: Map<String, SparrowAtlas>, images: List<String>): Basis {
+        val s = character.scale
+        val idle = idleOf(character)
+        val firstFrame = atlases[atlasKey(images.firstOrNull() ?: character.assetPath)]?.firstFrame
+        val idleFrame = idle?.let { anim -> (listOf(anim.assetPath.ifBlank { character.assetPath }) + images).firstNotNullOfOrNull { atlases[atlasKey(it)]?.firstFrameOf(anim.prefix, anim.indices) } }
         val fallbackWidth = slot.stageAnchorX * 2.0
         val fallbackHeight = slot.stageAnchorY * 2.0 / (1.0 + s)
         val fw0 = firstFrame?.sourceWidth ?: idleFrame?.sourceWidth ?: fallbackWidth
         val fh0 = firstFrame?.sourceHeight ?: idleFrame?.sourceHeight ?: fallbackHeight
-        val fwi = idleFrame?.sourceWidth ?: fw0
-        val fhi = idleFrame?.sourceHeight ?: fh0
-        val idleX = idle?.offsetX ?: 0.0
-        val idleY = idle?.offsetY ?: 0.0
+        return Basis(fw0, fh0, idleFrame?.sourceWidth ?: fw0, idleFrame?.sourceHeight ?: fh0, idle?.offsetX ?: 0.0, idle?.offsetY ?: 0.0, firstFrame != null && idleFrame != null)
+    }
 
-        val posX = slot.stageAnchorX - s * fwi / 2.0 - (1.0 - s) * fw0 / 2.0 - s * idleX + character.offsetX
-        val posY = slot.stageAnchorY - s * fhi - (1.0 - s) * fh0 / 2.0 - s * idleY + character.offsetY
+    private fun placeSparrow(character: VCharacter, slot: CharacterSlot, anims: List<VAnimation>, fw0: Double, fh0: Double, basis: Basis): Placed {
+        val s = character.scale
+        val posX = slot.stageAnchorX - s * basis.fwi / 2.0 - (1.0 - s) * fw0 / 2.0 - s * (basis.idleX - character.offsetX)
+        val posY = slot.stageAnchorY - s * basis.fhi - (1.0 - s) * fh0 / 2.0 - s * (basis.idleY - character.offsetY)
         val camX = slot.cameraSign * (character.cameraX - posX + slot.stageAnchorX - s * fw0 / 2.0)
-        val camY = character.cameraY - posY + slot.stageAnchorY - s * fh0 / 2.0 - s * fhi / 2.0
-
+        val camY = character.cameraY - posY + slot.stageAnchorY - s * fh0 / 2.0 - s * basis.fhi / 2.0
         val animations = JSONArray()
-        character.animations.forEach { anim ->
+        anims.forEach { anim ->
             animations.put(
                 JSONObject()
-                    .put("offsets", JSONArray(listOf(((anim.offsetX - idleX) * s).toJsonNumber(), ((anim.offsetY - idleY) * s).toJsonNumber())))
+                    .put("offsets", JSONArray(listOf(((anim.offsetX - basis.idleX) * s).toJsonNumber(), ((anim.offsetY - basis.idleY) * s).toJsonNumber())))
                     .put("loop", anim.looped)
                     .put("fps", anim.frameRate)
-                    .put("anim", if (anim.name.endsWith("-hold")) anim.name.removeSuffix("-hold") + "-loop" else anim.name)
+                    .put("anim", psychAnimName(anim.name))
                     .put("indices", JSONArray(anim.indices))
                     .put("name", anim.prefix)
             )
         }
-        val root = JSONObject()
-            .put("animations", animations)
-            .put("image", images.joinToString(","))
-            .put("position", JSONArray(listOf(posX.toJsonNumber(), posY.toJsonNumber())))
-            .put("healthicon", character.healthIcon.ifEmpty { id })
-            .put("flip_x", character.flipX)
-            .put("healthbar_colors", JSONArray(defaultColors.getValue(slot)))
-            .put("camera_position", JSONArray(listOf(camX.toJsonNumber(), camY.toJsonNumber())))
-            .put("sing_duration", (character.singTime / 1.1).toJsonNumber())
-            .put("scale", s.toJsonNumber())
-            .put("no_antialiasing", character.isPixel)
-            .put("vocals_file", "")
-            .put("_editor_isPlayer", slot == CharacterSlot.PLAYER)
-
-        report.stat("Animations", character.animations.size)
-        report.stat("Slot", slot.label)
-        report.stat("Accuracy", if (exact) "Exact" else "Approximate")
-        if (!exact) report.warn("Add the spritesheet XML for an exact position and camera; without it they are approximate.")
-        if (character.renderType !in setOf("sparrow", "multisparrow")) {
-            report.warn("Render type \"${character.renderType}\" is not a Sparrow sheet; Psych 1.0 loads texture atlases from the same image field, check the animations in the Character Editor.")
-        }
-        if (character.animations.any { it.flipX }) report.warn("Per-animation flipX has no Psych equivalent.")
-        report.section(
-            "Notes",
-            listOf(
-                "Health bar color set to the default ${slot.label.lowercase(Locale.US)} color; change it in Psych's Character Editor.",
-                "Positions were rebased for the ${slot.label.lowercase(Locale.US)} slot."
-            )
-        )
-        return ReverseResult("characters/$id.json", root.toString(2), report.build())
+        return Placed(animations, posX, posY, camX, camY, emptyList())
     }
 
-    fun exactSymbol(atlas: AnimateAtlas, name: String): String =
-        if (atlas.symbols.keys.any { it != name && it.startsWith(name) }) "$name\\" else name
+    private class AtlasBasis(val w0: Double, val h0: Double, val idleX: Double, val idleY: Double, val exact: Boolean)
 
-    private fun convertAtlas(id: String, character: VCharacter, slot: CharacterSlot, atlas: AnimateAtlas): ReverseResult {
-        val report = ReportBuilder()
-        val s = character.scale
-        val idle = character.animations.firstOrNull { it.name == "danceLeft" }
-            ?: character.animations.firstOrNull { it.name == character.startingAnimation }
-            ?: character.animations.firstOrNull { it.name == "idle" }
-            ?: character.animations.firstOrNull()
-        val first = atlas.firstSprite
-        val w0 = first?.first ?: slot.stageAnchorX
-        val h0 = first?.second ?: slot.stageAnchorY
-        val missing = mutableListOf<String>()
+    private data class Resolved(val psychName: String, val indices: List<Int>, val boundsX: Double, val boundsY: Double)
 
-        data class Resolved(val psychName: String, val indices: List<Int>, val boundsX: Double, val boundsY: Double)
-
-        fun resolve(anim: VAnimation): Resolved? {
-            val label = if (anim.animType.equals("symbol", ignoreCase = true)) null else atlas.findLabel(anim.prefix)
-            if (label != null) {
-                val frames = if (anim.indices.isNotEmpty()) anim.indices.map { label.start + it } else (label.start until label.start + label.duration).toList()
-                return Resolved(exactSymbol(atlas, atlas.mainSymbol), frames, atlas.mainBounds.x, atlas.mainBounds.y)
-            }
-            val symbol = atlas.symbols[anim.prefix] ?: atlas.findSymbol(anim.prefix) ?: return null
-            return Resolved(exactSymbol(atlas, symbol.name), anim.indices, symbol.bounds.x, symbol.bounds.y)
+    private fun resolve(atlas: AnimateAtlas, anim: VAnimation): Resolved? {
+        val label = if (anim.animType.equals("symbol", ignoreCase = true)) null else atlas.findLabel(anim.prefix)
+        if (label != null) {
+            val frames = if (anim.indices.isNotEmpty()) anim.indices.map { label.start + it } else (label.start until label.start + label.duration).toList()
+            return Resolved(exactSymbol(atlas, atlas.mainSymbol), frames, atlas.mainBounds.x, atlas.mainBounds.y)
         }
+        val symbol = atlas.symbols[anim.prefix] ?: atlas.findSymbol(anim.prefix) ?: return null
+        return Resolved(exactSymbol(atlas, symbol.name), anim.indices, symbol.bounds.x, symbol.bounds.y)
+    }
 
-        val idleResolved = idle?.let(::resolve)
-        val idleX = (idle?.offsetX ?: 0.0) - character.offsetX + (idleResolved?.boundsX ?: 0.0)
-        val idleY = (idle?.offsetY ?: 0.0) - character.offsetY + (idleResolved?.boundsY ?: 0.0)
-        val posX = slot.stageAnchorX - s * w0 / 2.0 - s * idleX + character.offsetX
-        val posY = slot.stageAnchorY - s * h0 - s * idleY + character.offsetY
+    private fun atlasBasis(character: VCharacter, slot: CharacterSlot, atlas: AnimateAtlas): AtlasBasis {
+        val idle = idleOf(character)
+        val first = atlas.firstSprite
+        val idleResolved = idle?.let { resolve(atlas, it) }
+        return AtlasBasis(
+            first?.first ?: slot.stageAnchorX,
+            first?.second ?: slot.stageAnchorY,
+            (idle?.offsetX ?: 0.0) - character.offsetX + (idleResolved?.boundsX ?: 0.0),
+            (idle?.offsetY ?: 0.0) - character.offsetY + (idleResolved?.boundsY ?: 0.0),
+            first != null
+        )
+    }
+
+    private fun placeAtlas(character: VCharacter, slot: CharacterSlot, anims: List<VAnimation>, atlas: AnimateAtlas, basis: AtlasBasis): Placed {
+        val s = character.scale
+        val posX = slot.stageAnchorX - s * basis.w0 / 2.0 - s * basis.idleX
+        val posY = slot.stageAnchorY - s * basis.h0 - s * basis.idleY
         val camX = slot.cameraSign * (character.cameraX - posX + slot.stageAnchorX)
-        val camY = character.cameraY - posY + slot.stageAnchorY - s * h0 / 2.0
-
+        val camY = character.cameraY - posY + slot.stageAnchorY - s * basis.h0 / 2.0
+        val missing = mutableListOf<String>()
         val animations = JSONArray()
-        character.animations.forEach { anim ->
-            val resolved = resolve(anim)
+        anims.forEach { anim ->
+            val resolved = resolve(atlas, anim)
             if (resolved == null) missing += "${anim.name} (\"${anim.prefix}\")"
             val ox = anim.offsetX - character.offsetX + (resolved?.boundsX ?: 0.0)
             val oy = anim.offsetY - character.offsetY + (resolved?.boundsY ?: 0.0)
             animations.put(
                 JSONObject()
-                    .put("offsets", JSONArray(listOf(((ox - idleX) * s).toJsonNumber(), ((oy - idleY) * s).toJsonNumber())))
+                    .put("offsets", JSONArray(listOf(((ox - basis.idleX) * s).toJsonNumber(), ((oy - basis.idleY) * s).toJsonNumber())))
                     .put("loop", anim.looped)
                     .put("fps", anim.frameRate)
-                    .put("anim", if (anim.name.endsWith("-hold")) anim.name.removeSuffix("-hold") + "-loop" else anim.name)
+                    .put("anim", psychAnimName(anim.name))
                     .put("indices", JSONArray(resolved?.indices ?: anim.indices))
                     .put("name", resolved?.psychName ?: anim.prefix)
             )
         }
-        val root = JSONObject()
-            .put("animations", animations)
-            .put("image", character.assetPath)
-            .put("position", JSONArray(listOf(posX.toJsonNumber(), posY.toJsonNumber())))
-            .put("healthicon", character.healthIcon.ifEmpty { id })
-            .put("flip_x", character.flipX)
-            .put("healthbar_colors", JSONArray(defaultColors.getValue(slot)))
-            .put("camera_position", JSONArray(listOf(camX.toJsonNumber(), camY.toJsonNumber())))
-            .put("sing_duration", (character.singTime / 1.1).toJsonNumber())
-            .put("scale", s.toJsonNumber())
-            .put("no_antialiasing", character.isPixel)
-            .put("vocals_file", "")
-            .put("_editor_isPlayer", slot == CharacterSlot.PLAYER)
-
-        report.stat("Animations", character.animations.size)
-        report.stat("Render", "Animate atlas")
-        report.stat("Slot", slot.label)
-        report.stat("Accuracy", if (first != null && missing.isEmpty()) "Exact" else "Approximate")
-        if (missing.isNotEmpty()) report.warn("These animations match no symbol or frame label in Animation.json: ${missing.joinToString()}.")
-        if (first == null) report.warn("No spritemap JSON was found next to Animation.json, so the position is approximate.")
-        report.section(
-            "Animate atlas",
-            listOf(
-                "Frame label animations became indices of the main symbol (Psych only plays symbols); symbol names end with \"\\\" where Psych's prefix match would pick the wrong symbol.",
-                "Offsets include each symbol's bounds, so the atlas lands where V-Slice draws it.",
-                "Psych loads the atlas from images/${character.assetPath}/ (Animation.json + spritemap)."
-            )
-        )
-        report.section("Notes", listOf("Health bar color set to the default ${slot.label.lowercase(Locale.US)} color; change it in Psych's Character Editor."))
-        return ReverseResult("characters/$id.json", root.toString(2), report.build())
+        return Placed(animations, posX, posY, camX, camY, missing)
     }
+
+    private fun psychJson(id: String, character: VCharacter, slot: CharacterSlot, image: String, placed: Placed): JSONObject = JSONObject()
+        .put("animations", placed.animations)
+        .put("image", image)
+        .put("position", JSONArray(listOf(placed.posX.toJsonNumber(), placed.posY.toJsonNumber())))
+        .put("healthicon", character.healthIcon.ifEmpty { id })
+        .put("flip_x", character.flipX)
+        .put("healthbar_colors", JSONArray(defaultColors.getValue(slot)))
+        .put("camera_position", JSONArray(listOf(placed.camX.toJsonNumber(), placed.camY.toJsonNumber())))
+        .put("sing_duration", (character.singTime / 1.1).toJsonNumber())
+        .put("scale", character.scale.toJsonNumber())
+        .put("no_antialiasing", character.isPixel)
+        .put("vocals_file", "")
+        .put("_editor_isPlayer", slot == CharacterSlot.PLAYER)
+
+    fun convert(
+        id: String,
+        character: VCharacter,
+        slot: CharacterSlot,
+        atlases: Map<String, SparrowAtlas>,
+        animate: AnimateAtlas? = null,
+        animates: Map<String, AnimateAtlas> = emptyMap()
+    ): ReverseResult {
+        val report = ReportBuilder()
+        val mainPath = character.assetPath
+        val allAnimates = animates + (animate?.let { mapOf(atlasKey(mainPath) to it) } ?: emptyMap())
+        fun pathOf(anim: VAnimation) = anim.assetPath.ifBlank { mainPath }
+        val isAtlasRender = character.renderType.contains("animate", ignoreCase = true)
+        val mainAtlas = if (isAtlasRender) allAnimates[atlasKey(mainPath)] else null
+
+        val death = character.animations.filter { it.name in deathNames }
+        val split = slot == CharacterSlot.PLAYER && death.isNotEmpty() && character.animations.any { it.name !in deathNames } && !id.endsWith("-dead")
+        val alive = character.animations.filter { !split || it.name !in deathNames }
+        val otherAtlas = if (mainAtlas != null) alive.filter { imagePath(pathOf(it)) != imagePath(mainPath) } else emptyList()
+        val kept = alive - otherAtlas.toSet()
+
+        val notes = mutableListOf<String>()
+        var exact: Boolean
+        val mainJson: JSONObject
+        var dead: Pair<String, String>? = null
+        if (mainAtlas != null) {
+            val basis = atlasBasis(character, slot, mainAtlas)
+            val placed = placeAtlas(character, slot, kept, mainAtlas, basis)
+            exact = basis.exact && placed.missing.isEmpty()
+            mainJson = psychJson(id, character, slot, imagePath(mainPath), placed)
+            report.stat("Render", "Animate atlas")
+            if (placed.missing.isNotEmpty()) report.warn("These animations match no symbol or frame label in Animation.json: ${placed.missing.joinToString()}.")
+            if (!basis.exact) report.warn("No spritemap JSON was found next to Animation.json, so the position is approximate.")
+            notes += "Frame label animations became indices of the main symbol (Psych only plays symbols); symbol names end with \"\\\" where Psych's prefix match would pick the wrong symbol."
+            notes += "Psych loads the atlas from images/${imagePath(mainPath)}/ (Animation.json + spritemap)."
+            if (split) {
+                val deathPath = pathOf(death.first())
+                val deathAtlas = allAnimates[atlasKey(deathPath)]
+                val deadCharacter = character.copy(animations = death.map { it.copy(assetPath = "") })
+                if (deathAtlas != null) {
+                    val deadPlaced = placeAtlas(deadCharacter, slot, deadCharacter.animations, deathAtlas, basis)
+                    dead = "characters/$id-dead.json" to psychJson("$id-dead", deadCharacter, slot, imagePath(deathPath), deadPlaced).toString(2)
+                    if (deadPlaced.missing.isNotEmpty()) report.warn("Game over animations with no matching symbol: ${deadPlaced.missing.joinToString()}.")
+                } else {
+                    val deadPlaced = placeSparrow(deadCharacter, slot, deadCharacter.animations, atlases[atlasKey(deathPath)]?.firstFrame?.sourceWidth ?: basis.w0, atlases[atlasKey(deathPath)]?.firstFrame?.sourceHeight ?: basis.h0,
+                        Basis(basis.w0, basis.h0, basis.w0, basis.h0, basis.idleX, basis.idleY, false))
+                    dead = "characters/$id-dead.json" to psychJson("$id-dead", deadCharacter, slot, imagePath(deathPath), deadPlaced).toString(2)
+                    report.warn("Add the game over atlas (${imagePath(deathPath)}) for an exact game over position.")
+                }
+            }
+        } else {
+            val images = (listOf(mainPath) + kept.map { it.assetPath }).filter { it.isNotBlank() }.map(::imagePath).distinct()
+            val basis = sparrowBasis(character, slot, atlases, images)
+            exact = basis.exact
+            mainJson = psychJson(id, character, slot, images.joinToString(","), placeSparrow(character, slot, kept, basis.fw0, basis.fh0, basis))
+            report.stat("Render", if (images.size > 1) "Multi-Sparrow" else "Sparrow")
+            if (!exact) report.warn("Add the spritesheet XML for an exact position and camera; without it they are approximate.")
+            if (isAtlasRender) report.warn("Render type \"${character.renderType}\": add Animation.json + spritemap for this texture atlas to convert its symbols exactly.")
+            else if (character.renderType !in setOf("sparrow", "multisparrow")) report.warn("Render type \"${character.renderType}\" is not a Sparrow sheet; check the animations in Psych's Character Editor.")
+            if (images.size > 1) notes += "Several spritesheets: Psych merges the images listed in \"image\" (${images.joinToString()})."
+            if (split) {
+                val deathPath = pathOf(death.first())
+                val deadFirst = atlases[atlasKey(deathPath)]?.firstFrame
+                val deadCharacter = character.copy(animations = death.map { it.copy(assetPath = "") })
+                val deadPlaced = placeSparrow(deadCharacter, slot, deadCharacter.animations, deadFirst?.sourceWidth ?: basis.fw0, deadFirst?.sourceHeight ?: basis.fh0, basis)
+                dead = "characters/$id-dead.json" to psychJson("$id-dead", deadCharacter, slot, imagePath(deathPath), deadPlaced).toString(2)
+                if (deadFirst == null && exact) {
+                    exact = false
+                    report.warn("Add the game over spritesheet XML (${imagePath(deathPath)}) for an exact game over position.")
+                }
+            }
+        }
+        if (otherAtlas.isNotEmpty()) {
+            report.warn("Psych characters use one texture atlas, so these animations from other atlases were left out: ${otherAtlas.joinToString { "${it.name} (${imagePath(pathOf(it))})" }}.")
+        }
+        if (kept.any { it.flipX }) report.warn("Per-animation flipX has no Psych equivalent.")
+
+        val extra = mutableListOf<Pair<String, String>>()
+        dead?.let {
+            extra += it
+            extra += "characters/$id.lua" to """
+function onCreatePost()
+    if boyfriendName == '$id' then
+        setPropertyFromClass('substates.GameOverSubstate', 'characterName', '$id-dead')
+    end
+end
+""".trimStart()
+            notes += "Game over: firstDeath, deathLoop and deathConfirm became the character \"$id-dead\" (characters/$id-dead.json), and characters/$id.lua makes Psych use it when $id is the player."
+        }
+
+        report.stat("Animations", kept.size + if (split) death.size else 0)
+        report.stat("Slot", slot.label)
+        report.stat("Accuracy", if (exact) "Exact" else "Approximate")
+        notes += "Health bar color set to the default ${slot.label.lowercase(Locale.US)} color; change it in Psych's Character Editor."
+        notes += "Positions were rebased for the ${slot.label.lowercase(Locale.US)} slot."
+        val loops = kept.filter { it.name.endsWith("-hold") }.map { it.name }
+        if (loops.isNotEmpty()) notes += "V-Slice \"-hold\" animations became Psych's \"-loop\": ${loops.joinToString()}."
+        report.section("Notes", notes)
+        return ReverseResult("characters/$id.json", mainJson.toString(2), report.build(), extra)
+    }
+
+    fun exactSymbol(atlas: AnimateAtlas, name: String): String =
+        if (atlas.symbols.keys.any { it != name && it.startsWith(name) }) "$name\\" else name
 }
 
 object VSliceToPsychStage {

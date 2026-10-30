@@ -128,11 +128,18 @@ class PsychCharactersConverter : PsychToVSliceConverter() {
         val atlases = items.filter { it.kind == "atlas" }.associate { PsychToVSliceCharacter.atlasKey(stem(it)) to SparrowAtlas.parse(it.text) }
         val animates = AnimateAtlases.collect(items.filter { it.kind == "animate" }.map { it.path to it.text })
         val report = ReportBuilder()
-        val outputs = items.filter { it.kind == "character" }.map { item ->
+        val parsed = items.filter { it.kind == "character" }.associate { psychId(stem(it)) to PsychCharacterParser.parse(it.text) }
+        fun deadFor(id: String, slot: CharacterSlot): String? =
+            listOf("$id-dead", "bf-dead").firstOrNull { it != id && it in parsed && slot == CharacterSlot.PLAYER && !id.endsWith("-dead") }
+        val merged = items.filter { it.kind == "character" }.mapNotNull { deadFor(psychId(stem(it)), it.slot ?: CharacterSlot.OPPONENT) }.toSet()
+        if (merged.isNotEmpty()) report.section("Game over characters", listOf("Merged into the players that use them (V-Slice keeps game over animations in the player character): ${merged.joinToString()}."))
+        val outputs = items.filter { it.kind == "character" && psychId(stem(it)) !in merged }.map { item ->
             val id = psychId(stem(item))
-            val character = PsychCharacterParser.parse(item.text)
+            val character = parsed.getValue(id)
             val animate = animates[PsychToVSliceCharacter.atlasKey(character.image)]
-            val converted = PsychToVSliceCharacter.convert(CharacterSource(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases, animate = animate))
+            val slot = item.slot ?: CharacterSlot.OPPONENT
+            val deadId = deadFor(id, slot)
+            val converted = PsychToVSliceCharacter.convert(CharacterSource(id, character, slot, atlases, animate = animate, gameOver = deadId?.let { parsed[it] }, gameOverId = deadId ?: "", gameOverAnimate = deadId?.let { parsed[it] }?.let { animates[PsychToVSliceCharacter.atlasKey(it.image)] }))
             converted.report.stats.firstOrNull { it.label == "Accuracy" }?.let { report.stat(id, it.value) }
             converted.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             converted.report.warnings.forEach { report.warn("$id: $it") }

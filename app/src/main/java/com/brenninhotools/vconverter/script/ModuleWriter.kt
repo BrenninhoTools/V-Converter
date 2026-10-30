@@ -22,7 +22,7 @@ class ModuleSpec(
 )
 
 object ModuleWriter {
-    private val baseImports = listOf("flixel.FlxG", "funkin.modding.module.Module", "funkin.modding.module.ModuleHandler", "funkin.play.PlayState")
+    private val baseImports = listOf("flixel.FlxG", "funkin.Conductor", "funkin.modding.module.Module", "funkin.modding.module.ModuleHandler", "funkin.play.PlayState")
 
     private class Out {
         private val sb = StringBuilder()
@@ -62,6 +62,7 @@ object ModuleWriter {
         out.open("class ${spec.className} extends Module")
         out.line("var luaGame:Dynamic = null;")
         out.line("var luaClosed:Bool = false;")
+        if (has("onSectionHit")) out.line("var luaLastSection:Int = 0;")
         spec.fields.forEach { out.line("var $it:Dynamic = null;") }
         out.line("")
         out.open("public function new()")
@@ -88,7 +89,16 @@ object ModuleWriter {
         out.line("luaClosed = false;")
         spec.fields.forEach { out.line("$it = null;") }
         spec.bootLines.forEach { out.line(it) }
+        if (has("onSectionHit")) out.line("luaLastSection = 0;")
         if (has("onCreate")) out.line(invoke("onCreate") + ";")
+        if (has("onEventPushed")) {
+            out.open("if (game.songEvents != null && ensureGame())")
+            out.open("for (data in game.songEvents)")
+            out.line("var info:Dynamic = psychEventInfo(data);")
+            out.line("if (info != null) " + invoke("onEventPushed", "info.name", "info.value1", "info.value2", "data.time") + ";")
+            out.close()
+            out.close()
+        }
         if (has("onCreatePost")) out.line(invoke("onCreatePost") + ";")
         out.line("return !luaClosed;")
         out.close()
@@ -144,11 +154,33 @@ object ModuleWriter {
             out.line(invoke("onCountdownTick", "tick") + ";")
             out.close()
         }
-        if (has("onUpdate") || has("onUpdatePost")) {
+        val keys = listOf("onKeyPressPre", "onKeyPress", "onKeyReleasePre", "onKeyRelease").filter(::has)
+        if (has("onUpdate") || has("onUpdatePost") || keys.isNotEmpty()) {
             out.line("")
             out.open("override public function onUpdate(event:UpdateScriptEvent):Void")
             out.line("super.onUpdate(event);")
             out.line("if (!luaActive()) return;")
+            if (keys.isNotEmpty()) {
+                out.line("var controls:Dynamic = PlayState.instance.controls;")
+                out.open("if (controls != null && !PlayState.instance.isBotPlayMode)")
+                out.line("var pressed:Array<Bool> = [controls.NOTE_LEFT_P, controls.NOTE_DOWN_P, controls.NOTE_UP_P, controls.NOTE_RIGHT_P];")
+                out.line("var released:Array<Bool> = [controls.NOTE_LEFT_R, controls.NOTE_DOWN_R, controls.NOTE_UP_R, controls.NOTE_RIGHT_R];")
+                out.open("for (key in 0...4)")
+                if (has("onKeyPressPre") || has("onKeyPress")) {
+                    out.open("if (pressed[key])")
+                    if (has("onKeyPressPre")) out.line(invoke("onKeyPressPre", "key") + ";")
+                    if (has("onKeyPress")) out.line(invoke("onKeyPress", "key") + ";")
+                    out.close()
+                }
+                if (has("onKeyReleasePre") || has("onKeyRelease")) {
+                    out.open("if (released[key])")
+                    if (has("onKeyReleasePre")) out.line(invoke("onKeyReleasePre", "key") + ";")
+                    if (has("onKeyRelease")) out.line(invoke("onKeyRelease", "key") + ";")
+                    out.close()
+                }
+                out.close()
+                out.close()
+            }
             if (has("onUpdate")) out.line(invoke("onUpdate", "event.elapsed") + ";")
             if (has("onUpdatePost")) out.line(invoke("onUpdatePost", "event.elapsed") + ";")
             out.close()
@@ -159,7 +191,13 @@ object ModuleWriter {
             out.line("super.onBeatHit(event);")
             out.line("if (!luaActive()) return;")
             if (has("onBeatHit")) out.line(invoke("onBeatHit") + ";")
-            if (has("onSectionHit")) out.line("if (event.beat % 4 == 0) " + invoke("onSectionHit") + ";")
+            if (has("onSectionHit")) {
+                out.line("var section:Int = Conductor.instance.currentMeasure;")
+                out.open("if (section > luaLastSection)")
+                out.line("luaLastSection = section;")
+                out.line(invoke("onSectionHit") + ";")
+                out.close()
+            }
             out.close()
         }
         simple(out, spec, "onStepHit", "onStepHit", "SongTimeScriptEvent") { invoke("onStepHit") }
@@ -175,7 +213,7 @@ object ModuleWriter {
         val noteArgs: (String) -> Array<String> = { dir ->
             if (spec.noteObjects) arrayOf("event.note") else arrayOf("0", dir, "kind", "false")
         }
-        val hits = listOf("goodNoteHitPre", "goodNoteHit", "opponentNoteHitPre", "opponentNoteHit")
+        val hits = listOf("goodNoteHitPre", "goodNoteHit", "opponentNoteHitPre", "opponentNoteHit", "onUpdateScore", "onRecalculateRating")
         if (hits.any(::has)) {
             out.line("")
             out.open("override public function onNoteHit(event:HitNoteScriptEvent):Void")
@@ -184,10 +222,12 @@ object ModuleWriter {
             out.line("var data:Dynamic = event.note.noteData;")
             out.line("var kind:Dynamic = noteTypeName(data.kind);")
             out.line("var dir:Int = data.data % 4;")
-            if (has("goodNoteHitPre") || has("goodNoteHit")) {
+            if (has("goodNoteHitPre") || has("goodNoteHit") || has("onUpdateScore") || has("onRecalculateRating")) {
                 out.open("if (data.data < 4)")
                 if (has("goodNoteHitPre")) out.line(invoke("goodNoteHitPre", *noteArgs("dir")) + ";")
                 if (has("goodNoteHit")) out.line(invoke("goodNoteHit", *noteArgs("dir")) + ";")
+                if (has("onRecalculateRating")) out.line(invoke("onRecalculateRating") + ";")
+                if (has("onUpdateScore")) out.line(invoke("onUpdateScore", "false") + ";")
                 out.close()
             }
             if (has("opponentNoteHitPre") || has("opponentNoteHit")) {
@@ -198,22 +238,30 @@ object ModuleWriter {
             }
             out.close()
         }
-        if (has("noteMiss")) {
+        if (has("noteMiss") || has("onUpdateScore") || has("onRecalculateRating")) {
             out.line("")
             out.open("override public function onNoteMiss(event:NoteScriptEvent):Void")
             out.line("super.onNoteMiss(event);")
             out.line("if (!luaActive()) return;")
-            out.line("var data:Dynamic = event.note.noteData;")
-            out.line("var kind:Dynamic = noteTypeName(data.kind);")
-            out.line(invoke("noteMiss", *noteArgs("data.data % 4")) + ";")
+            if (has("noteMiss")) {
+                out.line("var data:Dynamic = event.note.noteData;")
+                out.line("var kind:Dynamic = noteTypeName(data.kind);")
+                out.line(invoke("noteMiss", *noteArgs("data.data % 4")) + ";")
+            }
+            if (has("onRecalculateRating")) out.line(invoke("onRecalculateRating") + ";")
+            if (has("onUpdateScore")) out.line(invoke("onUpdateScore", "true") + ";")
             out.close()
         }
-        if (has("noteMissPress")) {
+        if (has("noteMissPress") || has("onGhostTap")) {
             out.line("")
             out.open("override public function onNoteGhostMiss(event:GhostMissNoteScriptEvent):Void")
             out.line("super.onNoteGhostMiss(event);")
             out.line("if (!luaActive()) return;")
-            out.line(invoke("noteMissPress", "event.dir") + ";")
+            when {
+                has("noteMissPress") && has("onGhostTap") -> out.line("if (event.hasMiss) ${invoke("noteMissPress", "event.dir")}; else ${invoke("onGhostTap", "event.dir")};")
+                has("noteMissPress") -> out.line("if (event.hasMiss) ${invoke("noteMissPress", "event.dir")};")
+                else -> out.line("if (!event.hasMiss) ${invoke("onGhostTap", "event.dir")};")
+            }
             out.close()
         }
         if (has("onSpawnNote")) {
@@ -256,12 +304,26 @@ object ModuleWriter {
             out.close()
         }
         simple(out, spec, "onResume", "onResume", "ScriptEvent") { invoke("onResume") }
-        if (has("onGameOver")) {
+        if (has("onGameOver") || has("onGameOverStart")) {
             out.line("")
             out.open("override public function onGameOver(event:ScriptEvent):Void")
             out.line("super.onGameOver(event);")
             out.line("if (!luaActive()) return;")
-            out.line("if (${invoke("onGameOver")} == CANCEL) event.cancel();")
+            if (has("onGameOver")) {
+                out.open("if (${invoke("onGameOver")} == CANCEL)")
+                out.line("event.cancel();")
+                out.line("return;")
+                out.close()
+            }
+            if (has("onGameOverStart")) out.line(invoke("onGameOverStart") + ";")
+            out.close()
+        }
+        if (has("onGameOverConfirm")) {
+            out.line("")
+            out.open("override public function onSongRetry(event:ScriptEvent):Void")
+            out.line("super.onSongRetry(event);")
+            out.line("if (!luaActive()) return;")
+            out.line(invoke("onGameOverConfirm", "true") + ";")
             out.close()
         }
         out.line("")

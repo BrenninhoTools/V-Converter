@@ -217,19 +217,32 @@ class VSliceModConverter(
             step("Character $id")
             try {
                 val character = VSliceParser.character(files.readText(path))
-                val slot = usage[id]?.maxByOrNull { it.value }?.key ?: VSliceToPsychCharacter.defaultSlot(id)
+                val slot = usage[id]?.maxByOrNull { it.value }?.key ?: VSliceToPsychCharacter.defaultSlot(id, character)
                 val atlases = HashMap<String, SparrowAtlas>()
+                val animates = HashMap<String, AnimateAtlas>()
+                fun candidates(asset: String): List<String> {
+                    val path = VSliceToPsychCharacter.imagePath(asset)
+                    val library = asset.substringBefore(':', "")
+                    return listOfNotNull("${scan.root}images/$path", if (library.isNotEmpty()) "${scan.root}$library/images/$path" else null)
+                }
                 (listOf(character.assetPath) + character.animations.map { it.assetPath }).filter { it.isNotBlank() }.distinct().forEach { asset ->
-                    val xml = index["${scan.root}images/$asset.xml".lowercase()]
-                    if (xml != null) runCatching { atlases[VSliceToPsychCharacter.atlasKey(asset)] = SparrowAtlas.parse(files.readText(xml)) }
+                    val key = VSliceToPsychCharacter.atlasKey(asset)
+                    candidates(asset).firstNotNullOfOrNull { index["$it.xml".lowercase()] }?.let { xml ->
+                        runCatching { atlases[key] = SparrowAtlas.parse(files.readText(xml)) }
+                    }
+                    candidates(asset).forEach { base ->
+                        if (key in animates) return@forEach
+                        val folder = "${base.trim().removeSuffix("/")}/".lowercase()
+                        index["${folder}animation.json"]?.let { animation ->
+                            val spritemaps = files.paths.filter { it.lowercase().startsWith(folder) && it != animation && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) && !it.substring(folder.length).contains('/') }.sortedBy { it.lowercase() }
+                            runCatching { AnimateAtlas.parse(files.readText(animation), spritemaps.map { files.readText(it) }) }.getOrNull()?.let { animates[key] = it }
+                        }
+                    }
                 }
-                val folder = "${scan.root}images/${character.assetPath.trim().removeSuffix("/")}/".lowercase()
-                val animate = index["${folder}animation.json"]?.let { animation ->
-                    val spritemaps = files.paths.filter { it.lowercase().startsWith(folder) && it != animation && AnimateAtlases.isAtlasFile(it.substringAfterLast('/')) && !it.substring(folder.length).contains('/') }.sortedBy { it.lowercase() }
-                    runCatching { AnimateAtlas.parse(files.readText(animation), spritemaps.map { files.readText(it) }) }.getOrNull()
-                }
-                val result = VSliceToPsychCharacter.convert(id, character, slot, atlases, animate)
+                val animate = animates[VSliceToPsychCharacter.atlasKey(character.assetPath)]
+                val result = VSliceToPsychCharacter.convert(id, character, slot, atlases, animate, animates)
                 write(result.path, result.json)
+                result.extra.forEach { (path, text) -> write(path, text) }
                 icons[id] = character.healthIcon.ifEmpty { id }
                 result.report.warnings.forEach { report.warn("Character $id: $it") }
             } catch (e: Exception) {

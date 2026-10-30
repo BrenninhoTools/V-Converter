@@ -49,7 +49,7 @@ object PsychApi {
         "playSound", "playMusic", "stopSound", "pauseSound", "resumeSound", "setSoundVolume", "getSoundVolume", "getSoundTime",
         "setSoundTime", "getSoundPitch", "setSoundPitch", "soundFadeIn", "soundFadeOut", "soundFadeCancel", "luaSoundExists",
         "musicFadeIn", "musicFadeOut", "getRandomInt", "getRandomFloat", "getRandomBool", "getColorFromHex", "getColorFromName",
-        "getColorFromString", "stringStartsWith", "stringEndsWith", "stringSplit", "stringTrim", "debugPrint", "close",
+        "getColorFromString", "FlxColor", "stringStartsWith", "stringEndsWith", "stringSplit", "stringTrim", "debugPrint", "close",
         "keyJustPressed", "keyPressed", "keyReleased", "keyboardJustPressed", "keyboardPressed", "keyboardReleased",
         "mouseClicked", "mousePressed", "mouseReleased", "getMouseX", "getMouseY", "initSaveData", "getDataFromSave",
         "setDataFromSave", "flushSaveData", "eraseSaveData", "callOnLuas", "callOnScripts", "callOnHScript", "setOnLuas",
@@ -67,13 +67,22 @@ object PsychApi {
 
     val notImplemented = setOf(
         "openCustomSubstate", "closeCustomSubstate", "insertToCustomSubstate", "startDialogue", "addLuaScript", "removeLuaScript",
-        "addHScript", "removeHScript", "saveFile", "deleteFile", "getRunningScripts", "runHaxeCode", "runHaxeFunction"
+        "addHScript", "removeHScript", "saveFile", "deleteFile", "getRunningScripts"
     )
 
     val callbacks = setOf(
         "onCreate", "onCreatePost", "onStartCountdown", "onCountdownStarted", "onCountdownTick", "onUpdate", "onUpdatePost",
         "onBeatHit", "onStepHit", "onSectionHit", "onSongStart", "onEndSong", "goodNoteHit", "goodNoteHitPre", "opponentNoteHit",
         "opponentNoteHitPre", "noteMiss", "noteMissPress", "onSpawnNote", "onEvent", "onPause", "onResume", "onGameOver",
-        "onDestroy", "onMoveCamera", "onTimerCompleted", "onTweenCompleted", "onSoundFinished"
+        "onDestroy", "onMoveCamera", "onTimerCompleted", "onTweenCompleted", "onSoundFinished", "onKeyPress", "onKeyPressPre",
+        "onKeyRelease", "onKeyReleasePre", "onGhostTap", "onUpdateScore", "onRecalculateRating", "onGameOverStart",
+        "onGameOverConfirm", "onEventPushed"
+    )
+
+    val unsupportedCallbacks = setOf(
+        "eventEarlyTrigger", "onCustomSubstateCreate", "onCustomSubstateCreatePost", "onCustomSubstateUpdate",
+        "onCustomSubstateUpdatePost", "onCustomSubstateDestroy", "otherStrumHit", "otherStrumHitPre", "onCheckForAchievement",
+        "onNextDialogue", "onSkipDialogue", "onSkipCutscene", "onSpawnNotePost", "onBPMChange", "onFocus", "onFocusLost",
+        "onSongPosChange", "onStepHitPost", "onBeatHitPost"
     )
 }

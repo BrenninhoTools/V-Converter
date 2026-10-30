@@ -27,13 +27,17 @@ object HxcToPsych {
         "funkin.play.PlayState" to "states.PlayState",
         "funkin.Conductor" to "backend.Conductor",
         "funkin.Paths" to "backend.Paths",
-        "funkin.graphics.FunkinSprite" to "flixel.FlxSprite"
+        "funkin.graphics.FunkinSprite" to "flixel.FlxSprite",
+        "funkin.play.GameOverSubState" to "substates.GameOverSubstate",
+        "funkin.play.PauseSubState" to "substates.PauseSubState",
+        "funkin.audio.FunkinSound" to "flixel.sound.FlxSound",
+        "funkin.play.character.BaseCharacter" to "objects.Character"
     )
     private val silentDrops = setOf(
         "funkin.modding.module.Module", "funkin.modding.module.ModuleHandler", "funkin.play.song.Song", "funkin.play.stage.Stage",
         "funkin.play.event.SongEvent", "funkin.data.event.SongEventSchema", "funkin.play.notes.notekind.NoteKind", "funkin.Preferences",
-        "funkin.audio.FunkinSound", "funkin.modding.events.ScriptEvent"
-    ) + characterParents.map { "funkin.play.character.$it" }
+        "funkin.modding.events.ScriptEvent", "funkin.util.HapticUtil", "funkin.FunkinMemory"
+    ) + (characterParents - "BaseCharacter").map { "funkin.play.character.$it" }
 
     fun kindOf(parent: String): HxcKind = when (parent.substringAfterLast('.')) {
         "Module" -> HxcKind.MODULE
@@ -58,6 +62,32 @@ object HxcToPsych {
         val members = members(clean.substring(bodyStart, bodyEnd))
         val imports = Regex("^\\s*import\\s+([A-Za-z0-9_.*]+)\\s*;", RegexOption.MULTILINE).findAll(clean.substring(0, classMatch.range.first)).map { it.groupValues[1] }.toList()
 
+        val properties = members.filter { !it.isFunction }.mapNotNull { m ->
+            Regex("^var\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(\\s*(\\w+)\\s*,\\s*(\\w+)\\s*\\)").find(m.body.trim())?.let { Triple(it.groupValues[1], it.groupValues[2], it.groupValues[3]) }
+        }
+        val getters = properties.filter { it.second == "get" }.map { it.first }.toSet()
+        val setters = properties.filter { it.third == "set" }.map { it.first }.toSet()
+        properties.forEach { (name, get, set) ->
+            lineOf(source, Regex("\\bvar\\s+${Regex.escape(name)}\\s*\\("))?.let { line ->
+                notes += "Line $line: property $name ($get, $set) became " + when {
+                    get == "get" && set == "set" -> "calls to get_$name() and set_$name()."
+                    get == "get" -> "calls to get_$name()."
+                    set == "set" -> "a plain variable; assignments call set_$name()."
+                    else -> "a plain variable."
+                }
+            }
+        }
+        fun accessors(text: String, owner: String): String {
+            var t = text
+            setters.filter { owner != "set_$it" }.forEach { name ->
+                t = Regex("(?<![\\w.])${Regex.escape(name)}\\s*=(?!=)\\s*([^;]+);").replace(t) { "set_$name(${it.groupValues[1].trim()});" }
+            }
+            getters.filter { owner != "get_$it" }.forEach { name ->
+                t = Regex("(?<![\\w.])${Regex.escape(name)}\\b(?!\\s*\\()").replace(t, "get_$name()")
+            }
+            return t
+        }
+
         val ctor = members.firstOrNull { it.name == "new" }
         val superArgs = ctor?.let { Regex("\\bsuper\\s*\\(([^)]*)\\)").find(it.body)?.groupValues?.get(1) } ?: ""
         val firstArg = Regex("\u0001(\\d+)\u0001").find(superArgs)?.groupValues?.get(1)?.toInt()
@@ -66,11 +96,12 @@ object HxcToPsych {
 
         val out = StringBuilder()
         val keptImports = linkedSetOf<String>()
+        val droppedClasses = linkedSetOf<String>()
         imports.forEach { imp ->
             when {
                 importMap.containsKey(imp) -> keptImports += importMap.getValue(imp)
                 imp in silentDrops -> Unit
-                droppedImportPrefixes.any { imp.startsWith(it) } -> notes += "Import $imp is V-Slice only and was removed."
+                droppedImportPrefixes.any { imp.startsWith(it) } -> droppedClasses += imp.substringAfterLast('.')
                 else -> keptImports += imp
             }
         }
@@ -84,7 +115,9 @@ object HxcToPsych {
         keptImports.forEach { out.append("import ").append(it).append(";\n") }
         if (keptImports.isNotEmpty()) out.append('\n')
         members.filter { !it.isFunction }.forEach { member ->
-            out.append(rewrite(member.body, notes).trim()).append('\n')
+            if (member.name in getters) return@forEach
+            val decl = Regex("^(\\s*var\\s+[A-Za-z_][A-Za-z0-9_]*)\\s*\\([^)]*\\)").replace(member.body.trim()) { it.groupValues[1] }
+            out.append(rewrite(accessors(decl, member.name), notes).trim()).append('\n')
         }
         if (members.any { !it.isFunction }) out.append('\n')
 
@@ -101,7 +134,7 @@ object HxcToPsych {
         )
         var hasCreate = false
         members.filter { it.isFunction }.forEach { member ->
-            val body = stripSuper(member.body)
+            val body = accessors(stripSuper(member.body), member.name)
             when (member.name) {
                 "new", "getTitle", "getEventSchema" -> Unit
                 "onCreate" -> {
@@ -152,7 +185,7 @@ object HxcToPsych {
                     }
                     emit(out, "onEvent", "eventName:String, value1:String, value2:String, strumTime:Float", joinBody("if (eventName != ${quote(targetId)}) return;", inner))
                 }
-                in callbackNames -> notes += "V-Slice callback ${member.name} has no Psych equivalent and was dropped."
+                in callbackNames -> notes += "${at(lineOf(source, Regex("\\bfunction\\s+${member.name}\\s*\\(")))}V-Slice callback ${member.name} has no Psych equivalent and was dropped."
                 else -> {
                     val params = rewrite(member.params, notes)
                     emit(out, member.name, params, rewrite(body, notes))
@@ -162,6 +195,30 @@ object HxcToPsych {
         if (!hasCreate && ctorExtra.isNotBlank()) emit(out, "onCreate", "", ctorExtra)
 
         var text = restore(out.toString(), strings)
+        text = Regex("\\b(HapticUtil|FunkinMemory)\\.[A-Za-z_]+\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\)").replace(text, "null")
+        if (Regex("\\bfunkinSprite\\(").containsMatchIn(text)) text += "\n" + FUNKIN_SPRITE_HELPER
+        if (Regex("\\bfunkinSparrow\\(").containsMatchIn(text)) text += "\n" + FUNKIN_SPARROW_HELPER
+        if (Regex("(?<![\\w.])hasBeatenSong\\(").containsMatchIn(text) && !Regex("function\\s+hasBeatenSong\\b").containsMatchIn(text)) text += "\n" + BEATEN_SONG_HELPER
+        if (Regex("(?<![\\w.])hasBeatenLevel\\(").containsMatchIn(text) && !Regex("function\\s+hasBeatenLevel\\b").containsMatchIn(text)) text += "\n" + BEATEN_LEVEL_HELPER
+        if (Regex("\\bHighscore\\.").containsMatchIn(text) && !text.contains("import backend.Highscore;")) text = "import backend.Highscore;\n" + text
+        val stripped = protect(text, mutableListOf())
+        droppedClasses.forEach { cls ->
+            if (Regex("(?<![\\w.])${Regex.escape(cls)}\\b").containsMatchIn(stripped)) {
+                notes += "${at(lineOf(source, Regex("(?<![\\w.])${Regex.escape(cls)}\\b(?!;)"), skipImports = true))}$cls is V-Slice only and still used; Psych has no $cls, so that code needs a rewrite."
+            }
+        }
+        Regex("\\bgame\\.(currentStage|currentSong|currentChart|currentVariation|currentDifficulty|currentStageId|vocals|songScore|isMinimalMode)\\b").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
+            notes += "${at(lineOf(source, Regex("\\.${Regex.escape(field)}\\b")))}PlayState.instance.$field is V-Slice only; Psych's PlayState has no $field."
+        }
+        Regex("\\bConductor\\.instance\\.([A-Za-z_]+)").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
+            notes += "${at(lineOf(source, Regex("Conductor\\.instance\\.${Regex.escape(field)}\\b")))}Conductor.instance.$field has no Psych equivalent."
+        }
+        Regex("\\bPreferences\\.([A-Za-z_]+)").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
+            notes += "${at(lineOf(source, Regex("Preferences\\.${Regex.escape(field)}\\b")))}Preferences.$field has no Psych equivalent in ClientPrefs."
+        }
+        Regex("\\bevent\\.([A-Za-z_]+)").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
+            notes += "${at(lineOf(source, Regex("\\bevent\\.${Regex.escape(field)}\\b")))}event.$field has no Psych equivalent (Psych callbacks get plain arguments)."
+        }
         text = text.replace(Regex("\n{3,}"), "\n\n").trimEnd() + "\n"
         val files = mutableListOf<PsychScriptFile>()
         val id = targetId.ifBlank { className }
@@ -188,9 +245,55 @@ object HxcToPsych {
         if (kind == HxcKind.MODULE) notes += "Modules run in every state in V-Slice; Psych global scripts (scripts/) only run during songs."
         if (kind == HxcKind.OTHER) notes += "Parent class ${classMatch.groupValues[2]} has no Psych equivalent; the script was placed in scripts/."
         if (Regex("\\bModuleHandler\\b").containsMatchIn(text)) notes += "ModuleHandler is V-Slice only."
-        if (Regex("\\bFunkinSprite\\b").containsMatchIn(text)) notes += "FunkinSprite helpers (create, createSparrow) do not exist in Psych; use FlxSprite with Paths.image / Paths.getSparrowAtlas."
+        if (Regex("\\bfunkin(Sprite|Sparrow)\\(").containsMatchIn(text)) notes += "FunkinSprite.create/createSparrow became small funkinSprite()/funkinSparrow() helpers at the end of the script."
         return HxcResult(kind, className, targetId, files, notes.distinct())
     }
+
+    private val FUNKIN_SPRITE_HELPER = """
+function funkinSprite(x:Float, y:Float, ?path:String):FlxSprite
+{
+  var sprite:FlxSprite = new FlxSprite(x, y);
+  if (path != null) sprite.loadGraphic(Paths.image(path.substr(path.indexOf(':') + 1)));
+  return sprite;
+}
+""".trimStart('\n')
+
+    private val FUNKIN_SPARROW_HELPER = """
+function funkinSparrow(x:Float, y:Float, path:String):FlxSprite
+{
+  var sprite:FlxSprite = new FlxSprite(x, y);
+  sprite.frames = Paths.getSparrowAtlas(path.substr(path.indexOf(':') + 1));
+  return sprite;
+}
+""".trimStart('\n')
+
+    private val BEATEN_SONG_HELPER = """
+function hasBeatenSong(song:String, ?difficulties:Array<String>):Bool
+{
+  var id:String = Paths.formatToSongPath(song);
+  for (key in Highscore.songScores.keys()) if (StringTools.startsWith(key, id) && Highscore.songScores.get(key) > 0) return true;
+  return false;
+}
+""".trimStart('\n')
+
+    private val BEATEN_LEVEL_HELPER = """
+function hasBeatenLevel(level:String, ?difficulties:Array<String>):Bool
+{
+  for (key in Highscore.weekScores.keys()) if (StringTools.startsWith(key, level) && Highscore.weekScores.get(key) > 0) return true;
+  return false;
+}
+""".trimStart('\n')
+
+    private fun lineOf(source: String, pattern: Regex, skipImports: Boolean = false): Int? {
+        source.lineSequence().forEachIndexed { index, line ->
+            if (skipImports && line.trimStart().startsWith("import ")) return@forEachIndexed
+            val code = line.substringBefore("//")
+            if (pattern.containsMatchIn(code)) return index + 1
+        }
+        return null
+    }
+
+    private fun at(line: Int?): String = if (line != null) "Line $line: " else ""
 
     private fun emit(out: StringBuilder, name: String, params: String, body: String) {
         out.append("function ").append(name).append('(').append(params.trim()).append(")\n{\n")
@@ -221,7 +324,6 @@ object HxcToPsych {
                 t = Regex("\\bevent\\.note\\.noteData\\.time\\b").replace(t, "note.strumTime")
                 t = Regex("\\bevent\\.note\\.noteData\\.length\\b").replace(t, "note.sustainLength")
                 t = Regex("\\bevent\\.note\\b").replace(t, "note")
-                if (Regex("\\bevent\\.").containsMatchIn(t)) notes += "Note event fields like event.judgement or event.isComboBreak have no Psych equivalent."
             }
             "songEvent" -> {
                 t = Regex("\\bevent\\.eventData\\.eventKind\\b").replace(t, "eventName")
@@ -236,7 +338,6 @@ object HxcToPsych {
         }
         t = Regex("\\bevent\\.cancel(?:Event)?\\(\\s*\\)\\s*;").replace(t, if (mode == "cancel") "return Function_Stop;" else "return;")
         if (mode != "cancel" && Regex("\\bevent\\.cancel").containsMatchIn(body)) notes += "event.cancel() in this callback cannot be cancelled in Psych and became return."
-        if (Regex("\\bevent\\.").containsMatchIn(t) && mode !in setOf("note")) notes += "Some event.* fields were left as-is; Psych callbacks have no event object."
         return rewrite(t, notes)
     }
 
@@ -280,6 +381,29 @@ object HxcToPsych {
         "\\bPreferences\\.ghostTapping\\b" to "ClientPrefs.data.ghostTapping",
         "\\bPreferences\\.zoomCamera\\b" to "ClientPrefs.data.camZooms",
         "\\bPreferences\\.framerate\\b" to "ClientPrefs.data.framerate",
+        "\\bFunkinSprite\\.createSparrow\\(" to "funkinSparrow(",
+        "\\bFunkinSprite\\.create\\(" to "funkinSprite(",
+        "\\bnew\\s+FunkinSprite\\(" to "new FlxSprite(",
+        ":\\s*FunkinSprite\\b" to ":FlxSprite",
+        ":\\s*FunkinSound\\b" to ":FlxSound",
+        ":\\s*BaseCharacter\\b" to ":Character",
+        "\\bGameOverSubState\\b" to "GameOverSubstate",
+        "\\bPlayStatePlaylist\\.isStoryMode\\b" to "PlayState.isStoryMode",
+        "\\bPlayStatePlaylist\\.campaignScore\\b" to "PlayState.campaignScore",
+        "\\bgame\\.isPracticeMode\\b" to "game.practiceMode",
+        "\\bgame\\.isChartingMode\\b" to "PlayState.chartingMode",
+        "\\bgame\\.songScore\\b" to "game.songScore",
+        "\\bgame\\.health\\b" to "game.health",
+        "\\bgame\\.iconP1\\b" to "game.iconP1",
+        "\\bgame\\.camHUD\\b" to "game.camHUD",
+        "\\bgame\\.camGame\\b" to "game.camGame",
+        "\\bSave\\.instance\\.hasBeatenSong\\(" to "hasBeatenSong(",
+        "\\bSave\\.instance\\.hasBeatenLevel\\(" to "hasBeatenLevel(",
+        "\\bPreferences\\.naughtyness\\b" to "true",
+        "\\bPreferences\\.subtitles\\b" to "false",
+        "\\bConstants\\.CENSOR_EXPLETIVES\\b" to "false",
+        "\\bConstants\\.PIXEL_ART_SCALE\\b" to "6",
+        "\\bConstants\\.MS_PER_SEC\\b" to "1000",
         "\\bFunkinSound\\.playOnce\\(" to "FlxG.sound.play(",
         "\\bFunkinSound\\.load\\(" to "FlxG.sound.load(",
         "\\bthis\\." to ""
@@ -289,9 +413,6 @@ object HxcToPsych {
         var t = ReflectCalls.toPsych(text)
         replacements.forEach { (regex, replacement) -> t = regex.replace(t, if (replacement.contains("$1")) replacement else Regex.escapeReplacement(replacement)) }
         t = Regex("(^|[^A-Za-z0-9_.])(public|private|static|inline|override|final)\\s+(?=(var|function)\\b)").replace(t) { it.groupValues[1] }
-        if (Regex("\\bConductor\\.instance\\b").containsMatchIn(t)) notes += "Some Conductor.instance fields have no Psych equivalent."
-        if (Regex("\\bPreferences\\.").containsMatchIn(t)) notes += "Some Preferences fields have no Psych equivalent."
-        if (Regex("\\bgame\\.(currentStage|currentSong|currentChart|currentVariation|currentDifficulty)\\b").containsMatchIn(t)) notes += "Some PlayState fields (currentStage, currentSong…) are V-Slice only."
         return t
     }
 
@@ -395,7 +516,7 @@ object HxcToPsych {
     }
 
     private fun restore(text: String, strings: List<String>): String =
-        Regex("\u0001(\\d+)\u0001").replace(text) { Regex.escapeReplacement(strings[it.groupValues[1].toInt()]) }
+        Regex("\u0001(\\d+)\u0001").replace(text) { strings[it.groupValues[1].toInt()] }
 
     private fun unquote(literal: String): String = literal.drop(1).dropLast(1).replace("\\\"", "\"").replace("\\'", "'")
 
@@ -407,7 +528,7 @@ object HxcToPsych {
         results.forEach { (name, result) ->
             report.section(
                 "$name · ${result.kind.label}${if (result.targetId.isNotEmpty()) " \"${result.targetId}\"" else ""}",
-                listOf("→ " + result.files.joinToString { it.path }) + result.notes.take(20)
+                listOf("→ " + result.files.joinToString { it.path }) + result.notes.take(40) + if (result.notes.size > 40) listOf("…and ${result.notes.size - 40} more notes") else emptyList()
             )
         }
         failures.forEach(report::warn)

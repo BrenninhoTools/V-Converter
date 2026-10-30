@@ -97,7 +97,7 @@ class ReverseCharactersConverter : FileConverter() {
         "json" -> {
             val c = VSliceParser.character(text)
             val id = file.name.substringBeforeLast('.')
-            PickedText(file.path, file.name, file.path, text, "character", "${c.animations.size} anims", VSliceToPsychCharacter.defaultSlot(id))
+            PickedText(file.path, file.name, file.path, text, "character", "${c.animations.size} anims", VSliceToPsychCharacter.defaultSlot(id, c))
         }
         else -> throw IllegalArgumentException("only V-Slice character .json and spritesheet .xml files")
     }
@@ -111,12 +111,12 @@ class ReverseCharactersConverter : FileConverter() {
         val files = items.filter { it.kind == "character" }.map { item ->
             val id = stem(item)
             val character = VSliceParser.character(item.text)
-            val result = VSliceToPsychCharacter.convert(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases, animates[VSliceToPsychCharacter.atlasKey(character.assetPath)])
+            val result = VSliceToPsychCharacter.convert(id, character, item.slot ?: CharacterSlot.OPPONENT, atlases, animates[VSliceToPsychCharacter.atlasKey(character.assetPath)], animates)
             result.report.stats.firstOrNull { it.label == "Accuracy" }?.let { report.stat(id, it.value) }
             result.report.sections.forEach { report.section("$id · ${it.title}", it.lines) }
             result.report.warnings.forEach { report.warn("$id: $it") }
-            out(result.path, result.json)
-        }
+            listOf(out(result.path, result.json)) + result.extra.map { (path, text) -> out(path, text) }
+        }.flatten().distinctBy { it.relativePath.lowercase() }
         return ConvertedOutput(files, report.build())
     }
 }

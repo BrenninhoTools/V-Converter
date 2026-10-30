@@ -17,7 +17,10 @@ data class CharacterSource(
     val slot: CharacterSlot,
     val atlases: Map<String, SparrowAtlas>,
     val displayName: String = "",
-    val animate: AnimateAtlas? = null
+    val animate: AnimateAtlas? = null,
+    val gameOver: PsychCharacter? = null,
+    val gameOverId: String = "",
+    val gameOverAnimate: AnimateAtlas? = null
 )
 
 data class CharacterResult(
@@ -103,6 +106,38 @@ object PsychToVSliceCharacter {
             animations.put(entry)
         }
 
+        var merged = false
+        val gameOver = source.gameOver
+        val deathNames = setOf("firstDeath", "deathLoop", "deathConfirm")
+        if (gameOver != null && slot == CharacterSlot.PLAYER && psych.animations.none { it.anim in deathNames }) {
+            val deadImages = gameOver.atlasImages.ifEmpty { listOf(gameOver.image) }
+            val deadImage = deadImages.first()
+            val deadAtlas = source.atlases[atlasKey(deadImage)]
+            val deadFirst = deadAtlas?.firstFrame
+            val fw0d = deadFirst?.sourceWidth ?: fw0
+            val fh0d = deadFirst?.sourceHeight ?: fh0
+            val baseDX = slot.stageAnchorX - gameOver.positionX - scale * fwi / 2.0 - (1.0 - scale) * fw0d / 2.0
+            val baseDY = slot.stageAnchorY - gameOver.positionY - scale * fhi - (1.0 - scale) * fh0d / 2.0
+            gameOver.animations.filter { it.anim in deathNames }.forEach { anim ->
+                val entry = JSONObject()
+                    .put("name", anim.anim)
+                    .put("prefix", anim.prefix)
+                if (deadImage != mainImage) entry.put("assetPath", deadImage)
+                if (anim.indices.isNotEmpty()) entry.put("frameIndices", JSONArray(anim.indices))
+                entry.put("frameRate", anim.fps)
+                entry.put("looped", anim.loop)
+                entry.put("offsets", JSONArray(listOf(((anim.offsetX + baseDX) / scale).toJsonNumber(), ((anim.offsetY + baseDY) / scale).toJsonNumber())))
+                animations.put(entry)
+                merged = true
+            }
+            if (merged) {
+                report.section("Game over", listOf("firstDeath, deathLoop and deathConfirm come from \"${source.gameOverId}\" (${deadImage}), placed where Psych's game over screen draws them."))
+                if (deadFirst == null) report.warn("Add the game over spritesheet XML ($deadImage) for an exact game over position.")
+                if (gameOver.scale != scale) report.warn("\"${source.gameOverId}\" has scale ${gameOver.scale} but V-Slice plays game over animations at the character's scale ($scale).")
+            }
+        }
+        val renderMulti = multiAtlas || (merged && gameOver?.let { (it.atlasImages.ifEmpty { listOf(it.image) }).first() } != mainImage)
+
         val healthIcon = JSONObject()
             .put("id", psych.healthIcon)
             .put("isPixel", false)
@@ -111,7 +146,7 @@ object PsychToVSliceCharacter {
         val root = JSONObject()
             .put("version", CHARACTER_VERSION)
             .put("name", name)
-            .put("renderType", if (multiAtlas) "multisparrow" else "sparrow")
+            .put("renderType", if (renderMulti) "multisparrow" else "sparrow")
             .put("assetPath", mainImage)
             .put("scale", scale.toJsonNumber())
             .put("isPixel", psych.noAntialiasing)
@@ -125,7 +160,7 @@ object PsychToVSliceCharacter {
             .put("animations", animations)
 
         report.stat("Animations", psych.animations.size)
-        report.stat("Render", if (multiAtlas) "Multi-Sparrow" else "Sparrow")
+        report.stat("Render", if (renderMulti) "Multi-Sparrow" else "Sparrow")
         report.stat("Slot", slot.label)
         report.stat("Accuracy", if (exact) "Exact" else "Approximate")
 
@@ -173,7 +208,7 @@ object PsychToVSliceCharacter {
             else -> psych.animations.firstOrNull { it.anim == "idle" } ?: psych.animations.firstOrNull()
         }
         val first = atlas.firstSprite
-        val idleSymbol = idleAnim?.let { atlas.findSymbol(it.prefix) }
+        val idleSymbol = idleAnim?.let { atlas.findSymbol(it.prefix.removeSuffix("\\")) }
         val width = first?.first ?: idleSymbol?.bounds?.width ?: slot.stageAnchorX
         val height = first?.second ?: idleSymbol?.bounds?.height ?: slot.stageAnchorY
         val baseX = slot.stageAnchorX - psych.positionX - scale * width / 2.0
@@ -184,7 +219,7 @@ object PsychToVSliceCharacter {
         val missing = mutableListOf<String>()
         val animations = JSONArray()
         psych.animations.forEach { anim ->
-            val symbol = atlas.findSymbol(anim.prefix)
+            val symbol = atlas.findSymbol(anim.prefix.removeSuffix("\\"))
             if (symbol == null) missing += "${anim.anim} (\"${anim.prefix}\")"
             val bounds = symbol?.bounds
             val entry = JSONObject()
@@ -206,10 +241,40 @@ object PsychToVSliceCharacter {
             animations.put(entry)
         }
 
+        var mergedImage: String? = null
+        val gameOver = source.gameOver
+        val deathNames = setOf("firstDeath", "deathLoop", "deathConfirm")
+        if (gameOver != null && slot == CharacterSlot.PLAYER && psych.animations.none { it.anim in deathNames }) {
+            val deadAtlas = source.gameOverAnimate
+            if (deadAtlas == null) {
+                report.warn("The game over character \"${source.gameOverId}\" was not merged: add its Animation.json + spritemap.")
+            } else {
+                val baseDX = slot.stageAnchorX - gameOver.positionX - scale * width / 2.0
+                val baseDY = slot.stageAnchorY - gameOver.positionY - scale * height
+                val deadImage = gameOver.image.trim()
+                gameOver.animations.filter { it.anim in deathNames }.forEach { anim ->
+                    val symbol = deadAtlas.findSymbol(anim.prefix.removeSuffix("\\"))
+                    if (symbol == null) missing += "${anim.anim} (\"${anim.prefix}\")"
+                    val entry = JSONObject()
+                        .put("name", anim.anim)
+                        .put("prefix", symbol?.name ?: anim.prefix)
+                        .put("animType", "symbol")
+                    if (deadImage != psych.image.trim()) entry.put("assetPath", deadImage)
+                    if (anim.indices.isNotEmpty()) entry.put("frameIndices", JSONArray(anim.indices))
+                    entry.put("frameRate", anim.fps)
+                    entry.put("looped", anim.loop)
+                    entry.put("offsets", JSONArray(listOf(((anim.offsetX + baseDX) / scale - (symbol?.bounds?.x ?: 0.0)).toJsonNumber(), ((anim.offsetY + baseDY) / scale - (symbol?.bounds?.y ?: 0.0)).toJsonNumber())))
+                    animations.put(entry)
+                    mergedImage = deadImage
+                }
+                if (mergedImage != null) report.section("Game over", listOf("firstDeath, deathLoop and deathConfirm come from \"${source.gameOverId}\" ($deadImage)."))
+            }
+        }
+
         val root = JSONObject()
             .put("version", CHARACTER_VERSION)
             .put("name", source.displayName.ifBlank { prettyName(source.id) })
-            .put("renderType", "animateatlas")
+            .put("renderType", if (mergedImage != null && mergedImage != psych.image.trim()) "multianimateatlas" else "animateatlas")
             .put("assetPath", psych.image.trim())
             .put("scale", scale.toJsonNumber())
             .put("isPixel", psych.noAntialiasing)

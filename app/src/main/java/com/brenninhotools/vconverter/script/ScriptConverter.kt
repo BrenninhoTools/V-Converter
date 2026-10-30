@@ -23,6 +23,7 @@ object ScriptConverter {
             "custom_events" in lower -> ScriptTarget(ScriptScope.EVENT, stem)
             "custom_notetypes" in lower -> ScriptTarget(ScriptScope.NOTE_TYPE, stem)
             "stages" in lower -> ScriptTarget(ScriptScope.STAGE, stem)
+            dataIndex >= 0 && dataIndex + 3 < parts.size && lower[dataIndex + 1] == "songs" -> ScriptTarget(ScriptScope.SONG, parts[dataIndex + 2].lowercase())
             dataIndex >= 0 && dataIndex + 2 < parts.size -> ScriptTarget(ScriptScope.SONG, parts[dataIndex + 1].lowercase())
             else -> ScriptTarget(ScriptScope.GLOBAL)
         }
@@ -234,8 +235,8 @@ class ${eventClass(name)} extends SongEvent
             hooks += generated.callbacks.size
             apiUsed += generated.apiCalls
             val lines = mutableListOf("Callbacks: ${generated.callbacks.joinToString().ifEmpty { "none" }}")
-            generated.issues.take(25).forEach { lines += if (it.line > 0) "Line ${it.line}: ${it.message}" else it.message }
-            if (generated.issues.size > 25) lines += "…and ${generated.issues.size - 25} more notes"
+            generated.issues.take(40).forEach { lines += if (it.line > 0) "Line ${it.line}: ${it.message}" else it.message }
+            if (generated.issues.size > 40) lines += "…and ${generated.issues.size - 40} more notes"
             report.section(label, lines)
         }
 

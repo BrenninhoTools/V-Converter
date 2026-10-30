@@ -89,6 +89,7 @@ class LuaToCodename(
 
         val out = StringBuilder()
         imports += PsychCodenameHelpers.imports(cneHelpers)
+        if (dynamicGlobals) imports += "haxe.ds.StringMap"
         imports.forEach { out.append("import ").append(it).append(";\n") }
         if (imports.isNotEmpty()) out.append('\n')
         createdTags.forEach { out.append("public var ").append(it).append(":Dynamic;\n") }
@@ -118,6 +119,10 @@ class LuaToCodename(
         bootOut.filter { it.trim() != "null;" }.forEach { out.append(it).append('\n') }
         result.methods.lines().filter { it.trim() != "null;" }.forEach { out.append(it.removePrefix("  ")).append('\n') }
         hoisted.forEach { out.append('\n').append(it.trimEnd()).append('\n') }
+        if (dynamicGlobals) {
+            out.append("\nvar luaGlobals:Dynamic = null;\n")
+            globalAccessorLines("luaGlobals").forEach { out.append(it).append('\n') }
+        }
         adapters.fields.forEach { out.append(it).append('\n') }
         out.append(adapterText)
         val luaHelpers = StringBuilder()
@@ -864,7 +869,7 @@ class LuaToCodename(
             }
             "getRandomFloat" -> "FlxG.random.float(${arg(0, "0")}, ${arg(1, "1")})"
             "getRandomBool" -> "FlxG.random.bool(${arg(0, "50")})"
-            "getColorFromHex", "getColorFromString", "getColorFromName" -> color(a.getOrNull(0))
+            "getColorFromHex", "getColorFromString", "getColorFromName", "FlxColor" -> color(a.getOrNull(0))
             "stringStartsWith" -> "StringTools.startsWith(${arg(0, "\"\"")}, ${arg(1, "\"\"")})"
             "stringEndsWith" -> "StringTools.endsWith(${arg(0, "\"\"")}, ${arg(1, "\"\"")})"
             "stringSplit" -> "(${arg(0, "\"\"")}).split(${arg(1, "\"\"")})"

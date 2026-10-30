@@ -496,7 +496,7 @@ class PsychApiLibrary extends Module
       case "getRandomInt": return FlxG.random.int(Std.int(num(a[0], 0)), Std.int(num(a[1], 2147483647)), parseExclude(a[2]));
       case "getRandomFloat": return FlxG.random.float(num(a[0], 0), num(a[1], 1));
       case "getRandomBool": return FlxG.random.bool(num(a[0], 50));
-      case "getColorFromHex", "getColorFromName", "getColorFromString": return color(a[0]);
+      case "getColorFromHex", "getColorFromName", "getColorFromString", "FlxColor": return color(a[0]);
       case "stringStartsWith": return strStarts(Std.string(a[0]), Std.string(a[1]));
       case "stringEndsWith": return strEnds(Std.string(a[0]), Std.string(a[1]));
       case "stringSplit": return Std.string(a[0]).split(Std.string(arg(a, 1, ",")));

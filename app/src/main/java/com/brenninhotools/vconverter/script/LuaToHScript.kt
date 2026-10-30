@@ -43,6 +43,52 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
 
     protected class Transpiled(val boot: Code, val methods: String, val chunk: List<Stat>)
 
+    protected var dynamicGlobals = false
+
+    protected fun globalKey(e: Expr): String? {
+        val key = when (e) {
+            is Expr.Field -> if ((e.target as? Expr.Name)?.name == "_G") e.name else null
+            is Expr.Index -> if ((e.target as? Expr.Name)?.name == "_G") (e.key as? Expr.Str)?.value else null
+            else -> null
+        } ?: return null
+        if (lookupLocal("_G") != null) return null
+        return key.takeIf { identifier.matches(it) && it !in reserved }
+    }
+
+    protected fun globalAccessorLines(mapName: String): List<String> {
+        val names = assignedGlobals.filter { "g_$it" in usedFields && "g_$it" !in methodNames }
+        val out = mutableListOf<String>()
+        out += "function luaGlobal(name:Dynamic):Dynamic"
+        out += "{"
+        out += "  var key:String = Std.string(name);"
+        if (names.isNotEmpty()) {
+            out += "  switch (key)"
+            out += "  {"
+            names.forEach { out += "    case ${hxString(it)}: return ${emitName("g_$it")};" }
+            out += "  }"
+        }
+        out += "  return $mapName == null ? null : $mapName.get(key);"
+        out += "}"
+        out += ""
+        out += "function luaSetGlobal(name:Dynamic, value:Dynamic):Dynamic"
+        out += "{"
+        out += "  var key:String = Std.string(name);"
+        if (names.isNotEmpty()) {
+            out += "  switch (key)"
+            out += "  {"
+            names.forEach { out += "    case ${hxString(it)}: ${emitName("g_$it")} = value; return value;" }
+            out += "  }"
+        }
+        out += "  if ($mapName == null) $mapName = new StringMap();"
+        out += "  $mapName.set(key, value);"
+        out += "  return value;"
+        out += "}"
+        return out
+    }
+
+    protected fun isDynamicGlobal(e: Expr): Boolean =
+        e is Expr.Index && (e.target as? Expr.Name)?.name == "_G" && lookupLocal("_G") == null && globalKey(e) == null
+
     protected open fun emitName(key: String): String = key
 
     protected open fun localName(luaName: String): String =
@@ -167,7 +213,11 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
                     }
                     is Stat.Assign -> {
                         stat.targets.forEach { t ->
-                            if (t is Expr.Name && t.name !in scope && t.name !in chunkLocals) {
+                            val gk = globalKey(t)
+                            if (gk != null) {
+                                assignedGlobals += gk
+                                otherAssignments += gk
+                            } else if (t is Expr.Name && t.name !in scope && t.name !in chunkLocals) {
                                 assignedGlobals += t.name
                                 otherAssignments += t.name
                             } else {
@@ -540,6 +590,15 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
     }
 
     private fun assign(target: Expr, value: String, code: Code) {
+        globalKey(target)?.let { key ->
+            code.line("${assignTarget(Expr.Name(key, target.line))} = $value;")
+            return
+        }
+        if (isDynamicGlobal(target)) {
+            dynamicGlobals = true
+            code.line("luaSetGlobal(${expr((target as Expr.Index).key)}, $value);")
+            return
+        }
         when (target) {
             is Expr.Name -> code.line("${assignTarget(target)} = $value;")
             is Expr.Field -> {
@@ -740,7 +799,7 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
                 "null"
             }
             "_G" -> {
-                issue(e.line, "_G is not supported.")
+                issue(e.line, "_G can only be used as _G.name or _G[name]; passing the whole table is not supported.")
                 "null"
             }
             else -> {
@@ -755,6 +814,7 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
     }
 
     private fun field(e: Expr.Field): String {
+        globalKey(e)?.let { return name(Expr.Name(it, e.line)) }
         val base = (e.target as? Expr.Name)?.takeIf { lookupLocal(it.name) == null && it.name !in chunkLocals && it.name !in assignedGlobals }?.name
         when (base) {
             "math" -> return when (e.name) {
@@ -778,6 +838,11 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
     }
 
     private fun index(e: Expr.Index): String {
+        globalKey(e)?.let { return name(Expr.Name(it, e.line)) }
+        if (isDynamicGlobal(e)) {
+            dynamicGlobals = true
+            return "luaGlobal(${expr(e.key)})"
+        }
         val key = e.key
         if (key is Expr.Str && identifier.matches(key.value) && key.value !in reserved) {
             return "${expr(e.target)}.${key.value}"
@@ -1052,8 +1117,46 @@ class LuaToHScript(
         fun hxString(value: String): String = LuaTranspiler.hxString(value)
     }
 
+    private val haxeMembers = mutableListOf<String>()
+    private val haxeFields = linkedSetOf<String>()
+    private val haxeImports = linkedSetOf<String>()
+    private val haxeFunctions = LinkedHashMap<String, Int>()
+    private var knownHaxeFunctions = emptySet<String>()
+    private var knownHaxeFields = emptySet<String>()
+    private var haxeBlocks = 0
+    private var haxeDispatch = false
+
+    private fun haxeWrapper() = PsychHScriptWrapper(className, moduleId, target, memberPrefix = "hx_")
+
+    private fun haxeSources(source: String): List<String> {
+        val literal = Regex("runHaxeCode\\s*\\(\\s*(\\[(=*)\\[([\\s\\S]*?)\\]\\2\\]|\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')")
+        return literal.findAll(source).map { m ->
+            when {
+                m.groupValues[1].startsWith("[") -> m.groupValues[3]
+                m.groupValues[1].startsWith("\"") -> unescapeLua(m.groupValues[4])
+                else -> unescapeLua(m.groupValues[5])
+            }
+        }.toList()
+    }
+
+    private fun unescapeLua(text: String): String = text.replace(Regex("\\\\(.)")) {
+        when (it.groupValues[1]) {
+            "n" -> "\n"
+            "t" -> "\t"
+            "r" -> ""
+            else -> it.groupValues[1]
+        }
+    }
+
     fun convert(source: String): GeneratedScript {
+        val wrapper = haxeWrapper()
+        val declared = haxeSources(source).map { wrapper.declared(it) }
+        knownHaxeFunctions = declared.flatMap { it.first }.toSet()
+        knownHaxeFields = declared.flatMap { it.second }.toSet()
         val result = transpile(source) ?: return GeneratedScript(className, moduleId, "", issues, emptyList(), emptySet())
+        result.chunk.filterIsInstance<Stat.FunctionDecl>().filter { it.path.size == 1 && it.method == null && it.path[0] in PsychApi.unsupportedCallbacks }.forEach {
+            issue(it.line, "Psych callback '${it.path[0]}' has no V-Slice event, so it never runs.")
+        }
         val callbacks = globalMethods().filter { it in PsychApi.callbacks }
         val sourceCode = assemble(result.boot, result.methods, callbacks)
         return GeneratedScript(className, moduleId, sourceCode, issues.sortedBy { it.line }, callbacks, apiCalls)
@@ -1063,7 +1166,66 @@ class LuaToHScript(
 
     override fun variableRef(name: String, line: Int): String = "psychVar(${hxString(name)})"
 
+    private fun haxeCode(args: List<Expr>, line: Int): String {
+        val code = (args.getOrNull(0) as? Expr.Str)?.value
+        if (code == null) {
+            issue(line, "runHaxeCode() with code built at runtime cannot be converted; the call does nothing.")
+            return "null"
+        }
+        val vars = (args.getOrNull(1) as? Expr.Table)?.fields?.mapNotNull { it as? com.brenninhotools.vconverter.script.lua.TableField.Named }.orEmpty()
+        if (args.getOrNull(1)?.let { it !is Expr.Nil && it !is Expr.Table } == true) issue(line, "runHaxeCode(): the variables passed as the second argument must be a table to be converted.")
+        val converted = haxeWrapper().inline(code, knownHaxeFunctions, knownHaxeFields + vars.map { it.name })
+        haxeFields += vars.map { "hx_${it.name}" }
+        converted.issues.forEach { issue(line, "runHaxeCode: ${it.message}") }
+        haxeImports += converted.imports
+        haxeFields += converted.fields
+        val repeated = converted.functions.keys.filter { it in haxeFunctions }
+        converted.functions.forEach { (n, arity) ->
+            if (n !in haxeFunctions) {
+                haxeFunctions[n] = arity
+            } else {
+                issue(line, "runHaxeCode: function $n is defined twice; the first definition is kept.")
+            }
+        }
+        if (repeated.isEmpty()) haxeMembers += converted.members
+        val then = (args.getOrNull(2) as? Expr.Str)?.value
+        val body = (vars.map { "hx_${it.name} = ${expr(it.value)};" } + converted.body).toMutableList()
+        if (then != null) {
+            val callArgs = (args.getOrNull(3) as? Expr.Table)?.fields?.mapNotNull { (it as? com.brenninhotools.vconverter.script.lua.TableField.Positional)?.value }?.joinToString(", ") { expr(it) } ?: ""
+            body += "return ${haxeCallText(then, callArgs)};"
+        }
+        if (body.isEmpty()) return "null"
+        val name = "psychHaxe${++haxeBlocks}"
+        haxeMembers += ""
+        haxeMembers += "function $name():Dynamic"
+        haxeMembers += "{"
+        body.forEach { haxeMembers += "  $it" }
+        if (body.lastOrNull()?.trimStart()?.startsWith("return") != true) haxeMembers += "  return null;"
+        haxeMembers += "}"
+        return "$name()"
+    }
+
+    private fun haxeCallText(function: String, callArgs: String): String =
+        if (function in knownHaxeFunctions || function in haxeFunctions) "hx_$function($callArgs)" else {
+            haxeDispatch = true
+            "psychHaxeCall(${hxString(function)}, [$callArgs])"
+        }
+
+    private fun haxeFunction(args: List<Expr>, line: Int): String {
+        val function = (args.getOrNull(0) as? Expr.Str)?.value
+        val table = args.getOrNull(1) as? Expr.Table
+        val positional = table?.fields?.mapNotNull { (it as? com.brenninhotools.vconverter.script.lua.TableField.Positional)?.value }
+        if (function != null && (table == null || positional?.size == table.fields.size)) {
+            if (function !in knownHaxeFunctions && function !in haxeFunctions) issue(line, "runHaxeFunction('$function'): no runHaxeCode block in this script defines it.")
+            return haxeCallText(function, positional?.joinToString(", ") { expr(it) } ?: "")
+        }
+        haxeDispatch = true
+        return "psychHaxeCall(${args.getOrNull(0)?.let { expr(it) } ?: "null"}, ${args.getOrNull(1)?.let { expr(it) } ?: "[]"})"
+    }
+
     override fun apiCall(name: String, args: List<Expr>, line: Int): String {
+        if (name == "runHaxeCode") return haxeCode(args, line)
+        if (name == "runHaxeFunction") return haxeFunction(args, line)
         if (name in PsychApi.notImplemented) {
             issue(line, "Psych function '$name' has no V-Slice equivalent yet; the call does nothing.")
         } else if (name !in PsychApi.implemented && name !in PsychNativeLibrary.supportedCalls) {
@@ -1086,8 +1248,28 @@ class LuaToHScript(
         methodNames.filterKeys { it.startsWith("g_") }.forEach { (method, arity) -> dispatch[method.removePrefix("g_")] = arity }
         assignedGlobals.filter { "g_$it" !in methodNames && "g_$it" in usedFields }.forEach { dispatch[it] = null }
         if (dispatch.values.any { it == null }) helpers += "luaInvoke"
-        val fields = usedFields.filter { it !in methodNames }.sorted()
+        val fields = (usedFields.filter { it !in methodNames } + haxeFields + if (dynamicGlobals) listOf("luaGlobals") else emptyList()).distinct().sorted()
         val tail = mutableListOf<String>()
+        if (dynamicGlobals) tail += globalAccessorLines("luaGlobals") + ""
+        if (haxeMembers.isNotEmpty() || haxeDispatch) {
+            tail += haxeMembers
+            if (haxeDispatch) {
+                tail += ""
+                tail += "function psychHaxeCall(name:Dynamic, args:Array<Dynamic>):Dynamic"
+                tail += "{"
+                tail += "  if (args == null) args = [];"
+                if (haxeFunctions.isNotEmpty()) {
+                    tail += "  switch (Std.string(name))"
+                    tail += "  {"
+                    haxeFunctions.forEach { (n, arity) -> tail += "    case ${hxString(n)}: return hx_$n(${(0 until arity).joinToString(", ") { "args[$it]" }});" }
+                    tail += "  }"
+                }
+                tail += "  return null;"
+                tail += "}"
+            }
+            tail += PsychHScriptWrapper(className, moduleId, target).helpersFor(haxeMembers.joinToString("\n"))
+            tail += ""
+        }
         Helpers.emit(helpers) { tail += it }
         methods.lines().forEach { tail += it.removePrefix("  ") }
         return ModuleWriter.write(
@@ -1106,7 +1288,7 @@ class LuaToHScript(
                 dispatch = dispatch,
                 setters = assignedGlobals.filter { "g_$it" in usedFields && "g_$it" !in methodNames },
                 noteObjects = false,
-                imports = emptyList(),
+                imports = (haxeImports.toList() + if (dynamicGlobals) listOf("haxe.ds.StringMap") else emptyList()).distinct(),
                 tailLines = tail
             )
         )
