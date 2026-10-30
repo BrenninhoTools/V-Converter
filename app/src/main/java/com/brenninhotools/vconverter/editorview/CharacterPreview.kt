@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -31,6 +32,8 @@ private val previewBackground = Color(0xFF15131F)
 private val previewGrid = Color(0xFF221F33)
 private val previewAxis = Color(0xFF5E5878)
 private val cameraColor = Color(0xFFFFC94A)
+private const val STAGE_WIDTH = 2432f
+private const val STAGE_FLOOR = 118f / 166f
 private val ghostTint = ColorFilter.tint(Color(0xFF7FD8FF), androidx.compose.ui.graphics.BlendMode.Modulate)
 
 private fun DrawScope.drawFrame(
@@ -47,8 +50,8 @@ private fun DrawScope.drawFrame(
     val s = (document.scale.takeIf { it > 0 } ?: 1.0).toFloat()
     val refWidth = (reference ?: frame).frameWidth
     val refHeight = (reference ?: frame).frameHeight
-    val left = (-s * refWidth / 2f - anim.offsetX.toFloat() * s + document.offsetX.toFloat())
-    val top = (-s * refHeight - anim.offsetY.toFloat() * s + document.offsetY.toFloat())
+    val left = -s * refWidth / 2f - (anim.offsetX.toFloat() - document.offsetX.toFloat()) * s
+    val top = -s * refHeight - (anim.offsetY.toFloat() - document.offsetY.toFloat()) * s
     val dstX = origin.x + (left - frame.frameX * s) * zoom
     val dstY = origin.y + (top - frame.frameY * s) * zoom
     val dstW = frame.width * s * zoom
@@ -72,7 +75,7 @@ private fun DrawScope.drawFrame(
 }
 
 @Composable
-fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier) {
+fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier, background: ImageBitmap? = null) {
     val measurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = Color(0xFFB9B4D6), fontSize = 11.sp)
 
@@ -112,8 +115,22 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier)
             val zoom = state.zoom
             val origin = Offset(size.width / 2f + state.panX, size.height * 0.82f + state.panY)
             drawRect(previewBackground)
+            val stage = background?.takeIf { state.showBackground }
+            if (stage != null) {
+                val unit = STAGE_WIDTH / stage.width
+                val width = STAGE_WIDTH * zoom
+                val height = stage.height * unit * zoom
+                val left = origin.x - width / 2f
+                val top = origin.y - stage.height * STAGE_FLOOR * unit * zoom
+                drawImage(
+                    stage,
+                    dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+                    dstSize = IntSize(width.roundToInt().coerceAtLeast(1), height.roundToInt().coerceAtLeast(1)),
+                    filterQuality = FilterQuality.None
+                )
+            }
             val step = 100f * zoom
-            if (step >= 8f) {
+            if (stage == null && step >= 8f) {
                 var gx = origin.x % step
                 while (gx < size.width) {
                     drawLine(previewGrid, Offset(gx, 0f), Offset(gx, size.height))
@@ -125,8 +142,10 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier)
                     gy += step
                 }
             }
-            drawLine(previewAxis, Offset(0f, origin.y), Offset(size.width, origin.y), strokeWidth = 1.5.dp.toPx())
-            drawLine(previewAxis, Offset(origin.x, 0f), Offset(origin.x, size.height), strokeWidth = 1.dp.toPx())
+            if (stage == null) {
+                drawLine(previewAxis, Offset(0f, origin.y), Offset(size.width, origin.y), strokeWidth = 1.5.dp.toPx())
+                drawLine(previewAxis, Offset(origin.x, 0f), Offset(origin.x, size.height), strokeWidth = 1.dp.toPx())
+            }
 
             val sprite = state.sprite
             val document = state.document
@@ -147,14 +166,28 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier)
             }
 
             if (state.showCamera) {
-                val s = (document.scale.takeIf { it > 0 } ?: 1.0).toFloat()
-                val refHeight = (reference?.frameHeight ?: 400) * s
-                val cx = origin.x + (document.offsetX.toFloat() + document.cameraX.toFloat()) * zoom
-                val cy = origin.y + (-refHeight / 2f + document.offsetY.toFloat() + document.cameraY.toFloat()) * zoom
+                val focus = state.cameraFocus()
+                val game = state.gameCamera()
+                val fx = origin.x + focus.first * zoom
+                val fy = origin.y + focus.second * zoom
+                val cx = origin.x + game.first * zoom
+                val cy = origin.y + game.second * zoom
+                val viewW = 1280f * zoom / state.stageZoom
+                val viewH = 720f * zoom / state.stageZoom
+                drawRect(
+                    Color.White.copy(alpha = 0.6f),
+                    topLeft = Offset(cx - viewW / 2f, cy - viewH / 2f),
+                    size = androidx.compose.ui.geometry.Size(viewW, viewH),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f)))
+                )
+                drawLine(cameraColor.copy(alpha = 0.6f), Offset(fx, fy), Offset(cx, cy), strokeWidth = 1.dp.toPx())
+                drawCircle(cameraColor, radius = 4.dp.toPx(), center = Offset(fx, fy))
                 val r = 10.dp.toPx()
                 drawCircle(cameraColor, radius = r, center = Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
                 drawLine(cameraColor, Offset(cx - r * 1.6f, cy), Offset(cx + r * 1.6f, cy), strokeWidth = 2.dp.toPx())
                 drawLine(cameraColor, Offset(cx, cy - r * 1.6f), Offset(cx, cy + r * 1.6f), strokeWidth = 2.dp.toPx())
+                val label = measurer.measure("Game camera (${state.document.slot.label.lowercase()} side)", labelStyle.copy(color = cameraColor, fontSize = 10.sp))
+                drawText(label, topLeft = Offset(cx + r * 1.8f, cy + 2.dp.toPx()))
             }
             drawCircle(Color(0xFFFF4F7B), radius = 4.dp.toPx(), center = origin)
 
@@ -167,6 +200,10 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier)
                     append("  ·  offset ${trim(anim.offsetX)}, ${trim(anim.offsetY)}")
                 }
                 append("  ·  zoom ${(zoom * 100).roundToInt()}%")
+                if (state.showCamera) {
+                    val game = state.gameCamera()
+                    append("  ·  camera ${trim(Math.round(game.first.toDouble()).toDouble())}, ${trim(Math.round(game.second.toDouble()).toDouble())}")
+                }
             }
             drawText(measurer.measure(info, labelStyle), topLeft = Offset(8.dp.toPx(), 6.dp.toPx()))
             if (anim != null && sprite != null && count == 0) {

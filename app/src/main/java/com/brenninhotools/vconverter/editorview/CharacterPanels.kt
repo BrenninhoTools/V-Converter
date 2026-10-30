@@ -45,6 +45,7 @@ fun CharacterToolbar(state: CharacterEditorState, modifier: Modifier = Modifier)
         EditorChip("Redo", false) { if (state.canRedo) state.redo() }
         EditorChip("Ghost", state.ghost) { state.ghost = !state.ghost }
         EditorChip("Camera", state.showCamera) { state.showCamera = !state.showCamera }
+        EditorChip("Stage", state.showBackground) { state.showBackground = !state.showBackground }
         EditorChip("Zoom -", false) { state.zoom = (state.zoom / 1.25f).coerceAtLeast(0.05f) }
         EditorChip("Zoom +", false) { state.zoom = (state.zoom * 1.25f).coerceAtMost(8f) }
         EditorChip("Reset view", false) { state.resetView() }
@@ -190,7 +191,13 @@ fun CharacterInfoPanel(state: CharacterEditorState, modifier: Modifier = Modifie
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             NumberField("Camera X", doc.cameraX, Modifier.weight(1f)) { v -> update { it.copy(cameraX = v) } }
             NumberField("Camera Y", doc.cameraY, Modifier.weight(1f)) { v -> update { it.copy(cameraY = v) } }
+            NumberField("Preview zoom", state.stageZoom.toDouble(), Modifier.weight(1f)) { v -> if (v > 0) state.stageZoom = v.toFloat() }
         }
+        Text(
+            "The camera point is the character's center plus Camera X/Y, plus the stage's default offset for the ${doc.slot.label.lowercase()} side (${trim(doc.slot.cameraBaseX)}, ${trim(doc.slot.cameraBaseY)}), like V-Slice. The dashed frame is what a 1280×720 game camera sees at the preview zoom.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             TextValueField("Health icon", doc.healthIcon, Modifier.weight(1f)) { v -> update { it.copy(healthIcon = v.trim()) } }
             CheckRow("Pixel icon", doc.healthIconPixel) { v -> update { it.copy(healthIconPixel = v) } }

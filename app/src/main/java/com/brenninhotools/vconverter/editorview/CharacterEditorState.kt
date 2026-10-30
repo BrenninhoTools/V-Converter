@@ -89,6 +89,20 @@ class CharacterEditorState(initial: CharacterDocument) {
     var panY by mutableFloatStateOf(0f)
     var dragMode by mutableStateOf(DragMode.OFFSET)
     var showCamera by mutableStateOf(true)
+    var showBackground by mutableStateOf(true)
+    var stageZoom by mutableFloatStateOf(1f)
+
+    fun cameraFocus(): Pair<Float, Float> {
+        val s = (document.scale.takeIf { it > 0 } ?: 1.0).toFloat()
+        val height = (referenceFrame?.frameHeight ?: 400) * s
+        return document.cameraX.toFloat() to (-height / 2f + document.cameraY.toFloat())
+    }
+
+    fun gameCamera(): Pair<Float, Float> {
+        val focus = cameraFocus()
+        val slot = document.slot
+        return (focus.first + slot.cameraBaseX.toFloat()) to (focus.second + slot.cameraBaseY.toFloat())
+    }
 
     private var elapsed = 0.0
     private var lastTick = -1L

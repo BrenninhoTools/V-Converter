@@ -215,6 +215,8 @@ fun CharacterEditorScreen(state: AppState) {
     val editor = model.editor
     val accent = Palette.Left
 
+    val stage = androidx.compose.runtime.remember { Resources.image("images/ui/character/stage.png") }
+
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
 
     Card {
@@ -242,7 +244,8 @@ fun CharacterEditorScreen(state: AppState) {
                 DragModeBar(editor)
                 CharacterPreview(
                     editor,
-                    Modifier.fillMaxWidth().height(620.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp))
+                    Modifier.fillMaxWidth().height(620.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp)),
+                    stage
                 )
             }
         }

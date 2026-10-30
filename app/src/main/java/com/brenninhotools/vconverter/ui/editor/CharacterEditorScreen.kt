@@ -47,6 +47,8 @@ import com.brenninhotools.vconverter.ui.theme.Funkin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val STAGE_BACKGROUND = "images/ui/character/stage.png"
+
 class CharacterEditorViewModel(application: Application) : BaseConverterViewModel(application) {
     val editor = CharacterEditorState(CharacterDocument("new-character", "New Character"))
     var target by mutableStateOf(ExportTarget.VSLICE)
@@ -178,6 +180,13 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
     val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.open(it) }
     val sheetPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.replaceSheet(it) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val stage by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { context.assets.open(STAGE_BACKGROUND).use { BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull()
+        }
+    }
+
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -205,7 +214,8 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
                     .fillMaxWidth()
                     .height(460.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp))
+                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp)),
+                stage
             )
         }
         FunkinCard {
