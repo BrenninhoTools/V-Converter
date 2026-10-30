@@ -114,7 +114,7 @@ object PsychToVSliceLevel {
 
     private fun quote(text: String): String = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-    private fun levelScript(className: String, id: String, week: PsychWeek, locked: Boolean): String = buildString {
+    fun levelScript(className: String, id: String, week: PsychWeek, locked: Boolean): String = buildString {
         appendLine("import flixel.FlxG;")
         if (locked) appendLine("import funkin.save.Save;")
         appendLine("import funkin.ui.story.Level;")

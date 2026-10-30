@@ -25,7 +25,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
-- [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor)
+- [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
 - [Building](#building)
 
@@ -70,7 +70,7 @@ The Android app has two sections, switched at the top: **Converter** and **Gener
 | Chart | The [Chart Editor](#chart-editor): start a song or open any chart and edit it to the music |
 | Character | The [Character Editor](#character-editor): open any character or a spritesheet and fix its animations and offsets |
 | Stage | The [Stage Editor](#stage-editor): open any stage or start from your images and lay it out with the game camera in view |
-| Level | `data/levels/<id>.json` with songs, background color, title image and base or custom menu characters |
+| Week | The [Week Editor](#week-editor): open any week or start a new one and lay out its story menu, songs and unlocking |
 | Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
 
 Every tab can download the result as a `.zip` or write it into the mod folder.
@@ -111,6 +111,19 @@ The **Stage** tab of the Generator on Android, and **Stage Editor** in the sideb
 - **Export**: V-Slice (`data/stages/<id>.json`), Psych Engine (`stages/<id>.json` plus a Lua script for what Psych JSON can't hold) or Codename Engine (`data/stages/<id>.xml`), always with the images in `images/`.
 
 On Windows and Linux: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
+
+## Week Editor
+
+The **Week** tab of the Generator on Android, and **Week Editor** in the sidebar on Windows and Linux.
+
+- **Open anything**: a V-Slice level `.json`, a Psych week `.json` (with its `images/menucharacters/*.json`) or a Codename week `.xml` (with its `data/weeks/characters/*.xml`), together with the title and menu character images. V-Slice song metadata files fill in the song names and difficulties, and a V-Slice level script (`scripts/levels/`) brings back the unlocking settings. A new week starts with the base game's dad, bf and gf.
+- **Story menu preview**: the 1280×720 story menu as V-Slice draws it: the background color or image, the menu characters playing their idle (or `danceLeft`/`danceRight`) animations at their offsets, one slot per quarter of the screen, the title image, the tracks list, the score and week name, and the difficulty (switched from the toolbar). **Confirm** plays the confirm animations.
+- **Menu characters**: none, base game or custom for the opponent, boyfriend and girlfriend slots; custom ones load a `.png` + `.xml` and pick their idle and confirm animations from the spritesheet, with scale, offsets (dragged on the preview too), pixel art, flip X and dance rate.
+- **Songs**: add, remove and reorder the songs, with their id, display name, freeplay icon and color.
+- **Unlocking**: the week to beat first, start unlocked, hidden until unlocked, hidden from story mode and songs hidden from freeplay, plus the difficulty list.
+- **Export**: V-Slice (`data/levels/<id>.json`, plus a level script in `scripts/levels/` for the unlocking and freeplay settings), Psych Engine (`weeks/<id>.json` and `images/menucharacters/*.json`) or Codename Engine (`data/weeks/weeks/<id>.xml` and `data/weeks/characters/*.xml`), always with the title, background and custom menu character images. Undo and redo cover every change.
+
+On Windows and Linux: click a menu character and drag it, the arrow keys nudge it (<kbd>Shift</kbd> for 10) or change the difficulty when nothing is selected, <kbd>Enter</kbd> plays the confirm animation and <kbd>Space</kbd> pauses the animations.
 
 ---
 

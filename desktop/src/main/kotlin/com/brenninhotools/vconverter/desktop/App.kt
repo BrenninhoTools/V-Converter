@@ -185,6 +185,7 @@ private fun Content(state: AppState) {
                 state.tool == EditorTool.CHART -> EditorScreen(state)
                 state.tool == EditorTool.CHARACTER -> CharacterEditorScreen(state)
                 state.tool == EditorTool.STAGE -> StageEditorScreen(state)
+                state.tool == EditorTool.WEEK -> WeekEditorScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)
                 else -> FilesScreen(state)
             }

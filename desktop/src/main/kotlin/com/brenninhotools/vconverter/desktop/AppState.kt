@@ -22,6 +22,10 @@ enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphic
     CHARACTER(
         "Character Editor", Palette.Left,
         "Open a character or a spritesheet, then drag the sprite to fix the offsets of each animation. Space plays, the arrow keys move the offset (Shift for 10), W / S pick the animation, Ctrl+Z / Ctrl+Y undo and redo, the mouse wheel zooms."
+    ),
+    WEEK(
+        "Week Editor", Palette.Right,
+        "Open a week or start a new one. Click a menu character in the story menu preview and drag it to move it; the arrow keys nudge it (Shift for 10), Enter plays the confirm animation, Left / Right change the difficulty shown, Ctrl+Z / Ctrl+Y undo and redo."
     )
 }
 
@@ -33,6 +37,7 @@ class AppState(private val scope: CoroutineScope) {
     val editor = DesktopEditor(scope)
     val characterEditor = DesktopCharacterEditor(scope)
     val stageEditor = DesktopStageEditor(scope)
+    val weekEditor = DesktopWeekEditor(scope)
 
     private val mods = Direction.entries.associateWith { ModTabState(it) }
     private val tabs = HashMap<Pair<Direction, Tab>, FileTabState>()
@@ -59,6 +64,7 @@ class AppState(private val scope: CoroutineScope) {
             EditorTool.CHART -> editor.open(list)
             EditorTool.CHARACTER -> characterEditor.open(list)
             EditorTool.STAGE -> stageEditor.open(list)
+            EditorTool.WEEK -> weekEditor.open(list)
             null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
         }
     }

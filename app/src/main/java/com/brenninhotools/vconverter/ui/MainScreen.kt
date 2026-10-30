@@ -80,8 +80,6 @@ import com.brenninhotools.vconverter.ui.weeks.WeeksViewModel
 import com.brenninhotools.vconverter.ui.theme.Funkin
 import com.brenninhotools.vconverter.ui.editor.CharacterEditorScreen
 import com.brenninhotools.vconverter.ui.editor.CharacterEditorViewModel
-import com.brenninhotools.vconverter.ui.generator.LevelGenScreen
-import com.brenninhotools.vconverter.ui.generator.LevelGenViewModel
 import com.brenninhotools.vconverter.ui.generator.ModGenScreen
 import com.brenninhotools.vconverter.ui.generator.ModGenViewModel
 import com.brenninhotools.vconverter.ui.editor.ChartEditorScreen
@@ -90,6 +88,8 @@ import com.brenninhotools.vconverter.ui.generator.ScriptGenScreen
 import com.brenninhotools.vconverter.ui.generator.ScriptGenViewModel
 import com.brenninhotools.vconverter.ui.editor.StageEditorScreen
 import com.brenninhotools.vconverter.ui.editor.StageEditorViewModel
+import com.brenninhotools.vconverter.ui.editor.WeekEditorScreen
+import com.brenninhotools.vconverter.ui.editor.WeekEditorViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import com.brenninhotools.vconverter.ui.codename.CodenameCharactersViewModel
@@ -212,7 +212,7 @@ enum class GenTab(
     SONG("Chart", R.drawable.ic_tab_chart, Funkin.Down, "Chart Editor", "Start a song or open any chart, then place notes, events and BPM changes to the music."),
     CHARACTER("Char", R.drawable.ic_tab_character, Funkin.Left, "Character Editor", "Open any character or a spritesheet, then preview the animations and fix offsets, camera and scale."),
     STAGE("Stage", R.drawable.ic_tab_stage, Funkin.Up, "Stage Editor", "Open any stage or start from your images, then place props and characters with the game camera in view."),
-    LEVEL("Level", R.drawable.ic_tab_week, Funkin.Right, "New level", "A story mode week with songs and menu characters."),
+    WEEK("Week", R.drawable.ic_tab_week, Funkin.Right, "Week Editor", "Open any week or start a new one, then lay out the story menu, its songs and how it unlocks."),
     SCRIPT("Script", R.drawable.ic_tab_script, Funkin.Lavender, "New script", "Ready-to-edit .hxc classes for V-Slice.")
 }
 
@@ -229,7 +229,7 @@ fun MainScreen() {
     val genSong: ChartEditorViewModel = viewModel()
     val genCharacter: CharacterEditorViewModel = viewModel()
     val genStage: StageEditorViewModel = viewModel()
-    val genLevel: LevelGenViewModel = viewModel()
+    val genWeek: WeekEditorViewModel = viewModel()
     val genScript: ScriptGenViewModel = viewModel()
     val revMod: ReverseModViewModel = viewModel()
     val revCharts: ReverseChartsViewModel = viewModel()
@@ -302,7 +302,7 @@ fun MainScreen() {
         GenTab.SONG -> genSong
         GenTab.CHARACTER -> genCharacter
         GenTab.STAGE -> genStage
-        GenTab.LEVEL -> genLevel
+        GenTab.WEEK -> genWeek
         GenTab.SCRIPT -> genScript
         else -> mod
     }
@@ -429,7 +429,7 @@ fun MainScreen() {
                         GenTab.SONG -> ChartEditorScreen(genSong, folderName, save)
                         GenTab.CHARACTER -> CharacterEditorScreen(genCharacter, folderName, save)
                         GenTab.STAGE -> StageEditorScreen(genStage, folderName, save)
-                        GenTab.LEVEL -> LevelGenScreen(genLevel, folderName, save)
+                        GenTab.WEEK -> WeekEditorScreen(genWeek, folderName, save)
                         GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)
                     }
                     Spacer(Modifier.size(24.dp))

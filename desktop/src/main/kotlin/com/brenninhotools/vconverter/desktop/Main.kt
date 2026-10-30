@@ -47,6 +47,7 @@ fun main() {
                     EditorTool.CHART -> editorShortcut(state.editor.editor, event)
                     EditorTool.CHARACTER -> characterShortcut(state.characterEditor.editor, event)
                     EditorTool.STAGE -> stageShortcut(state.stageEditor.editor, event)
+                    EditorTool.WEEK -> weekShortcut(state.weekEditor.editor, event)
                     null -> false
                 }
             }
