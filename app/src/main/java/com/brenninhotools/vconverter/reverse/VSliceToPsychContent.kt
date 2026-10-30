@@ -264,6 +264,25 @@ object VSliceToPsychStage {
 
     private fun num(value: Double): String = value.toJsonNumber().toString()
 
+    private fun propNames(stage: VStage): List<String> {
+        val used = HashSet<String>()
+        return stage.props.mapIndexed { index, prop ->
+            var name = prop.name.ifBlank { "prop$index" }
+            var n = 2
+            while (!used.add(name)) name = "${prop.name.ifBlank { "prop$index" }}${n++}"
+            name
+        }
+    }
+
+    fun layers(stage: VStage): Map<String, Int> {
+        val result = LinkedHashMap<String, Int>()
+        propNames(stage).forEachIndexed { index, name -> result[name] = stage.props[index].zIndex }
+        if (stage.girlfriend.alpha > 0.0) result["gfGroup"] = stage.girlfriend.zIndex
+        result["dadGroup"] = stage.dad.zIndex
+        result["boyfriendGroup"] = stage.boyfriend.zIndex
+        return result.entries.sortedBy { it.value }.associate { it.key to it.value }
+    }
+
     fun convert(id: String, stage: VStage, atlas: (String) -> SparrowAtlas? = { null }): ReverseResult {
         val report = ReportBuilder()
         val objects = mutableListOf<Pair<Int, JSONObject>>()
@@ -280,11 +299,9 @@ object VSliceToPsychStage {
         var pixel = false
         var bops = 0
         var fixedOffsets = 0
-        val used = HashSet<String>()
+        val names = propNames(stage)
         stage.props.forEachIndexed { index, prop ->
-            var name = prop.name.ifBlank { "prop$index" }
-            var n = 2
-            while (!used.add(name)) name = "${prop.name.ifBlank { "prop$index" }}${n++}"
+            val name = names[index]
             val obj = JSONObject()
             val solid = prop.assetPath.startsWith("#")
             val animated = prop.animations.isNotEmpty() && !solid

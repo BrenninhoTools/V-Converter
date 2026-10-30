@@ -65,7 +65,8 @@ class TestSong extends Song
         val result = HxcToPsych.convert("test.hxc", hxc)
         val text = result.files.first().content
         assertTrue(text, text.contains("for (snd in get_CACHE_PATHS())"))
-        assertTrue(text, text.contains("null;"))
+        assertTrue(text, text.contains("    Paths.sound(snd);"))
+        assertFalse(text, text.contains("null;"))
         assertFalse(text, text.contains("FunkinMemory"))
         assertFalse(text, text.contains("HapticUtil"))
         assertTrue(text, text.contains("set_level(3);"))
@@ -79,8 +80,8 @@ class TestSong extends Song
         assertTrue(text, text.contains("hasBeatenSong('test')"))
         assertTrue(text, text.contains("function hasBeatenSong("))
         assertTrue(text, text.contains("import backend.Highscore;"))
-        assertTrue(result.notes.toString(), result.notes.any { it.startsWith("Line 42: V-Slice callback onSongRetry") })
-        assertTrue(result.notes.toString(), result.notes.any { it.startsWith("Line 39:") && it.contains("currentStage") })
+        assertTrue(result.notes.toString(), result.notes.any { it.startsWith("Line 42: onSongRetry was dropped") })
+        assertTrue(text, text.contains("game.add(bg);"))
         assertTrue(result.notes.toString(), result.notes.any { it.startsWith("Line 10: property CACHE_PATHS") })
     }
 

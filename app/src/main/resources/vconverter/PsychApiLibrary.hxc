@@ -7,11 +7,13 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
 import funkin.Conductor;
+import funkin.FunkinMemory;
 import funkin.Highscore;
 import funkin.Paths;
 import funkin.PlayerSettings;
 import funkin.Preferences;
 import funkin.audio.FunkinSound;
+import funkin.data.character.CharacterDataParser;
 import funkin.data.song.SongRegistry;
 import funkin.graphics.FunkinSprite;
 import funkin.play.cutscene.VideoCutscene;
@@ -271,7 +273,20 @@ class PsychApiLibrary extends Module
         var first:Dynamic = resolve(a[0]);
         var second:Dynamic = resolve(a[1]);
         return first != null && second != null && first.overlaps(second);
-      case "precacheImage", "precacheSound", "precacheMusic", "addCharacterToList", "setTimeBarColors", "setRatingPercent", "setRatingName", "setRatingFC", "updateScoreText", "flushSaveData", "addHaxeLibrary", "cameraZoomOnBeat":
+      case "precacheImage":
+        FunkinMemory.cacheTexture(Paths.image(Std.string(a[0])));
+        return null;
+      case "precacheSound":
+        FunkinMemory.cacheSound(Paths.sound(Std.string(a[0])));
+        return null;
+      case "precacheMusic":
+        FunkinMemory.cacheSound(Paths.music(Std.string(a[0])));
+        return null;
+      case "addCharacterToList":
+        var data:Dynamic = CharacterDataParser.fetchCharacterData(Std.string(a[0]));
+        if (data != null && data.assetPath != null) FunkinMemory.cacheTexture(Paths.image(data.assetPath));
+        return null;
+      case "setTimeBarColors", "setRatingPercent", "setRatingName", "setRatingFC", "updateScoreText", "flushSaveData", "addHaxeLibrary", "cameraZoomOnBeat":
         return null;
       case "makeLuaText": return makeLuaText(a[0], arg(a, 1, ""), num(a[2], 0), num(a[3], 0), num(a[4], 0));
       case "addLuaText": return addLuaText(a[0]);

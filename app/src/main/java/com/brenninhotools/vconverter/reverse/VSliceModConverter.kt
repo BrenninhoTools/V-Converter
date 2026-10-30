@@ -128,6 +128,7 @@ class VSliceModConverter(
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.levels.size + scan.scripts.size + scan.assets.size + 2
 
     private val atlasCache = HashMap<String, SparrowAtlas?>()
+    private val stageLayers = HashMap<String, Map<String, Int>>()
 
     private fun stageAtlas(image: String): SparrowAtlas? = atlasCache.getOrPut(image.lowercase()) {
         val xml = index["${scan.root}images/$image.xml".lowercase()] ?: return@getOrPut null
@@ -187,6 +188,7 @@ class VSliceModConverter(
             try {
                 val stage = VSliceParser.stage(files.readText(path))
                 zooms[id] = stage.cameraZoom
+                stageLayers[id] = VSliceToPsychStage.layers(stage)
                 val result = VSliceToPsychStage.convert(id, stage, ::stageAtlas)
                 write(result.path, result.json)
                 result.extra.forEach { (path, text) -> write(path, text) }
@@ -341,7 +343,7 @@ class VSliceModConverter(
         scan.scripts.forEach { path ->
             step("Script ${path.substringAfterLast('/')}")
             try {
-                val result = HxcToPsych.convert(path.substringAfterLast('/'), files.readText(path))
+                val result = HxcToPsych.convert(path.substringAfterLast('/'), files.readText(path)) { stageLayers[it] }
                 result.files.forEach { write(it.path, it.content) }
                 results += scan.relative(path) to result
             } catch (e: Exception) {

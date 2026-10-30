@@ -49,7 +49,7 @@ object HxcToPsych {
         else -> HxcKind.OTHER
     }
 
-    fun convert(fileName: String, source: String): HxcResult {
+    fun convert(fileName: String, source: String, stageLayers: (String) -> Map<String, Int>? = { null }): HxcResult {
         val notes = mutableListOf<String>()
         val strings = mutableListOf<String>()
         val clean = protect(source, strings)
@@ -132,35 +132,67 @@ object HxcToPsych {
             "onStateChangeBegin", "onStateChangeEnd", "onSubStateOpenBegin", "onSubStateOpenEnd", "onSubStateCloseBegin", "onSubStateCloseEnd",
             "onFocusLost", "onFocusGained", "onAdd", "onDialogueStart", "onDialogueLine", "onDialogueEnd", "onDialogueSkip", "onDialogueCompleteLine"
         )
-        var hasCreate = false
+        val emitted = LinkedHashMap<String, Pair<String, MutableList<String>>>()
+        fun put(name: String, params: String, body: String, first: Boolean = false) {
+            val entry = emitted.getOrPut(name) { params to mutableListOf() }
+            if (body.isBlank()) return
+            if (first) entry.second.add(0, dedent(body)) else entry.second.add(dedent(body))
+        }
+        var createBody = ""
+        var buildBody = ""
+        var precache = false
+        var characterHook = false
+        val isStage = kind == HxcKind.STAGE
         members.filter { it.isFunction }.forEach { member ->
             val body = accessors(stripSuper(member.body), member.name)
             when (member.name) {
                 "new", "getTitle", "getEventSchema" -> Unit
                 "onCreate" -> {
-                    hasCreate = true
-                    emit(out, "onCreate", "", joinBody(ctorExtra, rewriteEvent(body, notes, "onCreate")))
+                    createBody = rewriteEvent(body, notes, "onCreate")
+                    put("onCreate", "", "")
                 }
-                "onUpdate" -> emit(out, "onUpdate", "elapsed:Float", rewriteEvent(body, notes, "onUpdate"))
-                "onBeatHit" -> emit(out, "onBeatHit", "", rewriteEvent(body, notes, "onBeatHit"))
-                "onStepHit" -> emit(out, "onStepHit", "", rewriteEvent(body, notes, "onStepHit"))
-                "onCountdownStart" -> emit(out, "onStartCountdown", "", rewriteEvent(body, notes, "cancel"))
-                "onCountdownStep" -> emit(out, "onCountdownTick", "tick:Dynamic, swagCounter:Int", rewriteEvent(body, notes, "countdown"))
-                "onSongStart" -> emit(out, "onSongStart", "", rewriteEvent(body, notes, "plain"))
-                "onSongEnd" -> emit(out, "onEndSong", "", rewriteEvent(body, notes, "cancel"))
-                "onPause" -> emit(out, "onPause", "", rewriteEvent(body, notes, "cancel"))
-                "onResume" -> emit(out, "onResume", "", rewriteEvent(body, notes, "plain"))
-                "onGameOver" -> emit(out, "onGameOver", "", rewriteEvent(body, notes, "cancel"))
-                "onDestroy" -> emit(out, "onDestroy", "", rewriteEvent(body, notes, "plain"))
+                "buildStage" -> if (isStage) {
+                    buildBody = rewrite(body, notes)
+                    put("onCreate", "", "")
+                    notes += "${at(lineOf(source, Regex("\\bfunction\\s+buildStage\\s*\\(")))}buildStage() runs at the start of onCreate, after Psych has built the stage objects from the stage JSON."
+                } else put(member.name, rewrite(member.params, notes), rewrite(body, notes))
+                "fetchAssetPaths" -> {
+                    precache = true
+                    var inner = Regex("\\bsuper\\.fetchAssetPaths\\(\\s*\\)").replace(body, "[]")
+                    inner = Regex("Array\\s*<\\s*String\\s*>").replace(inner, "Array<Dynamic>")
+                    put("precacheAssets", "", rewrite(inner, notes))
+                    notes += "${at(lineOf(source, Regex("\\bfunction\\s+fetchAssetPaths\\s*\\(")))}fetchAssetPaths() became precacheAssets(), called from onCreate: every Paths.image()/Paths.sound() in it caches the asset in Psych."
+                }
+                "addCharacter" -> if (isStage) {
+                    characterHook = true
+                    put("addCharacter", "character:Character, charType:String", rewrite(body, notes))
+                    notes += "${at(lineOf(source, Regex("\\bfunction\\s+addCharacter\\s*\\(")))}addCharacter() is called from onCreate for boyfriend, dad and gf, since Psych adds the characters before stage scripts start."
+                } else put(member.name, rewrite(member.params, notes), rewrite(body, notes))
+                "onUpdate" -> put("onUpdate", "elapsed:Float", rewriteEvent(body, notes, "onUpdate"))
+                "onBeatHit" -> put("onBeatHit", "", rewriteEvent(body, notes, "onBeatHit"))
+                "onStepHit" -> put("onStepHit", "", rewriteEvent(body, notes, "onStepHit"))
+                "onCountdownStart" -> put("onStartCountdown", "", rewriteEvent(body, notes, "cancel"))
+                "onCountdownStep" -> put("onCountdownTick", "tick:Dynamic, swagCounter:Int", rewriteEvent(body, notes, "countdown"))
+                "onCountdownEnd" -> {
+                    put("onSongStart", "", rewriteEvent(body, notes, "plain"), first = true)
+                    notes += "${at(lineOf(source, Regex("\\bfunction\\s+onCountdownEnd\\s*\\(")))}onCountdownEnd became the start of onSongStart, which Psych calls right when the countdown ends."
+                }
+                "onSongStart" -> put("onSongStart", "", rewriteEvent(body, notes, "plain"))
+                "onSongEnd" -> put("onEndSong", "", rewriteEvent(body, notes, "cancel"))
+                "onPause" -> put("onPause", "", rewriteEvent(body, notes, "cancel"))
+                "onResume" -> put("onResume", "", rewriteEvent(body, notes, "plain"))
+                "onGameOver" -> put("onGameOver", "", rewriteEvent(body, notes, "cancel"))
+                "onDestroy" -> put("onDestroy", "", rewriteEvent(body, notes, "plain"))
+                "onSongRetry" -> notes += "${at(lineOf(source, Regex("\\bfunction\\s+onSongRetry\\s*\\(")))}onSongRetry was dropped: Psych reloads the song and its scripts on restart, so onCreate runs again instead."
                 "onNoteHit" -> {
                     val inner = rewriteEvent(body, notes, "note")
-                    emit(out, "goodNoteHit", "note:Note", joinBody(guard ?: "", inner))
-                    emit(out, "opponentNoteHit", "note:Note", joinBody(guard ?: "", inner))
+                    put("goodNoteHit", "note:Note", joinBody(guard ?: "", inner))
+                    put("opponentNoteHit", "note:Note", joinBody(guard ?: "", inner))
                 }
-                "onNoteMiss" -> emit(out, "noteMiss", "note:Note", joinBody(guard ?: "", rewriteEvent(body, notes, "note")))
-                "onNoteIncoming" -> emit(out, "onSpawnNote", "note:Note", joinBody(guard ?: "", rewriteEvent(body, notes, "note")))
-                "onNoteGhostMiss" -> emit(out, "noteMissPress", "direction:Int", rewriteEvent(body, notes, "ghost"))
-                "onSongEvent" -> emit(out, "onEvent", "eventName:String, value1:String, value2:String, strumTime:Float", rewriteEvent(body, notes, "songEvent"))
+                "onNoteMiss" -> put("noteMiss", "note:Note", joinBody(guard ?: "", rewriteEvent(body, notes, "note")))
+                "onNoteIncoming" -> put("onSpawnNote", "note:Note", joinBody(guard ?: "", rewriteEvent(body, notes, "note")))
+                "onNoteGhostMiss" -> put("noteMissPress", "direction:Int", rewriteEvent(body, notes, "ghost"))
+                "onSongEvent" -> put("onEvent", "eventName:String, value1:String, value2:String, strumTime:Float", rewriteEvent(body, notes, "songEvent"))
                 "handleEvent" -> {
                     var inner = rewriteEvent(body, notes, "handleEvent")
                     schemaFields.forEachIndexed { index, field ->
@@ -183,19 +215,45 @@ object HxcToPsych {
                         inner = Regex("\\beventValue\\b").replace(inner, "value1")
                         notes += "The event value object became value1 (a string in Psych); check how it is read."
                     }
-                    emit(out, "onEvent", "eventName:String, value1:String, value2:String, strumTime:Float", joinBody("if (eventName != ${quote(targetId)}) return;", inner))
+                    put("onEvent", "eventName:String, value1:String, value2:String, strumTime:Float", joinBody("if (eventName != ${quote(targetId)}) return;", inner))
                 }
                 in callbackNames -> notes += "${at(lineOf(source, Regex("\\bfunction\\s+${member.name}\\s*\\(")))}V-Slice callback ${member.name} has no Psych equivalent and was dropped."
-                else -> {
-                    val params = rewrite(member.params, notes)
-                    emit(out, member.name, params, rewrite(body, notes))
-                }
+                else -> put(member.name, rewrite(member.params, notes), rewrite(body, notes))
             }
         }
-        if (!hasCreate && ctorExtra.isNotBlank()) emit(out, "onCreate", "", ctorExtra)
+        val everything = out.toString() + emitted.values.joinToString("\n") { it.second.joinToString("\n") } + buildBody + createBody
+        val usesLayers = Regex("\\.zIndex\\b|\\bgame\\.(currentStage\\.)?(refresh|addProp|addBopper)\\s*\\(").containsMatchIn(everything) ||
+            (isStage && Regex("(?<![\\w.])(refresh|addProp|addBopper)\\s*\\(").containsMatchIn(everything) && members.none { it.name == "refresh" || it.name == "addProp" })
+        val tail = buildList {
+            if (precache) add("precacheAssets();")
+            if (characterHook) {
+                add("addCharacter(boyfriend, 'bf');")
+                add("addCharacter(dad, 'dad');")
+                add("if (gf != null) addCharacter(gf, 'gf');")
+            }
+        }.joinToString("\n")
+        val created = listOf(ctorExtra, buildBody, if (buildBody.isNotBlank() && usesLayers) "refresh();" else "", createBody, tail).filter { it.isNotBlank() }.joinToString("\n") { dedent(it) }
+        if (created.isNotBlank()) {
+            val entry = emitted.getOrPut("onCreate") { "" to mutableListOf() }
+            entry.second.clear()
+            entry.second += created
+        } else emitted.remove("onCreate")
+        val functionText = StringBuilder()
+        emitted.forEach { (name, entry) ->
+            if (entry.second.isEmpty() && name in psychCallbacks) return@forEach
+            emit(functionText, name, entry.first, entry.second.joinToString("\n"))
+        }
+        val protectedText = passes(out.toString() + functionText.toString(), kind, members.map { it.name }.toSet(), notes, source, usesLayers)
+        out.setLength(0)
+        out.append(protectedText)
 
         var text = restore(out.toString(), strings)
-        text = Regex("\\b(HapticUtil|FunkinMemory)\\.[A-Za-z_]+\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\)").replace(text, "null")
+        if (usesLayers) text += "\n" + layerHelper(stageLayers(targetId.ifBlank { className }))
+        if (Regex("\\bnewAdjustColorShader\\(").containsMatchIn(text)) text += "\n" + ADJUST_COLOR_HELPER
+        if (Regex("\\bstartSequence\\(").containsMatchIn(text)) {
+            text += "\n" + SEQUENCE_HELPER
+            if (!text.contains("import flixel.util.FlxTimer;")) text = "import flixel.util.FlxTimer;\n" + text
+        }
         if (Regex("\\bfunkinSprite\\(").containsMatchIn(text)) text += "\n" + FUNKIN_SPRITE_HELPER
         if (Regex("\\bfunkinSparrow\\(").containsMatchIn(text)) text += "\n" + FUNKIN_SPARROW_HELPER
         if (Regex("(?<![\\w.])hasBeatenSong\\(").containsMatchIn(text) && !Regex("function\\s+hasBeatenSong\\b").containsMatchIn(text)) text += "\n" + BEATEN_SONG_HELPER
@@ -207,7 +265,7 @@ object HxcToPsych {
                 notes += "${at(lineOf(source, Regex("(?<![\\w.])${Regex.escape(cls)}\\b(?!;)"), skipImports = true))}$cls is V-Slice only and still used; Psych has no $cls, so that code needs a rewrite."
             }
         }
-        Regex("\\bgame\\.(currentStage|currentSong|currentChart|currentVariation|currentDifficulty|currentStageId|vocals|songScore|isMinimalMode)\\b").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
+        Regex("\\bgame\\.(currentStage|currentSong|currentChart|currentVariation|currentDifficulty|currentStageId|songScore|isMinimalMode)\\b").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
             notes += "${at(lineOf(source, Regex("\\.${Regex.escape(field)}\\b")))}PlayState.instance.$field is V-Slice only; Psych's PlayState has no $field."
         }
         Regex("\\bConductor\\.instance\\.([A-Za-z_]+)").findAll(stripped).map { it.groupValues[1] }.distinct().forEach { field ->
@@ -248,6 +306,325 @@ object HxcToPsych {
         if (Regex("\\bfunkin(Sprite|Sparrow)\\(").containsMatchIn(text)) notes += "FunkinSprite.create/createSparrow became small funkinSprite()/funkinSparrow() helpers at the end of the script."
         return HxcResult(kind, className, targetId, files, notes.distinct())
     }
+
+    private const val NOOP = "\u0002"
+
+    private val psychCallbacks = setOf(
+        "onCreate", "onUpdate", "onBeatHit", "onStepHit", "onStartCountdown", "onCountdownTick", "onSongStart", "onEndSong", "onPause", "onResume",
+        "onGameOver", "onDestroy", "goodNoteHit", "opponentNoteHit", "noteMiss", "onSpawnNote", "noteMissPress", "onEvent"
+    )
+
+    private fun dedent(body: String): String {
+        val lines = body.trimEnd().lines().dropWhile { it.isBlank() }
+        val indent = lines.filter { it.isNotBlank() }.minOfOrNull { it.length - it.trimStart().length } ?: 0
+        return lines.joinToString("\n") { if (it.isBlank()) "" else it.drop(indent) }
+    }
+
+    private fun splitArgs(inner: String): List<String> {
+        val args = mutableListOf<String>()
+        var depth = 0
+        val current = StringBuilder()
+        inner.forEach { c ->
+            when (c) {
+                '(', '[', '{' -> depth++
+                ')', ']', '}' -> depth--
+            }
+            if (c == ',' && depth == 0) {
+                args += current.toString().trim()
+                current.setLength(0)
+            } else current.append(c)
+        }
+        if (current.isNotBlank() || args.isNotEmpty()) args += current.toString().trim()
+        return args
+    }
+
+    private fun calls(text: String, pattern: Regex, transform: (MatchResult, List<String>) -> String?): String {
+        val sb = StringBuilder()
+        var index = 0
+        while (true) {
+            val m = pattern.find(text, index) ?: break
+            val open = m.range.last
+            val close = matchParen(text, open)
+            if (close >= text.length) break
+            val replaced = transform(m, splitArgs(text.substring(open + 1, close)))
+            sb.append(text, index, m.range.first)
+            if (replaced == null) {
+                sb.append(text, m.range.first, open + 1)
+                index = open + 1
+            } else {
+                sb.append(replaced)
+                index = close + 1
+            }
+        }
+        sb.append(text.substring(index))
+        return sb.toString()
+    }
+
+    private fun dropNoops(text: String): String {
+        val lines = text.lines().toMutableList()
+        val keep = mutableListOf<String>()
+        lines.forEach { line ->
+            if (line.trim() == "$NOOP;") {
+                val previous = keep.lastOrNull { it.isNotBlank() }?.substringBefore("//")?.trimEnd().orEmpty()
+                if (previous.endsWith("{") || previous.endsWith(";") || previous.endsWith("}")) return@forEach
+            }
+            keep += line
+        }
+        return keep.joinToString("\n").replace(NOOP, "null")
+    }
+
+    private val ansiStyles = "bg_[a-z_]+|bold|dim|italic|underline|blink|inverse|hidden|strikethrough|black|red|green|yellow|blue|magenta|cyan|white|gray|grey|reset"
+
+    private fun passes(input: String, kind: HxcKind, memberNames: Set<String>, notes: MutableList<String>, source: String, layers: Boolean): String {
+        var t = input
+        var libraries = false
+        t = calls(t, Regex("\\bPaths\\.(image|sound|music|getSparrowAtlas|getPackerAtlas|txt|json)\\s*\\(")) { m, args ->
+            if (args.size >= 2) "Paths.${m.groupValues[1]}(${args[0]})".also { libraries = true } else null
+        }
+        t = calls(t, Regex("\\bPaths\\.soundRandom\\s*\\(")) { _, args -> if (args.size >= 4) "Paths.soundRandom(${args.take(3).joinToString(", ")})".also { libraries = true } else null }
+        if (libraries) {
+            notes += "V-Slice library names (\"week4\", \"shared\"…) were removed from Paths calls; Psych finds the files in the mod folder."
+        }
+        val memory = Regex("\\bFunkinMemory\\.([A-Za-z_]+)\\s*\\(")
+        if (memory.containsMatchIn(t)) notes += "FunkinMemory caching became Psych's caching: Paths.image()/Paths.sound() load and keep the asset, and the purge calls were removed (Psych clears its cache between songs)."
+        t = calls(t, memory) { m, args ->
+            val arg = args.firstOrNull().orEmpty()
+            when (m.groupValues[1]) {
+                "cacheTexture", "permanentCacheTexture" -> if (arg.startsWith("Paths.image(")) arg else "FlxG.bitmap.add($arg)"
+                "cacheSound", "permanentCacheSound" -> if (Regex("^Paths\\.(sound|music|soundRandom|inst|voices)\\(").containsMatchIn(arg)) arg else "FlxG.sound.cache($arg)"
+                "getCachedGraphic" -> "FlxG.bitmap.get($arg)"
+                "isTextureCached" -> "FlxG.bitmap.checkCache($arg)"
+                else -> NOOP
+            }
+        }
+        t = calls(t, Regex("\\bHapticUtil\\.[A-Za-z_]+\\s*\\(")) { _, _ -> NOOP }
+        t = Regex("\\bHapticUtil\\.[A-Za-z_]+\\b").replace(t, "false")
+        t = Regex("(\u0001\\d+\u0001)((?:\\.(?:$ansiStyles)\\(\\s*\\))+)").replace(t) { it.groupValues[1] }
+
+        val sequences = (Regex("\\bvar\\s+([A-Za-z_]\\w*)\\s*:\\s*Sequence\\b").findAll(t).map { it.groupValues[1] } +
+            Regex("\\b([A-Za-z_]\\w*)\\s*=\\s*new\\s+Sequence\\s*\\(").findAll(t).map { it.groupValues[1] }).toSet()
+        if (sequences.isNotEmpty() || Regex("\\bnew\\s+Sequence\\s*\\(").containsMatchIn(t)) {
+            t = Regex("\\bnew\\s+Sequence\\s*\\(").replace(t, "startSequence(")
+            t = Regex(":\\s*Sequence\\b").replace(t, ":Array<FlxTimer>")
+            t = Regex("Array\\s*<\\s*Sequence(Data|Event)\\s*>").replace(t, "Array<Dynamic>")
+            sequences.forEach { name ->
+                val n = Regex.escape(name)
+                t = Regex("(?<![\\w.])$n\\.running\\s*=(?!=)\\s*([^;]+);").replace(t) { "setSequenceRunning($name, ${it.groupValues[1].trim()});" }
+                t = Regex("(?<![\\w.])$n\\.running\\b").replace(t, "sequenceRunning($name)")
+                t = Regex("(?<![\\w.])$n\\.completed\\b").replace(t, "!sequenceRunning($name)")
+                t = Regex("(?<![\\w.])$n\\.(destroy|stop|clear)\\s*\\(\\s*\\)").replace(t, "stopSequence($name)")
+                t = Regex("(?<![\\w.])$n\\.start\\s*\\(\\s*\\)").replace(t, "restartSequence($name)")
+            }
+            notes += "funkin.util.Sequence became a list of FlxTimers made by startSequence() (helpers at the end of the script)."
+        }
+
+        val adjusters = (Regex("\\bvar\\s+([A-Za-z_]\\w*)\\s*:\\s*AdjustColorShader\\b").findAll(t).map { it.groupValues[1] } +
+            Regex("\\b([A-Za-z_]\\w*)\\s*=\\s*new\\s+AdjustColorShader\\s*\\(").findAll(t).map { it.groupValues[1] }).toSet()
+        if (adjusters.isNotEmpty() || Regex("\\bnew\\s+AdjustColorShader\\s*\\(").containsMatchIn(t)) {
+            t = Regex("\\bnew\\s+AdjustColorShader\\s*\\(\\s*\\)").replace(t, "newAdjustColorShader()")
+            t = Regex(":\\s*AdjustColorShader\\b").replace(t, ":Dynamic")
+            adjusters.forEach { name ->
+                t = Regex("(?<![\\w.])${Regex.escape(name)}\\.(hue|saturation|brightness|contrast)\\s*=(?!=)\\s*([^;]+);").replace(t) {
+                    "setAdjustColor($name, '${it.groupValues[1]}', ${it.groupValues[2].trim()});"
+                }
+            }
+            notes += "AdjustColorShader became game.createRuntimeShader('adjustColor') with setAdjustColor() doing V-Slice's color math (helpers at the end of the script). Copy adjustColor.frag from the base game's shaders folder into the mod's shaders/ folder."
+        }
+
+        t = Regex("\\bgame\\.vocals\\.opponentVolume\\b").replace(t, "game.opponentVocals.volume")
+        t = Regex("\\bgame\\.vocals\\.playerVolume\\b").replace(t, "game.vocals.volume")
+        t = Regex("\\bgame\\.currentStage\\.members\\b").replace(t, "game.members")
+        t = Regex("\\bgame\\.currentStage\\.(add|remove|insert)\\s*\\(").replace(t) { "game.${it.groupValues[1]}(" }
+        if (kind == HxcKind.STAGE) {
+            listOf("add", "remove", "insert").filter { it !in memberNames }.forEach { name ->
+                t = Regex("(?<![\\w.])$name\\s*\\(").replace(t, "game.$name(")
+            }
+        }
+        if (layers) {
+            val target = "([A-Za-z_][\\w.]*(?:\\(\\s*\\))?)"
+            t = Regex("$target\\.zIndex\\s*([+\\-*/])=\\s*([^;]+);").replace(t) { "setZIndex(${it.groupValues[1]}, getZIndex(${it.groupValues[1]}) ${it.groupValues[2]} (${it.groupValues[3].trim()}));" }
+            t = Regex("$target\\.zIndex\\s*=(?!=)\\s*([^;]+);").replace(t) { "setZIndex(${it.groupValues[1]}, ${it.groupValues[2].trim()});" }
+            t = Regex("$target\\.zIndex\\b").replace(t) { "getZIndex(${it.groupValues[1]})" }
+            t = Regex("\\bgame\\.(currentStage\\.)?refresh\\s*\\(").replace(t, "refreshZ(")
+            t = Regex("\\bgame\\.currentStage\\.(addProp|addBopper)\\s*\\(").replace(t, "addProp(")
+            if (kind == HxcKind.STAGE) {
+                if ("refresh" !in memberNames) t = Regex("(?<![\\w.])refresh\\s*\\(").replace(t, "refreshZ(")
+                if ("addBopper" !in memberNames) t = Regex("(?<![\\w.])addBopper\\s*\\(").replace(t, "addProp(")
+            }
+            notes += "zIndex and refresh() became setZIndex()/getZIndex()/refreshZ() (helpers at the end of the script), which reorder the stage objects, characters and new props like V-Slice does."
+        }
+        return dropNoops(t)
+    }
+
+    private fun layerHelper(layers: Map<String, Int>?): String {
+        val table = (layers ?: mapOf("gfGroup" to 100, "dadGroup" to 200, "boyfriendGroup" to 300))
+            .entries.joinToString(", ") { "{name: ${quote(it.key)}, z: ${it.value}}" }
+        return """
+var stageLayers:Array<Dynamic> = [$table];
+var layerObjects:Array<Dynamic> = [];
+
+function layerTarget(obj:Dynamic):Dynamic
+{
+  if (obj == game.boyfriend) return game.boyfriendGroup;
+  if (obj == game.dad) return game.dadGroup;
+  if (obj == game.gf) return game.gfGroup;
+  return obj;
+}
+
+function layerObject(name:String):Dynamic
+{
+  if (name == "boyfriendGroup") return game.boyfriendGroup;
+  if (name == "dadGroup") return game.dadGroup;
+  if (name == "gfGroup") return game.gfGroup;
+  return getVar(name);
+}
+
+function layerEntry(obj:Dynamic):Dynamic
+{
+  var target:Dynamic = layerTarget(obj);
+  for (entry in layerObjects) if (entry.obj == target) return entry;
+  return null;
+}
+
+function getZIndex(obj:Dynamic):Float
+{
+  var entry:Dynamic = layerEntry(obj);
+  if (entry != null) return entry.z;
+  var target:Dynamic = layerTarget(obj);
+  for (layer in stageLayers) if (layerObject(layer.name) == target) return layer.z;
+  return 0;
+}
+
+function setZIndex(obj:Dynamic, z:Float):Float
+{
+  var entry:Dynamic = layerEntry(obj);
+  if (entry == null) layerObjects.push({obj: layerTarget(obj), z: z});
+  else entry.z = z;
+  return z;
+}
+
+function refreshZ():Void
+{
+  var entries:Array<Dynamic> = [];
+  for (layer in stageLayers)
+  {
+    var obj:Dynamic = layerObject(layer.name);
+    if (obj != null && layerEntry(obj) == null) entries.push({obj: obj, z: layer.z});
+  }
+  for (entry in layerObjects) entries.push(entry);
+  var slots:Array<Int> = [];
+  var placed:Array<Dynamic> = [];
+  for (entry in entries)
+  {
+    var index:Int = game.members.indexOf(entry.obj);
+    if (index >= 0)
+    {
+      slots.push(index);
+      placed.push({obj: entry.obj, z: entry.z, index: index});
+    }
+  }
+  slots.sort(function(a:Int, b:Int):Int return a - b);
+  placed.sort(function(a:Dynamic, b:Dynamic):Int return a.z == b.z ? a.index - b.index : (a.z < b.z ? -1 : 1));
+  for (i in 0...placed.length) game.members[slots[i]] = placed[i].obj;
+}
+
+function addProp(obj:Dynamic, name:String = null):Dynamic
+{
+  if (name != null) setVar(name, obj);
+  if (layerEntry(obj) == null) setZIndex(obj, 0);
+  if (game.members.indexOf(obj) < 0) game.add(obj);
+  refreshZ();
+  return obj;
+}
+""".trimStart('\n')
+    }
+
+    private val ADJUST_COLOR_HELPER = """
+function newAdjustColorShader():Dynamic
+{
+  var shader:Dynamic = game.createRuntimeShader('adjustColor');
+  setAdjustColor(shader, 'hue', 0);
+  setAdjustColor(shader, 'saturation', 0);
+  setAdjustColor(shader, 'brightness', 0);
+  setAdjustColor(shader, 'contrast', 0);
+  return shader;
+}
+
+function setAdjustColor(shader:Dynamic, field:String, value:Float):Float
+{
+  if (shader == null) return value;
+  if (field == 'hue')
+  {
+    var angle:Float = value * Math.PI / 180;
+    var c:Float = Math.cos(angle);
+    var s:Float = Math.sin(angle);
+    shader.setFloatArray('hueMatrix', [
+      0.299 + 0.701 * c - 0.299 * s, 0.587 - 0.587 * c - 0.587 * s, 0.114 - 0.114 * c + 0.886 * s,
+      0.299 - 0.299 * c + 0.143 * s, 0.587 + 0.413 * c + 0.140 * s, 0.114 - 0.114 * c - 0.283 * s,
+      0.299 - 0.299 * c - 0.701 * s, 0.587 - 0.587 * c + 0.587 * s, 0.114 + 0.886 * c + 0.114 * s
+    ]);
+  }
+  else if (field == 'saturation')
+  {
+    var amount:Float = 1 + (value > 0 ? value * 3 : value) / 100;
+    var inv:Float = 1 - amount;
+    shader.setFloatArray('saturationMatrix', [
+      0.2126 * inv + amount, 0.7152 * inv, 0.0722 * inv,
+      0.2126 * inv, 0.7152 * inv + amount, 0.0722 * inv,
+      0.2126 * inv, 0.7152 * inv, 0.0722 * inv + amount
+    ]);
+  }
+  else if (field == 'brightness')
+  {
+    shader.setFloat('brightness', value / 255);
+  }
+  else if (field == 'contrast')
+  {
+    var amount:Float = 1 + value / 100;
+    if (amount > 1) amount = ((0.00852259 * Math.exp(4.76454 * (amount - 1))) * 1.01 - 0.0086078159) * 10 + 1;
+    shader.setFloat('contrast', amount);
+  }
+  return value;
+}
+""".trimStart('\n')
+
+    private val SEQUENCE_HELPER = """
+function startSequence(events:Array<Dynamic>, mult:Float = 1, start:Bool = true):Array<FlxTimer>
+{
+  var timers:Array<FlxTimer> = [];
+  for (event in events)
+  {
+    var callback:Dynamic = event.callback;
+    var timer:FlxTimer = new FlxTimer().start(Math.abs(event.time) * mult, function(_) callback());
+    timer.active = start;
+    timers.push(timer);
+  }
+  return timers;
+}
+
+function sequenceRunning(timers:Array<FlxTimer>):Bool
+{
+  if (timers == null) return false;
+  for (timer in timers) if (timer.active && !timer.finished) return true;
+  return false;
+}
+
+function setSequenceRunning(timers:Array<FlxTimer>, running:Bool):Bool
+{
+  if (timers != null) for (timer in timers) if (!timer.finished) timer.active = running;
+  return running;
+}
+
+function stopSequence(timers:Array<FlxTimer>):Void
+{
+  if (timers != null) for (timer in timers) timer.cancel();
+}
+
+function restartSequence(timers:Array<FlxTimer>):Void
+{
+  if (timers != null) for (timer in timers) timer.reset();
+}
+""".trimStart('\n')
 
     private val FUNKIN_SPRITE_HELPER = """
 function funkinSprite(x:Float, y:Float, ?path:String):FlxSprite
@@ -352,6 +729,15 @@ function hasBeatenLevel(level:String, ?difficulties:Array<String>):Bool
         "\\bgetBoyfriend\\(\\s*\\)" to "boyfriend",
         "\\bgetDad\\(\\s*\\)" to "dad",
         "\\bgetGirlfriend\\(\\s*\\)" to "gf",
+        "\\bgame\\.currentStage\\.getPlayer\\(\\s*\\)" to "boyfriend",
+        "\\bgame\\.currentStage\\.getOpponent\\(\\s*\\)" to "dad",
+        "\\bgetPlayer\\(\\s*\\)" to "boyfriend",
+        "\\bgetOpponent\\(\\s*\\)" to "dad",
+        "\\bCharacterType\\.BF\\b" to "'bf'",
+        "\\bCharacterType\\.DAD\\b" to "'dad'",
+        "\\bCharacterType\\.GF\\b" to "'gf'",
+        "\\bCharacterType\\.OTHER\\b" to "'other'",
+        ":\\s*CharacterType\\b" to ":String",
         "\\bgame\\.cameraFollowPoint\\b" to "game.camFollow",
         "\\bgame\\.currentCameraZoom\\b" to "game.defaultCamZoom",
         "\\bgame\\.defaultCameraZoom\\b" to "game.defaultCamZoom",
