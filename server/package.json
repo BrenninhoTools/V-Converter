@@ -1,0 +1,21 @@
+{
+  "name": "v-converter-server",
+  "version": "0.0.1",
+  "description": "Online server for V-Converter: mod gallery, updates, announcements, error reports and live chart editing rooms",
+  "type": "module",
+  "main": "src/index.js",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "multer": "^2.5.0",
+    "ws": "^8.22.0"
+  }
+}

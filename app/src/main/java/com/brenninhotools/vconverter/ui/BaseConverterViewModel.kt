@@ -34,8 +34,13 @@ typealias ConvertedOutput = com.brenninhotools.vconverter.convert.ConvertedOutpu
 abstract class BaseConverterViewModel(application: Application) : AndroidViewModel(application) {
     var busy by mutableStateOf(false)
         private set
-    var status by mutableStateOf<StatusMessage?>(null)
-        protected set
+    private var statusState by mutableStateOf<StatusMessage?>(null)
+    var status: StatusMessage?
+        get() = statusState
+        protected set(value) {
+            statusState = value
+            if (value is StatusMessage.Error) com.brenninhotools.vconverter.online.ErrorReports.send("conversion", value.text, context = mapOf("screen" to javaClass.simpleName))
+        }
     var output by mutableStateOf<ConvertedOutput?>(null)
         protected set
 

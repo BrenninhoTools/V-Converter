@@ -27,6 +27,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 - [Supported conversions](#supported-conversions)
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
+- [Online server](#online-server)
 - [Building](#building)
 
 ## Download
@@ -327,6 +328,42 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | Mod | `data/config/modpack.ini` from `pack.json`, audio moved to `songs/<song>/song/`, `pack.png` → `icon.png`, assets copied |
 
 ---
+
+## Online server
+
+The `server/` folder holds the V-Converter online server, written in JavaScript (Node.js 22.13+, Express, `ws` and the built-in SQLite). The apps talk to it once its address is typed in the options (the gear): **Server address** and **Send Error Reports** (off by default).
+
+| Feature | In the apps | Server API |
+| --- | --- | --- |
+| Mod gallery | **Online** section on Android (Mods / Share tabs) and **Online** in the sidebar on Windows and Linux: search, filter by engine, sort, download, and upload a `.zip` with title, description, author, engine and tags. Uploading returns a delete key, the only way to remove the mod later | `GET /api/mods`, `GET /api/mods/:id`, `GET /api/mods/:id/download`, `POST /api/mods` (multipart, field `file`), `DELETE /api/mods/:id` (`X-Delete-Token`) |
+| Updates and news | **News** tab: tells you when a newer V-Converter is out (from the latest GitHub release, with the download for your platform) and shows the server's announcements | `GET /api/version?platform=&current=`, `GET /api/announcements?platform=` |
+| Error reports | When enabled, failed conversions and crashes send their message, stack trace, app version and platform | `POST /api/reports` |
+| Live chart editing | **Live session** card under the Chart Editor: start a room and share its 6-letter code, or join one. Notes and events sync as they are placed, other changes (BPM, difficulties, song info) send the whole chart, and late joiners get the current chart. Everyone sees who is in the room, where each one is in the song, and a small chat. Each person loads the song audio on their own device | `POST /api/rooms`, `GET /api/rooms/:code`, WebSocket `/ws?room=CODE&name=NAME` |
+
+Run it:
+
+```
+cd server
+npm ci
+ADMIN_TOKEN=change-me npm start
+```
+
+or with Docker (`docker build -t v-converter-server server` and `docker run -p 3000:3000 -v vconverter-data:/data -e ADMIN_TOKEN=change-me v-converter-server`). Uploaded mods and the SQLite database live in `DATA_DIR`. Put it behind HTTPS (a reverse proxy or a host such as Render, Railway or Fly) and set `TRUST_PROXY=true` there so rate limits see the real client addresses.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PORT` / `HOST` | `3000` / `0.0.0.0` | Where it listens |
+| `DATA_DIR` | `./data` | Uploaded mods and the database |
+| `PUBLIC_URL` | (request host) | Base URL used in download links |
+| `ADMIN_TOKEN` | (empty) | Enables moderation, announcements and reading reports (`Authorization: Bearer <token>`) |
+| `TRUST_PROXY` | `false` | Trust `X-Forwarded-*` from a reverse proxy |
+| `MAX_UPLOAD_MB` | `100` | Largest mod upload |
+| `UPLOADS_PER_HOUR` / `REPORTS_PER_HOUR` / `ROOMS_PER_HOUR` | `10` / `60` / `30` | Per-address rate limits |
+| `GITHUB_REPO` / `GITHUB_TOKEN` | `BrenninhoTools/V-Converter` / (empty) | Where the latest release is read from |
+| `LATEST_VERSION` | (empty) | Version to report when GitHub can't be reached |
+| `ROOM_IDLE_MINUTES` / `MAX_PEERS_PER_ROOM` / `MAX_MESSAGE_MB` | `120` / `16` / `8` | Live editing rooms |
+
+Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.
 
 ## Building
 

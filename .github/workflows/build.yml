@@ -7,11 +7,15 @@ on:
       - "**.md"
       - "LICENSE"
       - ".gitignore"
+      - "server/**"
+      - ".github/workflows/server.yml"
   pull_request:
     paths-ignore:
       - "**.md"
       - "LICENSE"
       - ".gitignore"
+      - "server/**"
+      - ".github/workflows/server.yml"
   workflow_dispatch:
 
 concurrency:

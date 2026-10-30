@@ -41,6 +41,13 @@ class ChartHistory(initial: ChartDocument, private val limit: Int = 200) {
         return current
     }
 
+    fun rebase(transform: (ChartDocument) -> ChartDocument): ChartDocument {
+        for (i in undoStack.indices) undoStack[i] = transform(undoStack[i])
+        for (i in redoStack.indices) redoStack[i] = transform(redoStack[i])
+        current = transform(current)
+        return current
+    }
+
     fun reset(document: ChartDocument): ChartDocument {
         undoStack.clear()
         redoStack.clear()

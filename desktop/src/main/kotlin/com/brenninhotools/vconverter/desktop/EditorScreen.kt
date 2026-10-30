@@ -50,6 +50,7 @@ import java.io.File
 
 class DesktopEditor(private val scope: CoroutineScope) {
     val editor = ChartEditorState(ChartDocument.blank("new-song", "New Song", 120.0, listOf("easy", "normal", "hard")))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(editor) { block -> javax.swing.SwingUtilities.invokeLater(block) }
     var audio by mutableStateOf<List<EditorAudio>>(emptyList())
         private set
     var target by mutableStateOf(ExportTarget.VSLICE)
@@ -300,6 +301,8 @@ fun EditorScreen(state: AppState) {
         SectionTitle("Chart", accent)
         ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 680.dp)
     }
+
+    Card { com.brenninhotools.vconverter.editorview.LiveSessionPanel(model.live, editor) }
 
     val output = model.output
     Card(accent = if (output != null) accent else null) {

@@ -23,6 +23,10 @@ enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphic
         "Character Editor", Palette.Left,
         "Open a character or a spritesheet, then drag the sprite to fix the offsets of each animation. Space plays, the arrow keys move the offset (Shift for 10), W / S pick the animation, Ctrl+Z / Ctrl+Y undo and redo, the mouse wheel zooms."
     ),
+    ONLINE(
+        "Online", Palette.Pink,
+        "Browse and download mods shared on the V-Converter server, share your own, and see new versions and announcements. Set the server address in the options (the gear)."
+    ),
     WEEK(
         "Week Editor", Palette.Right,
         "Open a week or start a new one. Click a menu character in the story menu preview and drag it to move it; the arrow keys nudge it (Shift for 10), Enter plays the confirm animation, Left / Right change the difficulty shown, Ctrl+Z / Ctrl+Y undo and redo."
@@ -38,6 +42,7 @@ class AppState(private val scope: CoroutineScope) {
     val characterEditor = DesktopCharacterEditor(scope)
     val stageEditor = DesktopStageEditor(scope)
     val weekEditor = DesktopWeekEditor(scope)
+    val online = com.brenninhotools.vconverter.onlineview.OnlineState(scope)
 
     private val mods = Direction.entries.associateWith { ModTabState(it) }
     private val tabs = HashMap<Pair<Direction, Tab>, FileTabState>()
@@ -65,6 +70,7 @@ class AppState(private val scope: CoroutineScope) {
             EditorTool.CHARACTER -> characterEditor.open(list)
             EditorTool.STAGE -> stageEditor.open(list)
             EditorTool.WEEK -> weekEditor.open(list)
+            EditorTool.ONLINE -> Unit
             null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
         }
     }

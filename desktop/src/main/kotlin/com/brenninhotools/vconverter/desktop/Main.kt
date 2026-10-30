@@ -29,6 +29,15 @@ import javax.swing.UIManager
 
 fun main() {
     runCatching { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()) }
+    AppSettings.applyOnline()
+    val previous = Thread.getDefaultUncaughtExceptionHandler()
+    Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+        val online = com.brenninhotools.vconverter.online.Online
+        if (online.reportsEnabled && online.isConfigured) {
+            runCatching { online.api().report("crash", online.platform, online.appVersion, error.toString().take(300), error.stackTraceToString()) }
+        }
+        previous?.uncaughtException(thread, error)
+    }
     application {
         val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
         val state = remember { AppState(scope) }
@@ -48,6 +57,7 @@ fun main() {
                     EditorTool.CHARACTER -> characterShortcut(state.characterEditor.editor, event)
                     EditorTool.STAGE -> stageShortcut(state.stageEditor.editor, event)
                     EditorTool.WEEK -> weekShortcut(state.weekEditor.editor, event)
+                    EditorTool.ONLINE -> false
                     null -> false
                 }
             }

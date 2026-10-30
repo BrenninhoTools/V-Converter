@@ -90,6 +90,10 @@ import com.brenninhotools.vconverter.ui.editor.StageEditorScreen
 import com.brenninhotools.vconverter.ui.editor.StageEditorViewModel
 import com.brenninhotools.vconverter.ui.editor.WeekEditorScreen
 import com.brenninhotools.vconverter.ui.editor.WeekEditorViewModel
+import com.brenninhotools.vconverter.ui.online.OnlineModsScreen
+import com.brenninhotools.vconverter.ui.online.OnlineNewsScreen
+import com.brenninhotools.vconverter.ui.online.OnlineShareScreen
+import com.brenninhotools.vconverter.ui.online.OnlineViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import com.brenninhotools.vconverter.ui.codename.CodenameCharactersViewModel
@@ -126,7 +130,20 @@ interface AppTab {
 
 enum class Section(val label: String, @DrawableRes val icon: Int, val accent: Color) {
     CONVERTER("Converter", R.drawable.ic_swap, Funkin.Down),
-    GENERATOR("Generator", R.drawable.ic_magic, Funkin.Warning)
+    GENERATOR("Generator", R.drawable.ic_magic, Funkin.Warning),
+    ONLINE("Online", R.drawable.ic_share, Funkin.Pink)
+}
+
+enum class OnlineTab(
+    override val label: String,
+    @DrawableRes override val icon: Int,
+    override val accent: Color,
+    override val title: String,
+    override val description: String
+) : AppTab {
+    MODS("Mods", R.drawable.ic_download, Funkin.Pink, "Mod Gallery", "Find mods shared on the V-Converter server and download them."),
+    SHARE("Share", R.drawable.ic_share, Funkin.Up, "Share a mod", "Upload a mod .zip to the server's gallery so others can download it."),
+    NEWS("News", R.drawable.ic_warning, Funkin.Down, "News", "New versions of V-Converter and announcements from the server.")
 }
 
 enum class Tab(
@@ -231,6 +248,7 @@ fun MainScreen() {
     val genStage: StageEditorViewModel = viewModel()
     val genWeek: WeekEditorViewModel = viewModel()
     val genScript: ScriptGenViewModel = viewModel()
+    val online: OnlineViewModel = viewModel()
     val revMod: ReverseModViewModel = viewModel()
     val revCharts: ReverseChartsViewModel = viewModel()
     val revCharacters: ReverseCharactersViewModel = viewModel()
@@ -260,8 +278,13 @@ fun MainScreen() {
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }
     var converterTab by rememberSaveable { mutableStateOf(Tab.MOD) }
     var generatorTab by rememberSaveable { mutableStateOf(GenTab.MOD) }
+    var onlineTab by rememberSaveable { mutableStateOf(OnlineTab.MODS) }
     var pendingSave by remember { mutableStateOf<AppTab?>(null) }
-    val tab: AppTab = if (section == Section.CONVERTER) converterTab else generatorTab
+    val tab: AppTab = when (section) {
+        Section.CONVERTER -> converterTab
+        Section.GENERATOR -> generatorTab
+        Section.ONLINE -> onlineTab
+    }
 
     fun converterFor(target: AppTab): BaseConverterViewModel = if (direction == Direction.VSLICE_TO_PSYCH && target is Tab) when (target) {
         Tab.MOD -> revMod
@@ -349,10 +372,18 @@ fun MainScreen() {
                 )
             },
             bottomBar = {
-                FunkinNavBar(if (section == Section.CONVERTER) Tab.entries else GenTab.entries, tab) { selected ->
+                FunkinNavBar(
+                    when (section) {
+                        Section.CONVERTER -> Tab.entries
+                        Section.GENERATOR -> GenTab.entries
+                        Section.ONLINE -> OnlineTab.entries
+                    },
+                    tab
+                ) { selected ->
                     when (selected) {
                         is Tab -> converterTab = selected
                         is GenTab -> generatorTab = selected
+                        is OnlineTab -> onlineTab = selected
                     }
                 }
             }
@@ -431,6 +462,9 @@ fun MainScreen() {
                         GenTab.STAGE -> StageEditorScreen(genStage, folderName, save)
                         GenTab.WEEK -> WeekEditorScreen(genWeek, folderName, save)
                         GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)
+                        OnlineTab.MODS -> OnlineModsScreen(online)
+                        OnlineTab.SHARE -> OnlineShareScreen(online)
+                        OnlineTab.NEWS -> OnlineNewsScreen(online)
                     }
                     Spacer(Modifier.size(24.dp))
                 }
@@ -476,6 +510,8 @@ private fun Header(
                 AnimatedContent(targetState = section to direction, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "subtitle") { (current, currentDirection) ->
                     if (current == Section.GENERATOR) {
                         Text("New V-Slice content", style = MaterialTheme.typography.labelSmall, color = Funkin.Warning, maxLines = 1)
+                    } else if (current == Section.ONLINE) {
+                        Text("Mods, updates and news", style = MaterialTheme.typography.labelSmall, color = Funkin.Pink, maxLines = 1)
                     } else {
                         Text(
                             currentDirection.label,

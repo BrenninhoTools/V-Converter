@@ -70,15 +70,39 @@ class ChartEditorState(initial: ChartDocument) {
         next?.seek(position)
     }
 
+    var onLocalChange: ((ChartDocument, ChartDocument) -> Unit)? = null
+
+    private fun announce(old: ChartDocument) {
+        if (old !== document) onLocalChange?.invoke(old, document)
+    }
+
     fun edit(change: (ChartDocument) -> ChartDocument) {
         val next = change(document)
         if (next == document) return
+        val old = document
         document = history.push(next)
         if (difficulty !in document.difficulties) difficulty = document.difficultyNames.first()
+        refreshHistory()
+        announce(old)
+    }
+
+    fun applyRemote(transform: (ChartDocument) -> ChartDocument) {
+        document = history.rebase(transform)
+        clearMissingSelection()
+        refreshHistory()
+    }
+
+    fun loadRemote(next: ChartDocument) {
+        document = history.reset(next)
+        if (difficulty !in document.difficulties) difficulty = next.difficultyNames.first()
+        selectedNote = null
+        selectedEvent = null
+        eventDraftTime = null
         refreshHistory()
     }
 
     fun load(next: ChartDocument) {
+        val old = document
         document = history.reset(next)
         difficulty = next.difficultyNames.first()
         selectedNote = null
@@ -86,18 +110,23 @@ class ChartEditorState(initial: ChartDocument) {
         eventDraftTime = null
         seek(0.0)
         refreshHistory()
+        announce(old)
     }
 
     fun undo() {
+        val old = document
         document = history.undo()
         clearMissingSelection()
         refreshHistory()
+        announce(old)
     }
 
     fun redo() {
+        val old = document
         document = history.redo()
         clearMissingSelection()
         refreshHistory()
+        announce(old)
     }
 
     private fun refreshHistory() {

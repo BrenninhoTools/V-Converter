@@ -53,7 +53,7 @@ compose.desktop {
             packageVersion = "0.0.1"
             description = "Friday Night Funkin' converter for Psych Engine, Codename Engine and V-Slice"
             vendor = "BrenninhoTools"
-            modules("java.naming", "jdk.unsupported")
+            modules("java.naming", "jdk.unsupported", "jdk.crypto.ec")
             windows {
                 iconFile.set(project.file("icon.ico"))
                 menuGroup = "V-Converter"

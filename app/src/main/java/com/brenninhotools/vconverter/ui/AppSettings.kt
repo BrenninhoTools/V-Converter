@@ -73,6 +73,29 @@ class AppSettings(context: Context) {
         prefs.edit().putFloat(KEY_VOLUME, musicVolume).apply()
     }
 
+    var serverUrl by mutableStateOf(prefs.getString(KEY_SERVER, "") ?: "")
+        private set
+
+    fun updateServerUrl(value: String) {
+        serverUrl = value.trim()
+        com.brenninhotools.vconverter.online.Online.serverUrl = serverUrl
+        prefs.edit().putString(KEY_SERVER, serverUrl).apply()
+    }
+
+    var errorReports by mutableStateOf(prefs.getBoolean(KEY_REPORTS, false))
+        private set
+
+    fun updateErrorReports(value: Boolean) {
+        errorReports = value
+        com.brenninhotools.vconverter.online.Online.reportsEnabled = value
+        prefs.edit().putBoolean(KEY_REPORTS, value).apply()
+    }
+
+    init {
+        com.brenninhotools.vconverter.online.Online.serverUrl = serverUrl
+        com.brenninhotools.vconverter.online.Online.reportsEnabled = errorReports
+    }
+
     fun updateFpsCounter(value: Boolean) {
         fpsCounter = value
         prefs.edit().putBoolean(KEY_FPS, value).apply()
@@ -84,6 +107,8 @@ class AppSettings(context: Context) {
         const val KEY_MUSIC = "menu_music"
         const val KEY_UI_SOUNDS = "ui_sounds"
         const val KEY_VOLUME = "music_volume"
+        const val KEY_SERVER = "server_url"
+        const val KEY_REPORTS = "error_reports"
     }
 }
 
@@ -159,6 +184,20 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                     colors = SliderDefaults.colors(thumbColor = Funkin.Down, activeTrackColor = Funkin.Down)
                 )
             }
+            com.brenninhotools.vconverter.ui.components.FunkinTextField(
+                value = settings.serverUrl,
+                onValueChange = settings::updateServerUrl,
+                label = "Online server address",
+                accent = Funkin.Down,
+                placeholder = "https://my-server.example.com"
+            )
+            ToggleRow(
+                label = "Send Error Reports",
+                checked = settings.errorReports,
+                onChange = settings::updateErrorReports,
+                accent = Funkin.Down,
+                hint = "Sends conversion errors and crashes (message, app version and platform) to the online server."
+            )
             Text("Options are saved on this device.", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
             ChunkyButton(text = "Done", accent = Funkin.Down, onClick = onDismiss, icon = R.drawable.ic_check)
         }

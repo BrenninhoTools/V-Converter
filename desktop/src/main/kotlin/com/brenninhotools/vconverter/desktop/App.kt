@@ -186,6 +186,7 @@ private fun Content(state: AppState) {
                 state.tool == EditorTool.CHARACTER -> CharacterEditorScreen(state)
                 state.tool == EditorTool.STAGE -> StageEditorScreen(state)
                 state.tool == EditorTool.WEEK -> WeekEditorScreen(state)
+                state.tool == EditorTool.ONLINE -> OnlineScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)
                 else -> FilesScreen(state)
             }
@@ -215,7 +216,7 @@ private fun Hero(state: AppState) {
                 .padding(18.dp)
         ) {
             Text(tool.title.uppercase(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
-            Text("V-Slice, with Psych and Codename export", style = MaterialTheme.typography.titleSmall, color = tool.accent)
+            Text(if (tool == EditorTool.ONLINE) "Mods, updates and news" else "V-Slice, with Psych and Codename export", style = MaterialTheme.typography.titleSmall, color = tool.accent)
             Spacer(Modifier.height(4.dp))
             Text(tool.hint, style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
         }
@@ -281,6 +282,9 @@ internal fun Chip(text: String, color: Color) {
 
 @Composable
 internal fun StatusBanner(status: Status?) {
+    androidx.compose.runtime.LaunchedEffect(status) {
+        if (status is Status.Error) com.brenninhotools.vconverter.online.ErrorReports.send("conversion", status.text)
+    }
     status ?: return
     val color = when (status) {
         is Status.Info -> Palette.Down

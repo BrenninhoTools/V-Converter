@@ -61,6 +61,38 @@ object AppSettings {
         runCatching { prefs?.putBoolean("uiSounds", value) }
     }
 
+    var serverUrl by mutableStateOf(prefs?.get("serverUrl", "") ?: "")
+        private set
+
+    fun updateServerUrl(value: String) {
+        serverUrl = value.trim()
+        com.brenninhotools.vconverter.online.Online.serverUrl = serverUrl
+        runCatching { prefs?.put("serverUrl", serverUrl) }
+    }
+
+    var errorReports by mutableStateOf(prefs?.getBoolean("errorReports", false) ?: false)
+        private set
+
+    fun updateErrorReports(value: Boolean) {
+        errorReports = value
+        com.brenninhotools.vconverter.online.Online.reportsEnabled = value
+        runCatching { prefs?.putBoolean("errorReports", value) }
+    }
+
+    fun applyOnline() {
+        val os = System.getProperty("os.name").lowercase()
+        com.brenninhotools.vconverter.online.Online.platform = when {
+            os.contains("win") -> "windows"
+            os.contains("mac") -> "mac"
+            else -> "linux"
+        }
+        com.brenninhotools.vconverter.online.Online.appVersion = APP_VERSION
+        com.brenninhotools.vconverter.online.Online.serverUrl = serverUrl
+        com.brenninhotools.vconverter.online.Online.reportsEnabled = errorReports
+    }
+
+    const val APP_VERSION = "0.0.1"
+
     var musicVolume by mutableStateOf(prefs?.getFloat("musicVolume", 0.5f) ?: 0.5f)
         private set
 
@@ -89,6 +121,8 @@ fun OptionsButton() {
                 OptionToggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", AppSettings.fpsCounter, AppSettings::updateFpsCounter)
                 OptionToggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", AppSettings.uiSounds, AppSettings::updateUiSounds)
                 OptionToggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", AppSettings.menuMusic, AppSettings::updateMenuMusic)
+                com.brenninhotools.vconverter.editorview.TextValueField("Online server address", AppSettings.serverUrl, Modifier.widthIn(min = 260.dp)) { AppSettings.updateServerUrl(it) }
+                OptionToggle("Send Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", AppSettings.errorReports, AppSettings::updateErrorReports)
                 if (AppSettings.menuMusic) {
                     Text("Music volume: ${(AppSettings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
                     Slider(
