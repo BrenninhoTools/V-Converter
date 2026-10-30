@@ -92,8 +92,14 @@ import com.brenninhotools.vconverter.ui.editor.WeekEditorScreen
 import com.brenninhotools.vconverter.ui.editor.WeekEditorViewModel
 import com.brenninhotools.vconverter.ui.online.OnlineModsScreen
 import com.brenninhotools.vconverter.ui.online.OnlineNewsScreen
+import com.brenninhotools.vconverter.ui.online.OnlineRoomsScreen
 import com.brenninhotools.vconverter.ui.online.OnlineShareScreen
 import com.brenninhotools.vconverter.ui.online.OnlineViewModel
+import com.brenninhotools.vconverter.ui.playtest.LocalPlayTest
+import com.brenninhotools.vconverter.ui.playtest.PlayTestLauncher
+import com.brenninhotools.vconverter.ui.playtest.PlayTestPlayScreen
+import com.brenninhotools.vconverter.ui.playtest.PlayTestReportScreen
+import com.brenninhotools.vconverter.ui.playtest.PlayTestViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import com.brenninhotools.vconverter.ui.codename.CodenameCharactersViewModel
@@ -131,7 +137,19 @@ interface AppTab {
 enum class Section(val label: String, @DrawableRes val icon: Int, val accent: Color) {
     CONVERTER("Converter", R.drawable.ic_swap, Funkin.Down),
     GENERATOR("Generator", R.drawable.ic_magic, Funkin.Warning),
-    ONLINE("Online", R.drawable.ic_share, Funkin.Pink)
+    ONLINE("Online", R.drawable.ic_share, Funkin.Pink),
+    PLAYTEST("Test", R.drawable.ic_tab_chart, Funkin.Up)
+}
+
+enum class PlayTab(
+    override val label: String,
+    @DrawableRes override val icon: Int,
+    override val accent: Color,
+    override val title: String,
+    override val description: String
+) : AppTab {
+    PLAY("Play", R.drawable.ic_tab_chart, Funkin.Up, "PlayTest", "Play any song of a mod, a converter's result or the Chart Editor's chart, with its stage and characters, and see what is broken."),
+    REPORT("Report", R.drawable.ic_warning, Funkin.Warning, "PlayTest report", "Problems found in the chart, characters, stage, audio and conversion of the loaded song.")
 }
 
 enum class OnlineTab(
@@ -143,6 +161,7 @@ enum class OnlineTab(
 ) : AppTab {
     MODS("Mods", R.drawable.ic_download, Funkin.Pink, "Mod Gallery", "Find mods shared on the V-Converter server and download them."),
     SHARE("Share", R.drawable.ic_share, Funkin.Up, "Share a mod", "Upload a mod .zip to the server's gallery so others can download it."),
+    ROOMS("Rooms", R.drawable.ic_tab_chart, Funkin.Left, "Public rooms", "Join a Multieditor room someone listed publicly and edit together."),
     NEWS("News", R.drawable.ic_warning, Funkin.Down, "News", "New versions of V-Converter and announcements from the server.")
 }
 
@@ -249,6 +268,7 @@ fun MainScreen() {
     val genWeek: WeekEditorViewModel = viewModel()
     val genScript: ScriptGenViewModel = viewModel()
     val online: OnlineViewModel = viewModel()
+    val playtest: PlayTestViewModel = viewModel()
     val revMod: ReverseModViewModel = viewModel()
     val revCharts: ReverseChartsViewModel = viewModel()
     val revCharacters: ReverseCharactersViewModel = viewModel()
@@ -279,11 +299,13 @@ fun MainScreen() {
     var converterTab by rememberSaveable { mutableStateOf(Tab.MOD) }
     var generatorTab by rememberSaveable { mutableStateOf(GenTab.MOD) }
     var onlineTab by rememberSaveable { mutableStateOf(OnlineTab.MODS) }
+    var playTab by rememberSaveable { mutableStateOf(PlayTab.PLAY) }
     var pendingSave by remember { mutableStateOf<AppTab?>(null) }
     val tab: AppTab = when (section) {
         Section.CONVERTER -> converterTab
         Section.GENERATOR -> generatorTab
         Section.ONLINE -> onlineTab
+        Section.PLAYTEST -> playTab
     }
 
     fun converterFor(target: AppTab): BaseConverterViewModel = if (direction == Direction.VSLICE_TO_PSYCH && target is Tab) when (target) {
@@ -350,12 +372,41 @@ fun MainScreen() {
     }
     val folderName = modFolder.folder?.let { modFolder.folderName }
 
+    val playLauncher = remember(playtest) {
+        object : PlayTestLauncher {
+            override fun files(files: List<Pair<String, ByteArray>>, label: String) {
+                playtest.state.open(files, label)
+                section = Section.PLAYTEST
+                playTab = PlayTab.PLAY
+            }
+
+            override fun chart(document: com.brenninhotools.vconverter.editor.ChartDocument, audio: List<com.brenninhotools.vconverter.editor.EditorAudio>) {
+                genSong.pause()
+                playtest.state.useChart(document, audio, "Chart Editor · ${document.meta.songName.ifBlank { document.id }}")
+                section = Section.PLAYTEST
+                playTab = PlayTab.PLAY
+            }
+        }
+    }
+
+    val joinRoom: (com.brenninhotools.vconverter.online.RoomInfo) -> Unit = { room ->
+        section = Section.GENERATOR
+        val live = when (room.kind) {
+            "character" -> genCharacter.live.also { generatorTab = GenTab.CHARACTER }
+            "stage" -> genStage.live.also { generatorTab = GenTab.STAGE }
+            "week" -> genWeek.live.also { generatorTab = GenTab.WEEK }
+            else -> genSong.live.also { generatorTab = GenTab.SONG }
+        }
+        live.join(room.code)
+    }
+
     val cursor = rememberAppCursor()
     val settings = rememberAppSettings()
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
     val touchCursor = remember { TouchCursorState() }
     val cursorImage = rememberCursorImage()
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalPlayTest provides playLauncher) {
     Box(Modifier.fillMaxSize().then(if (settings.touchCursor) Modifier.touchCursor(touchCursor) else Modifier)) {
         Scaffold(
             modifier = Modifier.appCursor(cursor),
@@ -377,6 +428,7 @@ fun MainScreen() {
                         Section.CONVERTER -> Tab.entries
                         Section.GENERATOR -> GenTab.entries
                         Section.ONLINE -> OnlineTab.entries
+                        Section.PLAYTEST -> PlayTab.entries
                     },
                     tab
                 ) { selected ->
@@ -384,6 +436,7 @@ fun MainScreen() {
                         is Tab -> converterTab = selected
                         is GenTab -> generatorTab = selected
                         is OnlineTab -> onlineTab = selected
+                        is PlayTab -> playTab = selected
                     }
                 }
             }
@@ -465,6 +518,9 @@ fun MainScreen() {
                         OnlineTab.MODS -> OnlineModsScreen(online)
                         OnlineTab.SHARE -> OnlineShareScreen(online)
                         OnlineTab.NEWS -> OnlineNewsScreen(online)
+                        OnlineTab.ROOMS -> OnlineRoomsScreen(online, joinRoom)
+                        PlayTab.PLAY -> PlayTestPlayScreen(playtest)
+                        PlayTab.REPORT -> PlayTestReportScreen(playtest)
                     }
                     Spacer(Modifier.size(24.dp))
                 }
@@ -479,6 +535,7 @@ fun MainScreen() {
             }
         }
         if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
+    }
     }
     if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
     MenuMusic(settings.menuMusic, settings.musicVolume, suppressed = genSong.editor.playing)
@@ -512,6 +569,8 @@ private fun Header(
                         Text("New V-Slice content", style = MaterialTheme.typography.labelSmall, color = Funkin.Warning, maxLines = 1)
                     } else if (current == Section.ONLINE) {
                         Text("Mods, updates and news", style = MaterialTheme.typography.labelSmall, color = Funkin.Pink, maxLines = 1)
+                    } else if (current == Section.PLAYTEST) {
+                        Text("Play and check songs", style = MaterialTheme.typography.labelSmall, color = Funkin.Up, maxLines = 1)
                     } else {
                         Text(
                             currentDirection.label,
@@ -690,9 +749,11 @@ private fun SectionSwitch(selected: Section, onSelect: (Section) -> Unit) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(painterResource(item.icon), contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(item.label.uppercase(), style = MaterialTheme.typography.labelLarge, color = content)
+                if (active) {
+                    Icon(painterResource(item.icon), contentDescription = null, tint = content, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                }
+                Text(item.label.uppercase(), style = MaterialTheme.typography.labelLarge, fontSize = 12.sp, color = content, maxLines = 1, softWrap = false)
             }
         }
     }

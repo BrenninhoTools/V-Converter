@@ -15,7 +15,7 @@ export function createApp({ config, db, rooms, latest = createReleaseSource(conf
   app.use((req, res, next) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Delete-Token');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.set('X-Content-Type-Options', 'nosniff');
     if (req.method === 'OPTIONS') return res.status(204).end();
     const auth = req.get('Authorization') || '';
@@ -34,7 +34,7 @@ export function createApp({ config, db, rooms, latest = createReleaseSource(conf
   app.use('/api', updatesRouter({ db, latest }));
   app.use('/api/reports', reports);
   app.use('/api/rooms', roomRoutes);
-  app.limits = [mods.uploadLimit, reports.limit, roomRoutes.limit];
+  app.limits = [mods.uploadLimit, reports.limit, roomRoutes.limit, roomRoutes.assetLimit];
 
   app.use((req, res, next) => next(new HttpError(404, 'Not found.')));
   app.use((error, req, res, next) => {

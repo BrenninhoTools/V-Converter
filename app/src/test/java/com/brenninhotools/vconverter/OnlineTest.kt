@@ -184,4 +184,43 @@ class OnlineTest {
         session.connect()
         assertEquals("That room does not exist (or it expired).", closed.poll(5, TimeUnit.SECONDS))
     }
+
+    @Test
+    fun publicRoomsShareFiles() {
+        running()
+        val api = OnlineApi(base)
+        val room = api.createRoom("Week 9", "week", true, "Breno")
+        assertEquals("week", room.kind)
+        assertTrue(api.publicRooms("week").any { it.code == room.code })
+        assertTrue(api.publicRooms("stage").none { it.code == room.code })
+        val png = byteArrayOf(1, 2, 3, 4, 5)
+        api.uploadRoomAsset(room.code, "images/storymenu/props/dude pixel.png", png)
+        assertTrue(api.downloadRoomAsset(room.code, "images/storymenu/props/dude pixel.png").contentEquals(png))
+        val welcomes = LinkedBlockingQueue<com.brenninhotools.vconverter.online.RoomWelcome>()
+        val session = CollabSession(api.socketUrl(room.code, "Guest"), object : CollabListener {
+            override fun onWelcome(welcome: com.brenninhotools.vconverter.online.RoomWelcome) { welcomes.put(welcome) }
+        })
+        session.connect()
+        val got = welcomes.poll(5, TimeUnit.SECONDS)!!
+        assertEquals("week", got.kind)
+        assertEquals(listOf("images/storymenu/props/dude pixel.png"), got.assets)
+        session.close()
+    }
+
+    @Test
+    fun weekSnapshotsKeepEverything() {
+        val doc = com.brenninhotools.vconverter.editor.WeekDocument(
+            id = "weekdude", name = "Dude", weekName = "Dude Week",
+            songs = listOf(com.brenninhotools.vconverter.editor.WeekSong("song-one", "Song One", "dude", "#FF0000")),
+            difficulties = listOf("easy", "erect"), weekBefore = "week1", startUnlocked = false, hiddenUntilUnlocked = true, hideFreeplay = true
+        ).withProp(com.brenninhotools.vconverter.editor.WeekSlot.DAD, null)
+        val back = com.brenninhotools.vconverter.editor.WeekDocument.fromSnapshot(JSONObject(doc.toSnapshot().toString()))
+        assertEquals(doc.songs, back.songs)
+        assertEquals(doc.difficulties, back.difficulties)
+        assertEquals(doc.weekBefore, back.weekBefore)
+        assertEquals(doc.hiddenUntilUnlocked, back.hiddenUntilUnlocked)
+        assertEquals(doc.hideFreeplay, back.hideFreeplay)
+        assertEquals(null, back.prop(com.brenninhotools.vconverter.editor.WeekSlot.DAD))
+        assertEquals(doc.prop(com.brenninhotools.vconverter.editor.WeekSlot.BF)!!.offsetX, back.prop(com.brenninhotools.vconverter.editor.WeekSlot.BF)!!.offsetX, 0.0)
+    }
 }

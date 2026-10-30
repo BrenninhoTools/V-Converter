@@ -49,6 +49,17 @@ import java.io.File
 
 class DesktopCharacterEditor(private val scope: CoroutineScope) {
     val editor = CharacterEditorState(CharacterDocument("new-character", "New Character"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(
+        com.brenninhotools.vconverter.editorview.CharacterLiveAdapter(editor, { image to xml }, { png, text -> receiveSheet(png, text) })
+    ) { block -> javax.swing.SwingUtilities.invokeLater(block) }
+
+    private fun receiveSheet(png: ByteArray?, text: String?) {
+        if (png != null) image = png
+        if (text != null) xml = text
+        val i = image
+        val x = xml
+        if (i != null && x != null) runCatching { editor.sprite = decode(i, x) }
+    }
     var target by mutableStateOf(ExportTarget.VSLICE)
     var source by mutableStateOf("New character")
         private set
@@ -256,6 +267,8 @@ fun CharacterEditorScreen(state: AppState) {
     }
 
     Card { CharacterInfoPanel(editor) }
+
+    Card { com.brenninhotools.vconverter.editorview.LiveSessionPanel(model.live) }
 
     val output = model.output
     Card(accent = if (output != null) accent else null) {

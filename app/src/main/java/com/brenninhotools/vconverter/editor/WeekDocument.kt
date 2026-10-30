@@ -172,7 +172,41 @@ data class WeekDocument(
         difficulties = difficulties
     )
 
+    fun toSnapshot(): JSONObject = JSONObject()
+        .put("id", id)
+        .put("level", toVSlice())
+        .put("name", name)
+        .put("weekName", weekName)
+        .put("titleAsset", titleAsset)
+        .put("songs", JSONArray().also { array -> songs.forEach { array.put(JSONObject().put("id", it.id).put("name", it.name).put("icon", it.icon).put("color", it.color)) } })
+        .put("difficulties", JSONArray(difficulties))
+        .put("visible", visible)
+        .put("hideFreeplay", hideFreeplay)
+        .put("weekBefore", weekBefore)
+        .put("startUnlocked", startUnlocked)
+        .put("hiddenUntilUnlocked", hiddenUntilUnlocked)
+
     companion object {
+        fun fromSnapshot(snapshot: JSONObject): WeekDocument {
+            val base = fromVSlice(snapshot.optString("id", "week"), snapshot.getString("level"))
+            val songs = snapshot.optJSONArray("songs")?.let { a ->
+                (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { WeekSong(it.optString("id"), it.optString("name"), it.optString("icon"), it.optString("color", "#9271FD")) }
+            } ?: base.songs
+            val difficulties = snapshot.optJSONArray("difficulties")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } }
+            return base.copy(
+                name = snapshot.optString("name", base.name),
+                weekName = snapshot.optString("weekName"),
+                titleAsset = snapshot.optString("titleAsset", base.titleAsset),
+                songs = songs,
+                difficulties = difficulties?.ifEmpty { null } ?: DEFAULT_DIFFICULTIES,
+                visible = snapshot.optBoolean("visible", true),
+                hideFreeplay = snapshot.optBoolean("hideFreeplay", false),
+                weekBefore = snapshot.optString("weekBefore"),
+                startUnlocked = snapshot.optBoolean("startUnlocked", true),
+                hiddenUntilUnlocked = snapshot.optBoolean("hiddenUntilUnlocked", false)
+            )
+        }
+
         const val DEFAULT_BACKGROUND = "#F9CF51"
         const val SLOT_WIDTH = 320.0
         val DEFAULT_DIFFICULTIES = listOf("easy", "normal", "hard")

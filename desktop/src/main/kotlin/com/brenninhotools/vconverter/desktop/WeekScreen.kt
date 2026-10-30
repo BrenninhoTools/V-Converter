@@ -54,6 +54,7 @@ enum class WeekImageRole { PROP, TITLE, BACKGROUND }
 
 class DesktopWeekEditor(private val scope: CoroutineScope) {
     val editor = WeekEditorState(WeekDocument("new-week", "New Week"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(com.brenninhotools.vconverter.editorview.WeekLiveAdapter(editor) { asset -> decode(asset) }) { block -> javax.swing.SwingUtilities.invokeLater(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
     var source by mutableStateOf("New week")
         private set
@@ -256,6 +257,8 @@ fun WeekEditorScreen(state: AppState) {
             }
         }
     }
+
+    Card { com.brenninhotools.vconverter.editorview.LiveSessionPanel(model.live) }
 
     val output = model.output
     Card(accent = if (output != null) accent else null) {

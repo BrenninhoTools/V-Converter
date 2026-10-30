@@ -49,12 +49,30 @@ class StageEditorState(initial: StageDocument) {
 
     private var draggingItem = false
 
+    var onLocalChange: (() -> Unit)? = null
+    private var announced: StageDocument? = null
+    private var remote = false
+
+    fun loadRemote(next: StageDocument) {
+        remote = true
+        try {
+            document = history.replace(next)
+            refresh()
+        } finally {
+            remote = false
+        }
+    }
+
     private fun refresh() {
         canUndo = history.canUndo
         canRedo = history.canRedo
         val sel = selection
         if (sel is StageSelection.Prop && sel.index !in document.props.indices) selection = null
         revision++
+        if (document !== announced) {
+            announced = document
+            if (!remote) onLocalChange?.invoke()
+        }
     }
 
     fun edit(change: (StageDocument) -> StageDocument) {

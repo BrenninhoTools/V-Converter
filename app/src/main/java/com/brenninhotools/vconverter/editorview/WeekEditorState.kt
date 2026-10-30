@@ -45,12 +45,30 @@ class WeekEditorState(initial: WeekDocument) {
     private var lastTick = -1L
     private var dragging = false
 
+    var onLocalChange: (() -> Unit)? = null
+    private var announced: WeekDocument? = null
+    private var remote = false
+
+    fun loadRemote(next: WeekDocument) {
+        remote = true
+        try {
+            document = history.replace(next)
+            refresh()
+        } finally {
+            remote = false
+        }
+    }
+
     private fun refresh() {
         canUndo = history.canUndo
         canRedo = history.canRedo
         if (selectedSong !in document.songs.indices) selectedSong = -1
         difficulty = difficulty.coerceIn(0, (document.difficulties.size - 1).coerceAtLeast(0))
         revision++
+        if (document !== announced) {
+            announced = document
+            if (!remote) onLocalChange?.invoke()
+        }
     }
 
     fun edit(change: (WeekDocument) -> WeekDocument) {

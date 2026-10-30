@@ -21,6 +21,8 @@ import com.brenninhotools.vconverter.onlineview.ModGalleryPanel
 import com.brenninhotools.vconverter.onlineview.ModSharePanel
 import com.brenninhotools.vconverter.onlineview.OnlineNewsPanel
 import com.brenninhotools.vconverter.onlineview.OnlineState
+import com.brenninhotools.vconverter.onlineview.PublicRoomsPanel
+import com.brenninhotools.vconverter.online.RoomInfo
 import com.brenninhotools.vconverter.ui.components.FunkinCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,6 +91,15 @@ fun OnlineNewsScreen(viewModel: OnlineViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         FunkinCard {
             OnlineNewsPanel(viewModel.state, onOpenLink = { runCatching { links.openUri(it) } })
+        }
+    }
+}
+
+@Composable
+fun OnlineRoomsScreen(viewModel: OnlineViewModel, onJoin: (RoomInfo) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        FunkinCard {
+            PublicRoomsPanel(viewModel.state, onJoin = onJoin)
         }
     }
 }

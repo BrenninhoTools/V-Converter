@@ -68,3 +68,40 @@ test('unknown rooms are refused', async () => {
     await server.close();
   }
 });
+
+test('public rooms are listed by kind and share files', async () => {
+  const server = await boot();
+  try {
+    const json = { 'Content-Type': 'application/json' };
+    const open = await (await fetch(`${server.base}/api/rooms`, { method: 'POST', headers: json, body: JSON.stringify({ title: 'Open stage', kind: 'stage', public: true, host: 'Breno' }) })).json();
+    assert.equal(open.kind, 'stage');
+    assert.equal(open.public, true);
+    await fetch(`${server.base}/api/rooms`, { method: 'POST', headers: json, body: JSON.stringify({ title: 'Secret', kind: 'stage' }) });
+    await fetch(`${server.base}/api/rooms`, { method: 'POST', headers: json, body: JSON.stringify({ title: 'Chart', kind: 'chart', public: true }) });
+    const stages = await (await fetch(`${server.base}/api/rooms?kind=stage`)).json();
+    assert.deepEqual(stages.rooms.map((r) => r.title), ['Open stage']);
+    const all = await (await fetch(`${server.base}/api/rooms`)).json();
+    assert.equal(all.rooms.length, 2);
+
+    const peer = await connect(server.base, open.code, 'Peer');
+    const welcome = await peer.next('welcome');
+    assert.equal(welcome.kind, 'stage');
+    assert.deepEqual(welcome.assets, []);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const put = await fetch(`${server.base}/api/rooms/${open.code}/assets/stages/test/bg.png`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: png });
+    assert.equal(put.status, 201);
+    const note = await peer.next('asset');
+    assert.equal(note.name, 'stages/test/bg.png');
+    const back = Buffer.from(await (await fetch(`${server.base}/api/rooms/${open.code}/assets/stages/test/bg.png`)).arrayBuffer());
+    assert.deepEqual(back, png);
+    const list = await (await fetch(`${server.base}/api/rooms/${open.code}/assets`)).json();
+    assert.deepEqual(list.assets, [{ name: 'stages/test/bg.png', size: png.length }]);
+    assert.equal((await fetch(`${server.base}/api/rooms/${open.code}/assets/../x`, { method: 'PUT', body: png })).status, 404);
+    const late = await connect(server.base, open.code, 'Late');
+    assert.deepEqual((await late.next('welcome')).assets, ['stages/test/bg.png']);
+    late.close();
+    peer.close();
+  } finally {
+    await server.close();
+  }
+});

@@ -61,7 +61,9 @@ import kotlinx.coroutines.withContext
 class ChartEditorViewModel(application: Application) : BaseConverterViewModel(application) {
     val editor = ChartEditorState(ChartDocument.blank("new-song", "New Song", 120.0, listOf("easy", "normal", "hard")))
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    val live = com.brenninhotools.vconverter.editorview.LiveSession(editor) { block -> mainHandler.post(block) }
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(
+        com.brenninhotools.vconverter.editorview.ChartLiveAdapter(editor, { audio }, { track -> useAudio(audio.filterNot { it.name.equals(track.name, true) } + track) })
+    ) { block -> mainHandler.post(block) }
     var audio by mutableStateOf<List<EditorAudio>>(emptyList())
         private set
     var target by mutableStateOf(ExportTarget.VSLICE)
@@ -289,9 +291,12 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         FunkinCard {
             SectionTitle("Chart", accent, 3)
             ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 540.dp)
+            com.brenninhotools.vconverter.ui.playtest.LocalPlayTest.current?.let { launcher ->
+                OutlineButton("PlayTest this chart", accent, onClick = { launcher.chart(editor.document, viewModel.audio) })
+            }
         }
         FunkinCard {
-            com.brenninhotools.vconverter.editorview.LiveSessionPanel(viewModel.live, editor)
+            com.brenninhotools.vconverter.editorview.LiveSessionPanel(viewModel.live, cursor = editor.position to editor.difficulty)
         }
         FunkinCard {
             SectionTitle("Export format", accent, 4)

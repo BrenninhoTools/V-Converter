@@ -3,10 +3,14 @@ package com.brenninhotools.vconverter.online
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class RoomWelcome(val id: Int, val kind: String, val title: String, val peers: List<RoomPeer>, val snapshot: JSONObject?, val ops: List<JSONObject>, val assets: List<String>)
+
 interface CollabListener {
-    fun onWelcome(id: Int, peers: List<RoomPeer>, snapshot: JSONObject?, ops: List<JSONObject>)
-    fun onOp(from: Int, op: JSONObject)
-    fun onSnapshot(from: Int, snapshot: JSONObject)
+    fun onWelcome(id: Int, peers: List<RoomPeer>, snapshot: JSONObject?, ops: List<JSONObject>) {}
+    fun onWelcome(welcome: RoomWelcome) = onWelcome(welcome.id, welcome.peers, welcome.snapshot, welcome.ops)
+    fun onAsset(name: String) {}
+    fun onOp(from: Int, op: JSONObject) {}
+    fun onSnapshot(from: Int, snapshot: JSONObject) {}
     fun onPeers(peers: List<RoomPeer>) {}
     fun onCursor(from: Int, time: Double, difficulty: String) {}
     fun onChat(from: Int, name: String, text: String) {}
@@ -50,8 +54,15 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
                     (0 until list.length()).mapNotNull { list.optJSONObject(it) }.map(::peer).forEach { peers[it.id] = it }
                 }
                 val ops = message.optJSONArray("ops") ?: JSONArray()
+                val assets = message.optJSONArray("assets") ?: JSONArray()
                 welcomed = true
-                listener.onWelcome(selfId, peerList(), message.optJSONObject("snapshot"), (0 until ops.length()).mapNotNull { ops.optJSONObject(it)?.optJSONObject("op") })
+                listener.onWelcome(
+                    RoomWelcome(
+                        selfId, message.optString("kind", "chart"), message.optString("title"), peerList(), message.optJSONObject("snapshot"),
+                        (0 until ops.length()).mapNotNull { ops.optJSONObject(it)?.optJSONObject("op") },
+                        (0 until assets.length()).map { assets.optString(it) }
+                    )
+                )
             }
             "op" -> message.optJSONObject("op")?.let { listener.onOp(message.optInt("from"), it) }
             "snapshot" -> message.optJSONObject("snapshot")?.let { listener.onSnapshot(message.optInt("from"), it) }
@@ -64,6 +75,7 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
                 listener.onPeers(peerList())
             }
             "cursor" -> listener.onCursor(message.optInt("from"), message.optDouble("time", 0.0), message.optString("difficulty"))
+            "asset" -> listener.onAsset(message.optString("name"))
             "chat" -> listener.onChat(message.optInt("from"), message.optString("name"), message.optString("text"))
         }
     }

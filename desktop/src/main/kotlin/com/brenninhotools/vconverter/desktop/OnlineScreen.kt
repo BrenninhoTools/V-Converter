@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.onlineview.ModGalleryPanel
 import com.brenninhotools.vconverter.onlineview.ModSharePanel
 import com.brenninhotools.vconverter.onlineview.OnlineNewsPanel
+import com.brenninhotools.vconverter.onlineview.PublicRoomsPanel
 import java.awt.Desktop
 import java.io.FileOutputStream
 import java.net.URI
@@ -32,6 +33,17 @@ fun OnlineScreen(state: AppState) {
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Card {
+                PublicRoomsPanel(online, onJoin = { room ->
+                    val live = when (room.kind) {
+                        "character" -> state.characterEditor.live.also { state.tool = EditorTool.CHARACTER }
+                        "stage" -> state.stageEditor.live.also { state.tool = EditorTool.STAGE }
+                        "week" -> state.weekEditor.live.also { state.tool = EditorTool.WEEK }
+                        else -> state.editor.live.also { state.tool = EditorTool.CHART }
+                    }
+                    live.join(room.code)
+                })
+            }
             Card { OnlineNewsPanel(online, onOpenLink = ::openLink) }
             Card {
                 ModSharePanel(online, onPickFile = {

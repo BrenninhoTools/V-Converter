@@ -265,7 +265,7 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
 
 private val kindTint = ColorFilter.tint(Color.Black.copy(alpha = 0.35f), BlendMode.SrcAtop)
 
-private fun DrawScope.sprite(skin: NoteSkin, frame: SkinFrame, center: Offset, size: Float, alpha: Float = 1f, colorFilter: ColorFilter? = null) {
+internal fun DrawScope.sprite(skin: NoteSkin, frame: SkinFrame, center: Offset, size: Float, alpha: Float = 1f, colorFilter: ColorFilter? = null) {
     val scale = size / max(frame.size.width, frame.size.height)
     val width = frame.size.width * scale
     val height = frame.size.height * scale

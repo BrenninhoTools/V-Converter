@@ -55,6 +55,7 @@ enum class WeekImageRole { PROP, TITLE, BACKGROUND }
 
 class WeekEditorViewModel(application: Application) : BaseConverterViewModel(application) {
     val editor = WeekEditorState(WeekDocument("new-week", "New Week"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(com.brenninhotools.vconverter.editorview.WeekLiveAdapter(editor) { asset -> decode(asset) }) { block -> android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
         private set
     var source by mutableStateOf("New week")
@@ -220,6 +221,9 @@ fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onS
             WeekInfoPanel(editor)
             OutlineButton("Title image (.png)", accent, onClick = { pick(WeekImageRole.TITLE) }, enabled = !busy)
             OutlineButton("Background image (.png)", accent, onClick = { pick(WeekImageRole.BACKGROUND) }, enabled = !busy)
+        }
+        FunkinCard {
+            com.brenninhotools.vconverter.editorview.LiveSessionPanel(viewModel.live)
         }
         FunkinCard {
             SectionTitle("Export format", accent, 5)

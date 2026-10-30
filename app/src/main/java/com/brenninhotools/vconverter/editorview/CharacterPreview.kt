@@ -36,7 +36,7 @@ private const val STAGE_WIDTH = 2432f
 private const val STAGE_FLOOR = 118f / 166f
 private val ghostTint = ColorFilter.tint(Color(0xFF7FD8FF), androidx.compose.ui.graphics.BlendMode.Modulate)
 
-private fun DrawScope.drawFrame(
+internal fun DrawScope.drawFrame(
     sprite: CharacterSprite,
     document: CharacterDocument,
     anim: CharacterAnim,

@@ -4,6 +4,7 @@ import { HttpError, roomCode, text } from './util.js';
 import { rateLimit } from './limits.js';
 
 const MAX_LOG = 5000;
+const KINDS = new Set(['chart', 'character', 'stage', 'week']);
 
 export class Rooms {
   constructor(config) {
@@ -13,10 +14,15 @@ export class Rooms {
     this.sweeper.unref();
   }
 
-  create(title) {
+  create(title, options = {}) {
     let code = roomCode();
     while (this.rooms.has(code)) code = roomCode();
-    const room = { code, title: text(title, 80), peers: new Map(), snapshot: null, ops: [], seq: 0, touched: Date.now(), nextPeer: 1 };
+    const kind = KINDS.has(options.kind) ? options.kind : 'chart';
+    const room = {
+      code, title: text(title, 80), kind, public: Boolean(options.public), host: text(options.host, 32),
+      peers: new Map(), snapshot: null, ops: [], seq: 0, touched: Date.now(), created: Date.now(), nextPeer: 1,
+      assets: new Map(), assetBytes: 0
+    };
     this.rooms.set(code, room);
     return room;
   }
@@ -26,13 +32,33 @@ export class Rooms {
   }
 
   info(room) {
-    return { code: room.code, title: room.title, peers: [...room.peers.values()].map((p) => ({ id: p.id, name: p.name })), hasSnapshot: room.snapshot !== null, seq: room.seq };
+    return {
+      code: room.code, title: room.title, kind: room.kind, public: room.public, host: room.host,
+      peers: [...room.peers.values()].map((p) => ({ id: p.id, name: p.name })), hasSnapshot: room.snapshot !== null, seq: room.seq,
+      assets: [...room.assets.keys()], createdAt: new Date(room.created).toISOString()
+    };
+  }
+
+  listPublic(kind) {
+    const fresh = Date.now() - 5 * 60 * 1000;
+    return [...this.rooms.values()]
+      .filter((room) => room.public && (room.peers.size > 0 || room.created > fresh) && (!kind || room.kind === kind))
+      .sort((a, b) => b.peers.size - a.peers.size || b.created - a.created)
+      .slice(0, 50)
+      .map((room) => this.info(room));
   }
 
   sweep() {
     const limit = this.config.roomIdleMinutes * 60 * 1000;
     for (const [code, room] of this.rooms) {
       if (room.peers.size === 0 && Date.now() - room.touched > limit) this.rooms.delete(code);
+    }
+  }
+
+  notify(room, message) {
+    const payload = JSON.stringify(message);
+    for (const peer of room.peers.values()) {
+      if (peer.socket.readyState === peer.socket.OPEN) peer.socket.send(payload);
     }
   }
 
@@ -52,12 +78,27 @@ const broadcast = (room, message, except) => {
   }
 };
 
+const assetName = (raw) => {
+  const parts = String(raw || '').replace(/\\/g, '/').split('/').filter((p) => p && p !== '.');
+  if (parts.length === 0 || parts.some((p) => p === '..' || p.includes('\u0000'))) return null;
+  const name = parts.join('/');
+  return name.length > 200 ? null : name;
+};
+
 export function roomsRouter({ rooms, config }) {
   const router = express.Router();
   const limit = rateLimit({ limit: config.roomsPerHour, name: 'rooms' });
+  const assetLimit = rateLimit({ limit: config.roomAssetsPerHour, name: 'room uploads' });
+  const raw = express.raw({ type: () => true, limit: `${config.maxRoomAssetMb}mb` });
+
+  router.get('/', (req, res) => {
+    const kind = text(req.query.kind, 20).toLowerCase();
+    res.json({ rooms: rooms.listPublic(KINDS.has(kind) ? kind : '') });
+  });
 
   router.post('/', limit, (req, res) => {
-    const room = rooms.create(req.body?.title);
+    const body = req.body || {};
+    const room = rooms.create(body.title, { kind: body.kind, public: body.public === true, host: body.host });
     res.status(201).json(rooms.info(room));
   });
 
@@ -67,7 +108,40 @@ export function roomsRouter({ rooms, config }) {
     res.json(rooms.info(room));
   });
 
+  router.get('/:code/assets', (req, res) => {
+    const room = rooms.get(req.params.code);
+    if (!room) throw new HttpError(404, 'Room not found.');
+    res.json({ assets: [...room.assets.entries()].map(([name, data]) => ({ name, size: data.length })) });
+  });
+
+  router.get('/:code/assets/*', (req, res) => {
+    const room = rooms.get(req.params.code);
+    if (!room) throw new HttpError(404, 'Room not found.');
+    const name = assetName(req.params[0]);
+    const data = name && room.assets.get(name);
+    if (!data) throw new HttpError(404, 'Asset not found.');
+    res.type('application/octet-stream').send(data);
+  });
+
+  router.put('/:code/assets/*', assetLimit, raw, (req, res) => {
+    const room = rooms.get(req.params.code);
+    if (!room) throw new HttpError(404, 'Room not found.');
+    const name = assetName(req.params[0]);
+    if (!name) throw new HttpError(400, 'Bad asset name.');
+    const data = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (data.length === 0) throw new HttpError(400, 'The asset is empty.');
+    const previous = room.assets.get(name);
+    const total = room.assetBytes - (previous ? previous.length : 0) + data.length;
+    if (total > config.maxRoomAssetsMb * 1024 * 1024) throw new HttpError(413, `This room already holds ${config.maxRoomAssetsMb} MB of files.`);
+    room.assets.set(name, data);
+    room.assetBytes = total;
+    room.touched = Date.now();
+    rooms.notify(room, { type: 'asset', name, size: data.length });
+    res.status(201).json({ name, size: data.length });
+  });
+
   router.limit = limit;
+  router.assetLimit = assetLimit;
   return router;
 }
 
@@ -103,6 +177,9 @@ export function attachCollab(server, { rooms, config }) {
       id: peer.id,
       room: room.code,
       title: room.title,
+      kind: room.kind,
+      public: room.public,
+      assets: [...room.assets.keys()],
       peers: [...room.peers.values()].filter((p) => p !== peer).map((p) => ({ id: p.id, name: p.name })),
       snapshot: room.snapshot,
       ops: room.ops,

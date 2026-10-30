@@ -53,7 +53,18 @@ fun ConvertSection(
                 CodeFiles(code, accent)
                 OutputFiles(output.files.map { it.relativePath }, accent)
                 SaveActions(viewModel, accent, modFolderName, onSave)
+                val launcher = com.brenninhotools.vconverter.ui.playtest.LocalPlayTest.current
+                if (launcher != null && output.files.any { playable(it.relativePath) }) {
+                    com.brenninhotools.vconverter.ui.components.OutlineButton("PlayTest the result", accent, onClick = {
+                        launcher.files(output.files.map { it.relativePath to (it.bytes ?: it.content.toByteArray()) }, "$title result")
+                    })
+                }
             }
         }
     }
 }
+
+private val playableChart = Regex("(^|/)data/(songs/[^/]+/[^/]+-chart|[^/]+/[^/]+)\\.json$|(^|/)songs/[^/]+/charts/[^/]+\\.json$", RegexOption.IGNORE_CASE)
+private val notCharts = Regex("(^|/)data/(characters|stages|levels|weeks|events|notes|config|dialogue)/", RegexOption.IGNORE_CASE)
+
+private fun playable(path: String): Boolean = playableChart.containsMatchIn(path) && !notCharts.containsMatchIn(path)

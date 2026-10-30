@@ -187,6 +187,7 @@ private fun Content(state: AppState) {
                 state.tool == EditorTool.STAGE -> StageEditorScreen(state)
                 state.tool == EditorTool.WEEK -> WeekEditorScreen(state)
                 state.tool == EditorTool.ONLINE -> OnlineScreen(state)
+                state.tool == EditorTool.PLAYTEST -> PlayTestScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)
                 else -> FilesScreen(state)
             }
@@ -216,7 +217,7 @@ private fun Hero(state: AppState) {
                 .padding(18.dp)
         ) {
             Text(tool.title.uppercase(), style = MaterialTheme.typography.headlineSmall, color = Palette.Text)
-            Text(if (tool == EditorTool.ONLINE) "Mods, updates and news" else "V-Slice, with Psych and Codename export", style = MaterialTheme.typography.titleSmall, color = tool.accent)
+            Text(when (tool) { EditorTool.ONLINE -> "Mods, updates and news"; EditorTool.PLAYTEST -> "Play and check songs"; else -> "V-Slice, with Psych and Codename export" }, style = MaterialTheme.typography.titleSmall, color = tool.accent)
             Spacer(Modifier.height(4.dp))
             Text(tool.hint, style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
         }
@@ -444,6 +445,13 @@ private fun ModScreen(state: AppState) {
         }
         mod.progress?.let { Progress(it.done, it.total, it.label, accent) }
         StatusBanner(mod.status)
+        val written = state.lastOutput
+        if (mod.report != null && written != null && written.exists()) {
+            Secondary("PlayTest the converted mod", !busy) {
+                state.playtest.open(listOf(written))
+                state.tool = EditorTool.PLAYTEST
+            }
+        }
         mod.report?.let { ReportView(it, accent) }
     }
 }
@@ -546,6 +554,9 @@ internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Primary("Save into mod folder…", accent, !files.busy) { state.saveFiles(zip = false) }
             Secondary("Save as .zip…", !files.busy) { state.saveFiles(zip = true) }
+            if (output.files.any { playableResult(it.relativePath) }) {
+                Secondary("PlayTest the result", !files.busy) { state.playTestFiles(output.files.map { it.relativePath to (it.bytes ?: it.content.toByteArray()) }, "${state.tab.label} result") }
+            }
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             output.files.forEach { file ->
@@ -594,3 +605,8 @@ internal fun OutputCard(state: AppState, files: FileTabState, accent: Color) {
         ReportView(output.report, accent)
     }
 }
+
+private val playableChart = Regex("(^|/)data/(songs/[^/]+/[^/]+-chart|[^/]+/[^/]+)\\.json$|(^|/)songs/[^/]+/charts/[^/]+\\.json$", RegexOption.IGNORE_CASE)
+private val notCharts = Regex("(^|/)data/(characters|stages|levels|weeks|events|notes|config|dialogue)/", RegexOption.IGNORE_CASE)
+
+internal fun playableResult(path: String): Boolean = playableChart.containsMatchIn(path) && !notCharts.containsMatchIn(path)

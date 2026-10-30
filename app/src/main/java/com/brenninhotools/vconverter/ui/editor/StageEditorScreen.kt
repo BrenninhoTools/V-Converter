@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
 
 class StageEditorViewModel(application: Application) : BaseConverterViewModel(application) {
     val editor = StageEditorState(StageDocument("new-stage", "New Stage"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(com.brenninhotools.vconverter.editorview.StageLiveAdapter(editor) { asset -> decode(asset) }) { block -> android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
         private set
     var source by mutableStateOf("New stage")
@@ -202,6 +203,9 @@ fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, o
         FunkinCard {
             SectionTitle("Stage info", accent, 4)
             StageInfoPanel(editor)
+        }
+        FunkinCard {
+            com.brenninhotools.vconverter.editorview.LiveSessionPanel(viewModel.live)
         }
         FunkinCard {
             SectionTitle("Export format", accent, 5)

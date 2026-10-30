@@ -121,6 +121,20 @@ class CharacterEditorState(initial: CharacterDocument) {
     val ghostAnimation: CharacterAnim?
         get() = ghostAnim?.let { document.anim(it) } ?: document.anim(document.startingAnimation) ?: document.anim("idle") ?: document.anim("danceRight")
 
+    var onLocalChange: (() -> Unit)? = null
+    private var announced: CharacterDocument? = null
+    private var remote = false
+
+    fun loadRemote(next: CharacterDocument) {
+        remote = true
+        try {
+            document = history.replace(next)
+            refresh()
+        } finally {
+            remote = false
+        }
+    }
+
     private fun refresh() {
         canUndo = history.canUndo
         canRedo = history.canRedo
@@ -128,6 +142,10 @@ class CharacterEditorState(initial: CharacterDocument) {
         val count = framesOf(animation).size
         if (frame >= count) frame = (count - 1).coerceAtLeast(0)
         revision++
+        if (document !== announced) {
+            announced = document
+            if (!remote) onLocalChange?.invoke()
+        }
     }
 
     fun edit(change: (CharacterDocument) -> CharacterDocument) {

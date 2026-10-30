@@ -28,6 +28,7 @@ import com.brenninhotools.vconverter.editorview.EditorSectionTitle
 import com.brenninhotools.vconverter.editorview.TextValueField
 import com.brenninhotools.vconverter.online.ModEngine
 import com.brenninhotools.vconverter.online.ModEntry
+import com.brenninhotools.vconverter.online.RoomInfo
 import java.util.Locale
 
 private val warning = Color(0xFFFFC94A)
@@ -197,5 +198,53 @@ fun ModSharePanel(state: OnlineState, onPickFile: () -> Unit, modifier: Modifier
             }
         }
         Text("Only .zip files are accepted. Share mods you made or have permission to share.", fontSize = 12.sp, color = scheme.onSurfaceVariant)
+    }
+}
+
+private val roomKinds = listOf("chart" to "Chart Editor", "character" to "Character Editor", "stage" to "Stage Editor", "week" to "Week Editor")
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PublicRoomsPanel(state: OnlineState, onJoin: (RoomInfo) -> Unit, modifier: Modifier = Modifier) {
+    LaunchedEffect(state.configured) { if (state.configured && state.rooms == null) state.refreshRooms() }
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EditorSectionTitle("Public rooms")
+        if (!state.configured) {
+            NotConfigured()
+            return@Column
+        }
+        Text("Rooms people opened from an editor's Multieditor card with \"List my room publicly\". Joining opens that editor and loads the room's work and files.", fontSize = 12.sp, color = scheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            EditorChip("All editors", state.roomKind == null) { state.roomKind = null; state.refreshRooms() }
+            roomKinds.forEach { (key, label) -> EditorChip(label, state.roomKind == key) { state.roomKind = key; state.refreshRooms() } }
+            EditorChip(if (state.roomsLoading) "Refreshing…" else "Refresh", false) { state.refreshRooms() }
+        }
+        state.roomsError?.let { Text(it, fontSize = 13.sp, color = scheme.error) }
+        val rooms = state.rooms
+        if (rooms != null && rooms.isEmpty()) Text("No public rooms right now. Start one from any editor's Multieditor card.", fontSize = 13.sp, color = scheme.onSurfaceVariant)
+        rooms?.forEach { room ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(scheme.surfaceVariant).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(room.title.ifBlank { room.code }, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        listOfNotNull(
+                            roomKinds.firstOrNull { it.first == room.kind }?.second,
+                            room.host.takeIf { it.isNotBlank() }?.let { "by $it" },
+                            "${room.peers.size} editing",
+                            room.code
+                        ).joinToString(" · "),
+                        fontSize = 12.sp,
+                        color = scheme.onSurfaceVariant
+                    )
+                    if (room.peers.isNotEmpty()) Text(room.peers.joinToString { it.name }, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                EditorChip("Join", false) { onJoin(room) }
+            }
+        }
     }
 }

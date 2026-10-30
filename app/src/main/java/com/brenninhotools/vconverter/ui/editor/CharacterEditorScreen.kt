@@ -51,6 +51,17 @@ private const val STAGE_BACKGROUND = "images/ui/character/stage.png"
 
 class CharacterEditorViewModel(application: Application) : BaseConverterViewModel(application) {
     val editor = CharacterEditorState(CharacterDocument("new-character", "New Character"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(
+        com.brenninhotools.vconverter.editorview.CharacterLiveAdapter(editor, { image to xml }, { png, text -> receiveSheet(png, text) })
+    ) { block -> android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
+
+    private fun receiveSheet(png: ByteArray?, text: String?) {
+        if (png != null) image = png
+        if (text != null) xml = text
+        val i = image
+        val x = xml
+        if (i != null && x != null) runCatching { editor.sprite = decode(i, x) }
+    }
     var target by mutableStateOf(ExportTarget.VSLICE)
         private set
     var source by mutableStateOf("New character")
@@ -226,6 +237,9 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
         FunkinCard {
             SectionTitle("Character info", accent, 4)
             CharacterInfoPanel(editor)
+        }
+        FunkinCard {
+            com.brenninhotools.vconverter.editorview.LiveSessionPanel(viewModel.live)
         }
         FunkinCard {
             SectionTitle("Export format", accent, 5)

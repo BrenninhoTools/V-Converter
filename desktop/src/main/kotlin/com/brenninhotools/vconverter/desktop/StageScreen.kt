@@ -51,6 +51,7 @@ import java.io.File
 
 class DesktopStageEditor(private val scope: CoroutineScope) {
     val editor = StageEditorState(StageDocument("new-stage", "New Stage"))
+    val live = com.brenninhotools.vconverter.editorview.LiveSession(com.brenninhotools.vconverter.editorview.StageLiveAdapter(editor) { asset -> decode(asset) }) { block -> javax.swing.SwingUtilities.invokeLater(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
     var source by mutableStateOf("New stage")
         private set
@@ -241,6 +242,8 @@ fun StageEditorScreen(state: AppState) {
             Card { StageInfoPanel(editor) }
         }
     }
+
+    Card { com.brenninhotools.vconverter.editorview.LiveSessionPanel(model.live) }
 
     val output = model.output
     Card(accent = if (output != null) accent else null) {

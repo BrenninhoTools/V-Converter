@@ -25,6 +25,7 @@ import java.awt.dnd.DropTarget
 import java.awt.dnd.DropTargetAdapter
 import java.awt.dnd.DropTargetDropEvent
 import java.io.File
+import com.brenninhotools.vconverter.editorview.EditorTyping
 import javax.swing.UIManager
 
 fun main() {
@@ -52,12 +53,14 @@ fun main() {
             icon = icon,
             state = windowState,
             onKeyEvent = { event ->
-                event.type == KeyEventType.KeyDown && when (state.tool) {
+                if (state.tool == EditorTool.PLAYTEST && EditorTyping.fields == 0) state.playtest.key(event)
+                else event.type == KeyEventType.KeyDown && when (state.tool) {
                     EditorTool.CHART -> editorShortcut(state.editor.editor, event)
                     EditorTool.CHARACTER -> characterShortcut(state.characterEditor.editor, event)
                     EditorTool.STAGE -> stageShortcut(state.stageEditor.editor, event)
                     EditorTool.WEEK -> weekShortcut(state.weekEditor.editor, event)
                     EditorTool.ONLINE -> false
+                    EditorTool.PLAYTEST -> false
                     null -> false
                 }
             }

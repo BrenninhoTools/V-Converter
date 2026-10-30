@@ -7,31 +7,36 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.brenninhotools.vconverter.editor.ChartChange
-import com.brenninhotools.vconverter.editor.ChartSync
 import com.brenninhotools.vconverter.online.CollabListener
 import com.brenninhotools.vconverter.online.CollabSession
 import com.brenninhotools.vconverter.online.Online
 import com.brenninhotools.vconverter.online.RoomPeer
+import com.brenninhotools.vconverter.online.RoomWelcome
 import org.json.JSONObject
+import java.util.Collections
+import java.util.Timer
+import java.util.TimerTask
 
 data class PeerCursor(val name: String, val time: Double, val difficulty: String)
 
-class LiveSession(private val editor: ChartEditorState, private val post: (() -> Unit) -> Unit) {
+class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Unit) -> Unit) {
     var code by mutableStateOf("")
     var name by mutableStateOf("")
+    var publicRoom by mutableStateOf(false)
     var status by mutableStateOf<String?>(null)
         private set
     var connecting by mutableStateOf(false)
@@ -44,18 +49,84 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
         private set
     var chat by mutableStateOf<List<String>>(emptyList())
         private set
+    var files by mutableStateOf(0)
+        private set
+
+    val kind: LiveKind get() = adapter.kind
 
     private var session: CollabSession? = null
     private var hosting = false
+    private val known: MutableSet<String> = Collections.synchronizedSet(HashSet())
+    private val timer = Timer("v-converter-live", true)
+    private var lastSnapshot = 0L
+    private var pending: TimerTask? = null
 
     init {
-        editor.onLocalChange = { old, new ->
+        adapter.watch { change ->
             val live = session
             if (live != null && connected) {
-                when (val change = ChartSync.diff(old, new)) {
-                    is ChartChange.Ops -> change.ops.forEach { live.sendOp(it) }
-                    is ChartChange.Snapshot -> live.sendSnapshot(change.snapshot)
-                    null -> Unit
+                when (change) {
+                    is LiveChange.Ops -> change.ops.forEach { live.sendOp(it) }
+                    is LiveChange.Snapshot -> sendSnapshot(change.snapshot)
+                }
+                shareNewFiles()
+            }
+        }
+    }
+
+    private fun background(name: String, block: () -> Unit) = Thread(block, name).apply { isDaemon = true }.start()
+
+    @Synchronized
+    private fun sendSnapshot(snapshot: JSONObject) {
+        val now = System.currentTimeMillis()
+        pending?.cancel()
+        pending = null
+        if (now - lastSnapshot >= 150) {
+            lastSnapshot = now
+            session?.sendSnapshot(snapshot)
+            return
+        }
+        val task = object : TimerTask() {
+            override fun run() {
+                post {
+                    synchronized(this@LiveSession) {
+                        lastSnapshot = System.currentTimeMillis()
+                        pending = null
+                    }
+                    if (connected) session?.sendSnapshot(adapter.snapshot())
+                }
+            }
+        }
+        pending = task
+        timer.schedule(task, 150 - (now - lastSnapshot))
+    }
+
+    private fun shareNewFiles() {
+        val room = code
+        val fresh = adapter.sharedFiles().filterKeys { it !in known }
+        if (fresh.isEmpty()) return
+        known += fresh.keys
+        background("v-converter-share") {
+            fresh.forEach { (fileName, bytes) ->
+                val data = runCatching { bytes() }.getOrNull() ?: return@forEach
+                runCatching { Online.api().uploadRoomAsset(room, fileName, data) }
+                    .onSuccess { post { files = known.size } }
+                    .onFailure { e -> post { status = e.message } }
+            }
+        }
+    }
+
+    private fun fetch(names: List<String>) {
+        val room = code
+        val wanted = names.filter { known.add(it) }
+        if (wanted.isEmpty()) return
+        background("v-converter-fetch") {
+            wanted.sortedBy { if (it.endsWith(".xml")) 0 else 1 }.forEach { fileName ->
+                val bytes = runCatching { Online.api().downloadRoomAsset(room, fileName) }.getOrNull() ?: return@forEach
+                val apply = runCatching { adapter.receiveFile(fileName, bytes) }.getOrNull()
+                post {
+                    apply?.invoke()
+                    files = known.size
                 }
             }
         }
@@ -71,10 +142,12 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
         }
         connecting = true
         status = "Creating a room…"
-        val title = editor.document.meta.songName.ifBlank { editor.document.id }
-        Thread({
+        val title = adapter.title()
+        val listed = publicRoom
+        val host = displayName()
+        background("v-converter-room") {
             try {
-                val room = Online.api().createRoom(title)
+                val room = Online.api().createRoom(title, adapter.kind.key, listed, host)
                 post {
                     code = room.code
                     hosting = true
@@ -86,16 +159,16 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
                     status = e.message ?: "Could not create the room."
                 }
             }
-        }, "v-converter-room").apply { isDaemon = true }.start()
+        }
     }
 
-    fun join() {
+    fun join(room: String = code) {
         if (connecting || connected) return
         if (!Online.isConfigured) {
             status = "Set the server address in the options first."
             return
         }
-        val clean = code.trim().uppercase()
+        val clean = room.trim().uppercase()
         if (clean.length < 4) {
             status = "Type the room code first."
             return
@@ -108,29 +181,42 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
 
     private fun open(room: String) {
         status = "Connecting to $room…"
+        known.clear()
         val live = CollabSession(Online.api().socketUrl(room, displayName()), object : CollabListener {
-            override fun onWelcome(id: Int, peers: List<RoomPeer>, snapshot: JSONObject?, ops: List<JSONObject>) {
-                val remote = snapshot?.let { s -> runCatching { ops.fold(ChartSync.fromSnapshot(s)) { doc, op -> ChartSync.apply(doc, op) } }.getOrNull() }
+            override fun onWelcome(welcome: RoomWelcome) {
+                if (welcome.kind != adapter.kind.key) {
+                    post {
+                        session?.close()
+                        session = null
+                        connecting = false
+                        status = "Room $room is for the ${LiveKind.of(welcome.kind).label}; open that editor to join it."
+                    }
+                    return
+                }
                 post {
                     connecting = false
                     connected = true
-                    this@LiveSession.peers = peers
-                    if (remote != null) {
-                        editor.loadRemote(remote)
-                        status = "Joined room $room with ${peers.size} other editor(s). The chart came from the room."
+                    peers = welcome.peers
+                    val snapshot = welcome.snapshot
+                    if (snapshot != null) {
+                        runCatching { adapter.load(snapshot, welcome.ops) }
+                            .onSuccess { status = "Joined \"${welcome.title.ifBlank { room }}\" ($room) with ${welcome.peers.size} other editor(s)." }
+                            .onFailure { status = "Joined $room, but its content could not be read: ${it.message}" }
                     } else {
-                        session?.sendSnapshot(ChartSync.snapshot(editor.document))
-                        status = if (hosting) "Room $room is open: share the code so others can join." else "Joined room $room and shared your chart with it."
+                        lastSnapshot = System.currentTimeMillis()
+                        session?.sendSnapshot(adapter.snapshot())
+                        status = if (hosting) "Room $room is open${if (publicRoom) " and listed publicly" else ""}: share the code so others can join." else "Joined $room and shared your work with it."
                     }
+                    fetch(welcome.assets)
+                    shareNewFiles()
                 }
             }
 
-            override fun onOp(from: Int, op: JSONObject) = post { editor.applyRemote { ChartSync.apply(it, op) } }
+            override fun onOp(from: Int, op: JSONObject) = post { runCatching { adapter.applyOp(op) } }
 
-            override fun onSnapshot(from: Int, snapshot: JSONObject) {
-                val remote = runCatching { ChartSync.fromSnapshot(snapshot) }.getOrNull() ?: return
-                post { editor.loadRemote(remote) }
-            }
+            override fun onSnapshot(from: Int, snapshot: JSONObject) = post { runCatching { adapter.load(snapshot, emptyList()) } }
+
+            override fun onAsset(name: String) = post { fetch(listOf(name)) }
 
             override fun onPeers(peers: List<RoomPeer>) = post {
                 this@LiveSession.peers = peers
@@ -147,6 +233,7 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
             }
 
             override fun onClosed(reason: String) = post {
+                if (session == null && !connecting) return@post
                 val wasConnected = connected
                 connecting = false
                 connected = false
@@ -161,6 +248,7 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
     }
 
     fun leave() {
+        pending?.cancel()
         session?.close()
         session = null
         connected = false
@@ -182,34 +270,37 @@ class LiveSession(private val editor: ChartEditorState, private val post: (() ->
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LiveSessionPanel(live: LiveSession, editor: ChartEditorState, modifier: Modifier = Modifier) {
-    var message by androidx.compose.runtime.remember { mutableStateOf("") }
-    LaunchedEffect(editor.position, editor.difficulty, live.connected) { live.cursor(editor.position, editor.difficulty) }
+fun LiveSessionPanel(live: LiveSession, modifier: Modifier = Modifier, cursor: Pair<Double, String>? = null) {
+    var message by remember { mutableStateOf("") }
+    LaunchedEffect(cursor, live.connected) { if (cursor != null) live.cursor(cursor.first, cursor.second) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        EditorSectionTitle("Live session")
+        EditorSectionTitle("Multieditor")
         if (!live.connected) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TextValueField("Your name", live.name, Modifier.weight(1f)) { live.name = it }
                 TextValueField("Room code", live.code, Modifier.weight(1f)) { live.code = it.uppercase() }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = live.publicRoom, onCheckedChange = { live.publicRoom = it })
+                Text("List my room publicly (anyone can join from Online → Rooms)", fontSize = 13.sp)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 EditorChip(if (live.connecting) "Connecting…" else "Start a room", false) { live.host() }
                 EditorChip("Join room", false) { live.join() }
             }
             Text(
-                "Edit this chart together: start a room and share its code, or join someone's room. Notes and events sync as you place them; each person loads the song audio on their own device.",
+                "Edit together with two or more people: start a room and share its code (or list it publicly), or join someone's room. Every change syncs live, and the files you load (images, spritesheets, song audio) are shared with the room.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SelectionContainer { Text("Room ${live.code}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.primary) }
+                if (live.publicRoom) Text("public", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 EditorChip("Leave", false) { live.leave() }
             }
-            Text(
-                if (live.peers.isEmpty()) "Nobody else is here yet." else "With: " + live.peers.joinToString { it.name },
-                fontSize = 13.sp
-            )
+            Text(if (live.peers.isEmpty()) "Nobody else is here yet." else "With: " + live.peers.joinToString { it.name }, fontSize = 13.sp)
+            if (live.files > 0) Text("${live.files} shared file(s)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             live.cursors.values.forEach { c ->
                 Text("${c.name} · ${formatTime(c.time)} · ${c.difficulty}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

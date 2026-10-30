@@ -10,6 +10,7 @@ import com.brenninhotools.vconverter.online.ModEngine
 import com.brenninhotools.vconverter.online.ModEntry
 import com.brenninhotools.vconverter.online.ModPage
 import com.brenninhotools.vconverter.online.Online
+import com.brenninhotools.vconverter.online.RoomInfo
 import com.brenninhotools.vconverter.online.UploadedMod
 import com.brenninhotools.vconverter.online.VersionInfo
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +60,30 @@ class OnlineState(private val scope: CoroutineScope) {
         private set
 
     val configured: Boolean get() = Online.isConfigured
+
+    var rooms by mutableStateOf<List<RoomInfo>?>(null)
+        private set
+    var roomsLoading by mutableStateOf(false)
+        private set
+    var roomsError by mutableStateOf<String?>(null)
+        private set
+    var roomKind by mutableStateOf<String?>(null)
+
+    fun refreshRooms() {
+        if (!configured || roomsLoading) return
+        roomsLoading = true
+        roomsError = null
+        val kind = roomKind
+        scope.launch {
+            try {
+                rooms = withContext(Dispatchers.IO) { Online.api().publicRooms(kind) }
+            } catch (e: Exception) {
+                roomsError = e.message ?: "Could not load the rooms."
+            } finally {
+                roomsLoading = false
+            }
+        }
+    }
 
     fun refreshNews() {
         if (!configured || newsLoading) return

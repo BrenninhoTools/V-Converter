@@ -39,7 +39,7 @@ data class Announcement(val id: Int, val title: String, val body: String, val le
 
 data class RoomPeer(val id: Int, val name: String)
 
-data class RoomInfo(val code: String, val title: String, val peers: List<RoomPeer>)
+data class RoomInfo(val code: String, val title: String, val peers: List<RoomPeer>, val kind: String = "chart", val public: Boolean = false, val host: String = "")
 
 enum class ModEngine(val key: String, val label: String) {
     VSLICE("vslice", "V-Slice"),
@@ -220,10 +220,50 @@ class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
 
     private fun room(obj: JSONObject): RoomInfo {
         val peers = obj.optJSONArray("peers") ?: JSONArray()
-        return RoomInfo(obj.optString("code"), obj.optString("title"), (0 until peers.length()).mapNotNull { peers.optJSONObject(it) }.map { RoomPeer(it.optInt("id"), it.optString("name")) })
+        return RoomInfo(
+            obj.optString("code"), obj.optString("title"),
+            (0 until peers.length()).mapNotNull { peers.optJSONObject(it) }.map { RoomPeer(it.optInt("id"), it.optString("name")) },
+            obj.optString("kind", "chart"), obj.optBoolean("public", false), obj.optString("host")
+        )
     }
 
-    fun createRoom(title: String): RoomInfo = room(JSONObject(request("/api/rooms", "POST", JSONObject().put("title", title))))
+    fun createRoom(title: String, kind: String = "chart", public: Boolean = false, host: String = ""): RoomInfo =
+        room(JSONObject(request("/api/rooms", "POST", JSONObject().put("title", title).put("kind", kind).put("public", public).put("host", host))))
+
+    fun publicRooms(kind: String? = null): List<RoomInfo> {
+        val array = JSONObject(request("/api/rooms" + (kind?.let { "?kind=${encode(it)}" } ?: ""))).optJSONArray("rooms") ?: JSONArray()
+        return (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map(::room)
+    }
+
+    private fun assetPath(code: String, name: String) =
+        "/api/rooms/${encode(code.trim().uppercase())}/assets/" + name.split('/').joinToString("/") { encode(it).replace("+", "%20") }
+
+    fun uploadRoomAsset(code: String, name: String, bytes: ByteArray) {
+        val connection = open(assetPath(code, name), "PUT")
+        try {
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/octet-stream")
+            connection.setFixedLengthStreamingMode(bytes.size)
+            connection.outputStream.use { it.write(bytes) }
+            if (connection.responseCode !in 200..299) fail(connection)
+        } catch (e: IOException) {
+            throw OnlineException("Could not share ${name.substringAfterLast('/')}: ${e.message ?: e.javaClass.simpleName}")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    fun downloadRoomAsset(code: String, name: String): ByteArray {
+        val connection = open(assetPath(code, name), "GET")
+        try {
+            if (connection.responseCode !in 200..299) fail(connection)
+            return connection.inputStream.use { it.readBytes() }
+        } catch (e: IOException) {
+            throw OnlineException("Could not get ${name.substringAfterLast('/')}: ${e.message ?: e.javaClass.simpleName}")
+        } finally {
+            connection.disconnect()
+        }
+    }
 
     fun room(code: String): RoomInfo = room(JSONObject(request("/api/rooms/${encode(code.trim().uppercase())}")))
 

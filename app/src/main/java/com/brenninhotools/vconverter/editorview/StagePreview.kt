@@ -36,7 +36,7 @@ private val spotColors = mapOf(
 )
 private val selectionColor = Color(0xFFFFC94A)
 
-private fun solidColor(raw: String): Color {
+internal fun solidColor(raw: String): Color {
     val hex = raw.trim().removePrefix("#")
     val value = hex.toLongOrNull(16) ?: return Color.Gray
     return when (hex.length) {
@@ -153,7 +153,7 @@ fun StagePreview(state: StageEditorState, modifier: Modifier = Modifier) {
     }
 }
 
-private fun DrawScope.drawProp(state: StageEditorState, prop: StageProp, left: Float, top: Float, w: Float, h: Float) {
+internal fun DrawScope.drawProp(state: StageEditorState, prop: StageProp, left: Float, top: Float, w: Float, h: Float) {
     if (w < 0.5f || h < 0.5f) return
     val alpha = prop.alpha.toFloat().coerceIn(0f, 1f)
     val center = Offset(left + w / 2f, top + h / 2f)

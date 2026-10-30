@@ -27,7 +27,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 - [Supported conversions](#supported-conversions)
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
-- [Online server](#online-server)
+- [Multieditor](#multieditor) · [PlayTest](#playtest) · [Online server](#online-server)
 - [Building](#building)
 
 ## Download
@@ -329,6 +329,24 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 
 ---
 
+## Multieditor
+
+Every editor (Chart, Character, Stage and Week) has a **Multieditor** card: two or more people edit the same thing at the same time through the [online server](#online-server).
+
+- **Rooms**: start a room and share its 6-letter code, or tick **List my room publicly** so anyone can find it in **Online → Rooms** (Android) or the **Online** page (Windows and Linux), filtered by editor. Joining from the list opens the right editor.
+- **Live changes**: in the Chart Editor notes and events sync one by one, and anything else sends the whole chart; the other editors send their whole document (a character, a stage or a week) a few times per second while you work. Undo and redo stay local and sync like any other change. People who join later get the current state.
+- **Shared files**: images, spritesheets and song audio you load are uploaded to the room and downloaded by everyone in it, so the previews match.
+- **Presence**: who is in the room, where each person is in the song (Chart Editor) and a small chat.
+
+## PlayTest
+
+The **Test** section on Android and **PlayTest** in the sidebar on Windows and Linux play songs the way the game does, to check converted mods and your own projects.
+
+- **What it opens**: a mod folder or archive (V-Slice, Psych or Codename; Psych and Codename mods go through the converter to V-Slice first, so the converter itself is tested), the result of any conversion (**PlayTest the result** under the output), the converted mod (**PlayTest the converted mod**), or the Chart Editor's chart (**PlayTest this chart**).
+- **Gameplay**: notes scroll with the chart's speed (downscroll too), with Sick/Good/Bad/Shit timing windows, holds, misses, combo, score, accuracy, rating (PFC, GFC, FC…) and health. Play from any point of the song, or turn on **Botplay** to watch the chart play itself. On phones the screen is split into four lanes to tap; on a computer the arrow keys or D F J K hit the notes.
+- **Stage and characters**: the song's stage with its props, the player, opponent and girlfriend placed on it singing (and missing) with their animations and dancing to the beat, and the camera following FocusCamera events.
+- **Report**: problems found in the chart (stacked notes, holds running into notes, missing BPM, empty difficulties, events that need scripts), the audio, the characters (missing data, spritesheets or animations, prefixes with no frames), the stage (props without images or frames) and the conversion, plus timing hints after playing.
+
 ## Online server
 
 The `server/` folder holds the V-Converter online server, written in JavaScript (Node.js 22.13+, Express, `ws` and the built-in SQLite). The apps talk to it once its address is typed in the options (the gear): **Server address** and **Send Error Reports** (off by default).
@@ -338,7 +356,7 @@ The `server/` folder holds the V-Converter online server, written in JavaScript 
 | Mod gallery | **Online** section on Android (Mods / Share tabs) and **Online** in the sidebar on Windows and Linux: search, filter by engine, sort, download, and upload a `.zip` with title, description, author, engine and tags. Uploading returns a delete key, the only way to remove the mod later | `GET /api/mods`, `GET /api/mods/:id`, `GET /api/mods/:id/download`, `POST /api/mods` (multipart, field `file`), `DELETE /api/mods/:id` (`X-Delete-Token`) |
 | Updates and news | **News** tab: tells you when a newer V-Converter is out (from the latest GitHub release, with the download for your platform) and shows the server's announcements | `GET /api/version?platform=&current=`, `GET /api/announcements?platform=` |
 | Error reports | When enabled, failed conversions and crashes send their message, stack trace, app version and platform | `POST /api/reports` |
-| Live chart editing | **Live session** card under the Chart Editor: start a room and share its 6-letter code, or join one. Notes and events sync as they are placed, other changes (BPM, difficulties, song info) send the whole chart, and late joiners get the current chart. Everyone sees who is in the room, where each one is in the song, and a small chat. Each person loads the song audio on their own device | `POST /api/rooms`, `GET /api/rooms/:code`, WebSocket `/ws?room=CODE&name=NAME` |
+| Multieditor | **Multieditor** card in every editor: start a room and share its 6-letter code, or join one. Notes and events sync as they are placed, other changes (BPM, difficulties, song info) send the whole chart, and late joiners get the current chart. Everyone sees who is in the room, where each one is in the song, and a small chat. Each person loads the song audio on their own device | `GET /api/rooms?kind=` (public rooms), `POST /api/rooms`, `GET /api/rooms/:code`, `PUT`/`GET /api/rooms/:code/assets/<path>`, WebSocket `/ws?room=CODE&name=NAME` |
 
 Run it:
 
@@ -362,6 +380,7 @@ or with Docker (`docker build -t v-converter-server server` and `docker run -p 3
 | `GITHUB_REPO` / `GITHUB_TOKEN` | `BrenninhoTools/V-Converter` / (empty) | Where the latest release is read from |
 | `LATEST_VERSION` | (empty) | Version to report when GitHub can't be reached |
 | `ROOM_IDLE_MINUTES` / `MAX_PEERS_PER_ROOM` / `MAX_MESSAGE_MB` | `120` / `16` / `8` | Live editing rooms |
+| `ROOM_ASSETS_PER_HOUR` / `MAX_ROOM_ASSET_MB` / `MAX_ROOM_ASSETS_MB` | `600` / `40` / `200` | Files shared in rooms |
 
 Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.
 
