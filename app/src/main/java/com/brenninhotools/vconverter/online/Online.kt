@@ -8,7 +8,7 @@ object Online {
     @Volatile var serverUrl: String = ""
     @Volatile var reportsEnabled: Boolean = false
     @Volatile var platform: String = "android"
-    @Volatile var appVersion: String = "0.0.1"
+    @Volatile var appVersion: String = "0.0.2"
 
     val isConfigured: Boolean get() = OnlineApi.normalize(serverUrl).isNotEmpty()
 

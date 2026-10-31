@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
     private fun setupOnline() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         Online.platform = "android"
-        Online.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0.0.1"
+        Online.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0.0.2"
         Online.serverUrl = prefs.getString("server_url", "") ?: ""
         Online.reportsEnabled = prefs.getBoolean("error_reports", false)
         val crashFile = File(filesDir, "last-crash.txt")

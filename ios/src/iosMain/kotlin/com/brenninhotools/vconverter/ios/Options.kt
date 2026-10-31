@@ -85,7 +85,7 @@ object AppSettings {
         com.brenninhotools.vconverter.online.Online.reportsEnabled = errorReports
     }
 
-    const val APP_VERSION = "0.0.1"
+    const val APP_VERSION = "0.0.2"
 
     var musicVolume by mutableStateOf(prefs?.getFloat("musicVolume", 0.5f) ?: 0.5f)
         private set

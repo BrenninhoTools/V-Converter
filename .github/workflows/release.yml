@@ -6,7 +6,7 @@ on:
       version:
         description: "Version to release (reads docs/releases/v<version>.md)"
         required: true
-        default: "0.0.1"
+        default: "0.0.2"
       prerelease:
         description: "Mark as pre-release"
         type: boolean
@@ -84,9 +84,126 @@ jobs:
           path: out/V Converter-Windows.exe
           compression-level: 0
 
+  linux:
+    name: V Converter-Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build package and portable app
+        run: ./gradlew :desktop:packageDeb :desktop:createDistributable
+
+      - name: Name the builds
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/deb/*.deb "out/V Converter-Linux.deb"
+          tar -czf "out/V Converter-Linux.tar.gz" -C desktop/build/compose/binaries/main/app V-Converter
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-Linux
+          path: |
+            out/V Converter-Linux.deb
+            out/V Converter-Linux.tar.gz
+          compression-level: 0
+
+  macos:
+    name: V Converter-MacOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build disk image and app
+        run: ./gradlew :desktop:packageDmg :desktop:createDistributable
+
+      - name: Name the builds
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/dmg/*.dmg "out/V Converter-MacOS.dmg"
+          ditto -c -k --keepParent desktop/build/compose/binaries/main/app/V-Converter.app "out/V Converter-MacOS.zip"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-MacOS
+          path: |
+            out/V Converter-MacOS.dmg
+            out/V Converter-MacOS.zip
+          compression-level: 0
+
+  ios:
+    name: V Converter-IOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      - name: Build the Kotlin framework
+        run: ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: Build the app
+        run: |
+          cd iosApp
+          xcodebuild -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+      - name: Package the IPA
+        run: |
+          mkdir -p out/Payload
+          cp -R "iosApp/build/Release-iphoneos/V-Converter.app" out/Payload/
+          cd out && zip -qr "V Converter-IOS.ipa" Payload
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-IOS
+          path: out/V Converter-IOS.ipa
+          compression-level: 0
+
   release:
     name: Publish v${{ inputs.version }}
-    needs: [android, windows]
+    needs: [android, windows, linux, macos, ios]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -111,4 +228,9 @@ jobs:
             --notes-file "docs/releases/v${{ inputs.version }}.md" \
             ${{ inputs.prerelease && '--prerelease' || '' }} \
             "out/V Converter-Android.apk#V Converter-Android.apk" \
-            "out/V Converter-Windows.exe#V Converter-Windows.exe"
+            "out/V Converter-Windows.exe#V Converter-Windows.exe" \
+            "out/V Converter-Linux.deb#V Converter-Linux.deb" \
+            "out/V Converter-Linux.tar.gz#V Converter-Linux.tar.gz" \
+            "out/V Converter-MacOS.dmg#V Converter-MacOS.dmg" \
+            "out/V Converter-MacOS.zip#V Converter-MacOS.zip" \
+            "out/V Converter-IOS.ipa#V Converter-IOS.ipa"
