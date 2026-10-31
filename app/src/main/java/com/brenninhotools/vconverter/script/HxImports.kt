@@ -115,11 +115,11 @@ object HxImports {
             val c = sb[i]
             when {
                 c == '/' && i + 1 < sb.length && sb[i + 1] == '/' -> {
-                    while (i < sb.length && sb[i] != '\n') sb.setCharAt(i++, ' ')
+                    while (i < sb.length && sb[i] != '\n') sb.set(i++, ' ')
                 }
                 c == '/' && i + 1 < sb.length && sb[i + 1] == '*' -> {
                     val end = sb.indexOf("*/", i + 2).let { if (it < 0) sb.length else it + 2 }
-                    for (k in i until end) if (sb[k] != '\n') sb.setCharAt(k, ' ')
+                    for (k in i until end) if (sb[k] != '\n') sb.set(k, ' ')
                     i = end
                 }
                 c == '"' || c == '\'' -> {
@@ -128,7 +128,7 @@ object HxImports {
                         if (sb[j] == '\\') j++
                         j++
                     }
-                    for (k in i until minOf(j + 1, sb.length)) if (sb[k] != '\n') sb.setCharAt(k, ' ')
+                    for (k in i until minOf(j + 1, sb.length)) if (sb[k] != '\n') sb.set(k, ' ')
                     i = j + 1
                 }
                 else -> i++

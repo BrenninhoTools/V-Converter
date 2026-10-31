@@ -7,9 +7,11 @@ import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.SparrowFrame
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.roundToInt
+import com.brenninhotools.vconverter.core.putIfMissing
+import com.brenninhotools.vconverter.core.roundLong
 
 data class StageSource(
     val id: String,
@@ -87,9 +89,9 @@ object PsychToVSliceStage {
                 val z = (index + 1) * 10
                 top = z
                 when (obj.type) {
-                    "gf", "gfGroup" -> markerZ.putIfAbsent(CharacterSlot.GIRLFRIEND, z)
-                    "dad", "dadGroup" -> markerZ.putIfAbsent(CharacterSlot.OPPONENT, z)
-                    "boyfriend", "boyfriendGroup" -> markerZ.putIfAbsent(CharacterSlot.PLAYER, z)
+                    "gf", "gfGroup" -> markerZ.putIfMissing(CharacterSlot.GIRLFRIEND, z)
+                    "dad", "dadGroup" -> markerZ.putIfMissing(CharacterSlot.OPPONENT, z)
+                    "boyfriend", "boyfriendGroup" -> markerZ.putIfMissing(CharacterSlot.PLAYER, z)
                     "square", "sprite", "animatedSprite" -> {
                         val label = uniqueName(obj.name.ifBlank { "object$index" }, usedNames)
                         when {
@@ -267,7 +269,7 @@ object PsychToVSliceStage {
         if (!obj.paused) entry.put("startingAnimation", start)
     }
 
-    private fun round(value: Double): Double = Math.round(value * 1000.0) / 1000.0
+    private fun round(value: Double): Double = (value * 1000.0).roundLong() / 1000.0
 
     private fun hexColor(raw: String, label: String, report: ReportBuilder): String {
         val text = raw.trim().removePrefix("#").removePrefix("0x").removePrefix("0X")

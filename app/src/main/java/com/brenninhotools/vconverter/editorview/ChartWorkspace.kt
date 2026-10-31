@@ -139,7 +139,7 @@ fun ChartToolbar(state: ChartEditorState, modifier: Modifier = Modifier) {
             }
         }
         Text(
-            "${formatTime(position)}  ·  Measure ${conductor.measureAt(position) + 1}  ·  Beat ${"%.2f".format(conductor.beatAt(position))}  ·  ${trim(conductor.change(position).bpm)} BPM  ·  ${state.document.notes(state.difficulty).size} notes",
+            "${formatTime(position)}  ·  Measure ${conductor.measureAt(position) + 1}  ·  Beat ${fmt("%.2f", conductor.beatAt(position))}  ·  ${trim(conductor.change(position).bpm)} BPM  ·  ${state.document.notes(state.difficulty).size} notes",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

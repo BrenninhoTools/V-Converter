@@ -28,6 +28,7 @@ import com.brenninhotools.vconverter.chart.preview.ChartPreview
 import com.brenninhotools.vconverter.chart.preview.ChartSide
 import kotlin.math.max
 import kotlin.math.min
+import com.brenninhotools.vconverter.core.fmt
 
 data class ChartStripColors(
     val background: Color,
@@ -200,7 +201,7 @@ private fun DrawScope.drawStrip(preview: ChartPreview, beats: List<Pair<Double, 
     var second = step
     while (second < totalSeconds) {
         val px = x(second * 1000.0)
-        val text = "%d:%02d".format(second / 60, second % 60)
+        val text = fmt("%d:%02d", second / 60, second % 60)
         val layout = measurer.measure(text, mutedStyle)
         val left = px - layout.size.width / 2f
         val right = px + layout.size.width / 2f
@@ -212,9 +213,9 @@ private fun DrawScope.drawStrip(preview: ChartPreview, beats: List<Pair<Double, 
 }
 
 fun formatBpm(value: Double): String =
-    if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(java.util.Locale.US, value).trimEnd('0').trimEnd('.')
+    if (value % 1.0 == 0.0) value.toLong().toString() else fmt("%.2f", value).trimEnd('0').trimEnd('.')
 
 fun formatDuration(ms: Double): String {
     val total = (ms / 1000.0).toInt().coerceAtLeast(0)
-    return "%d:%02d".format(total / 60, total % 60)
+    return fmt("%d:%02d", total / 60, total % 60)
 }

@@ -4,9 +4,10 @@ import com.brenninhotools.vconverter.core.json.asBool
 import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.core.json.value
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONException
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.fmt
 
 data class CodenameNote(val time: Double, val id: Int, val type: Int, val length: Double)
 
@@ -168,7 +169,7 @@ object CodenameChartParser {
 
     private fun colorText(raw: Any?): String = when (raw) {
         null -> ""
-        is Number -> String.format("#%06X", raw.toLong() and 0xFFFFFF)
+        is Number -> fmt("#%06X", raw.toLong() and 0xFFFFFF)
         else -> raw.toString()
     }
 

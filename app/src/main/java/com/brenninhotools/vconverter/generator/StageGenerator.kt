@@ -4,8 +4,8 @@ import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class PropSpec(
     val name: String,

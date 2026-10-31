@@ -6,7 +6,7 @@ import com.brenninhotools.vconverter.editor.CharacterExport
 import com.brenninhotools.vconverter.editor.CharacterLoader
 import com.brenninhotools.vconverter.editor.ExportTarget
 import com.brenninhotools.vconverter.editor.SpriteAtlas
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

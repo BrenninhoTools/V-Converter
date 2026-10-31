@@ -1,6 +1,7 @@
 package com.brenninhotools.vconverter.io
 
 import com.brenninhotools.vconverter.mod.ModWriter
+import com.brenninhotools.vconverter.platform.inputStream
 
 class OutputFile(val directories: List<String>, val name: String, val content: String, val bytes: ByteArray? = null) {
     val relativePath: String get() = (directories + name).joinToString("/")

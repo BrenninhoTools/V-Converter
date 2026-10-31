@@ -12,6 +12,8 @@ import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.reverse.VSliceParser
+import com.brenninhotools.vconverter.platform.byteInputStream
+import com.brenninhotools.vconverter.platform.inputStream
 
 class StageAsset(val png: ByteArray, val xml: String?)
 
@@ -32,7 +34,7 @@ object StageAssets {
     }
 
     fun collect(files: List<Pair<String, ByteArray>>): Map<String, StageAsset> {
-        val xmls = files.filter { it.first.endsWith(".xml", true) }.associate { key(it.first) to it.second.toString(Charsets.UTF_8) }
+        val xmls = files.filter { it.first.endsWith(".xml", true) }.associate { key(it.first) to it.second.decodeToString() }
             .filterValues { SpriteAtlas.parse(it).frames.isNotEmpty() }
         return files.filter { it.first.endsWith(".png", true) }.associate { (path, bytes) ->
             val k = key(path)
@@ -46,7 +48,7 @@ object StageLoader {
 
     fun load(files: List<Pair<String, ByteArray>>): LoadedStage {
         val assets = StageAssets.collect(files)
-        val jsons = files.filter { it.first.endsWith(".json", true) }.map { it.first to it.second.toString(Charsets.UTF_8) }
+        val jsons = files.filter { it.first.endsWith(".json", true) }.map { it.first to it.second.decodeToString() }
         val vslice = jsons.firstNotNullOfOrNull { (path, text) ->
             runCatching { VSliceParser.stage(text) }.getOrNull()?.let { StageDocument.fromVSlice(Ids.of(stem(path)).ifEmpty { "stage" }, text) }
         }

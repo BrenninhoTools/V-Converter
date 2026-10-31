@@ -101,12 +101,12 @@ fun PlayTestResultsPanel(state: PlayTestState, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         EditorSectionTitle("Results")
-        Text("${game.rating} · ${"%.2f".format(game.accuracy * 100)}% · ${game.score} points", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("${game.rating} · ${fmt("%.2f", game.accuracy * 100)}% · ${game.score} points", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Text(Judgement.entries.joinToString("   ") { "${it.label} ${game.counts.getValue(it)}" } + "   MISS ${game.misses}", fontSize = 13.sp)
-        Text("Max combo ${game.maxCombo} · dropped holds ${game.holdDrops} · lowest health ${"%.0f".format(game.lowestHealth * 50)}%", fontSize = 13.sp, color = scheme.onSurfaceVariant)
+        Text("Max combo ${game.maxCombo} · dropped holds ${game.holdDrops} · lowest health ${fmt("%.0f", game.lowestHealth * 50)}%", fontSize = 13.sp, color = scheme.onSurfaceVariant)
         if (game.offsets.isNotEmpty()) {
             val average = game.offsets.average()
-            Text("Average timing ${"%.1f".format(abs(average))} ms ${if (average >= 0) "late" else "early"} over ${game.offsets.size} hit(s)", fontSize = 13.sp, color = scheme.onSurfaceVariant)
+            Text("Average timing ${fmt("%.1f", abs(average))} ms ${if (average >= 0) "late" else "early"} over ${game.offsets.size} hit(s)", fontSize = 13.sp, color = scheme.onSurfaceVariant)
         }
         game.deathTime?.let { Text("Health ran out at ${PlayTestState.formatMs(it)}.", fontSize = 13.sp, color = scheme.error) }
         if (state.botplay) Text("Botplay was on: the score shows the chart, not you.", fontSize = 12.sp, color = scheme.onSurfaceVariant)

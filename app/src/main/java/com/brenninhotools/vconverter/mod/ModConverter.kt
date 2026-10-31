@@ -29,8 +29,9 @@ import com.brenninhotools.vconverter.week.PsychMenuCharacter
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
 import com.brenninhotools.vconverter.week.PsychWeekParser
 import com.brenninhotools.vconverter.week.WeekSource
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.sortedMutableSet
 
 data class ModInfo(
     val title: String,
@@ -53,7 +54,7 @@ class ModConverter(
     private val pathIndex: Map<String, String> = files.paths.filter { it.startsWith(scan.root) }.associateBy { (scan.root + scan.relative(it)).lowercase() }
     private var written = 0
     private var keptPsychEvents = 0
-    private val keptEventNames = sortedSetOf<String>()
+    private val keptEventNames = sortedMutableSet<String>()
     private val stageSkipLines = HashMap<String, Set<Int>>()
     private var done = 0
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + scan.scripts.size + 2

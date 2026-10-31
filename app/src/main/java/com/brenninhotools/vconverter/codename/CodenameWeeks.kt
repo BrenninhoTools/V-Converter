@@ -5,8 +5,8 @@ import com.brenninhotools.vconverter.core.SongPath
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.week.LevelResult
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class CodenameWeekSong(val name: String, val hidden: Boolean, val displayName: String?, val variation: String?)
 

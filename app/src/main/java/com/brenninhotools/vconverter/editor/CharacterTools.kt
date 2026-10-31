@@ -14,7 +14,8 @@ import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.reverse.VSliceParser
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.platform.byteInputStream
 
 data class LoadedCharacter(
     val document: CharacterDocument,
@@ -30,7 +31,7 @@ object CharacterLoader {
     private fun key(path: String) = stem(path.substringAfterLast(':')).lowercase()
 
     fun load(files: List<Pair<String, ByteArray>>): LoadedCharacter {
-        val texts = files.filter { it.first.substringAfterLast('.').lowercase() in setOf("json", "xml") }.map { it.first to it.second.toString(Charsets.UTF_8) }
+        val texts = files.filter { it.first.substringAfterLast('.').lowercase() in setOf("json", "xml") }.map { it.first to it.second.decodeToString() }
         val pngs = files.filter { it.first.endsWith(".png", ignoreCase = true) }
         val sheets = texts.filter { it.first.endsWith(".xml", true) && !CodenameCharacterParser.isCharacterXml(it.second) && SpriteAtlas.parse(it.second).frames.isNotEmpty() }
 

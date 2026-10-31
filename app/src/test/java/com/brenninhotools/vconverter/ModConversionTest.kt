@@ -11,7 +11,7 @@ import com.brenninhotools.vconverter.mod.ZipExtractor
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
 import com.brenninhotools.vconverter.week.PsychWeekParser
 import com.brenninhotools.vconverter.week.WeekSource
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -3,6 +3,7 @@ package com.brenninhotools.vconverter.codename
 import com.brenninhotools.vconverter.core.SongPath
 import com.brenninhotools.vconverter.mod.ModFiles
 import com.brenninhotools.vconverter.mod.Placeholders
+import com.brenninhotools.vconverter.core.sortedMutableMap
 
 data class CodenameScannedSong(
     val folder: String,
@@ -71,16 +72,16 @@ object CodenameModScanner {
         val songAudio = HashMap<String, MutableList<String>>()
         val songScripts = HashMap<String, MutableList<String>>()
         val songCutscenes = HashMap<String, MutableList<String>>()
-        val characters = sortedMapOf<String, String>()
-        val characterScripts = sortedMapOf<String, String>()
-        val stages = sortedMapOf<String, String>()
-        val stageScripts = sortedMapOf<String, String>()
-        val weeks = sortedMapOf<String, String>()
-        val weekCharacters = sortedMapOf<String, String>()
-        val events = sortedMapOf<String, String>()
-        val eventScripts = sortedMapOf<String, String>()
-        val noteScripts = sortedMapOf<String, String>()
-        val libraryScripts = sortedMapOf<String, String>()
+        val characters = sortedMutableMap<String, String>()
+        val characterScripts = sortedMutableMap<String, String>()
+        val stages = sortedMutableMap<String, String>()
+        val stageScripts = sortedMutableMap<String, String>()
+        val weeks = sortedMutableMap<String, String>()
+        val weekCharacters = sortedMutableMap<String, String>()
+        val events = sortedMutableMap<String, String>()
+        val eventScripts = sortedMutableMap<String, String>()
+        val noteScripts = sortedMutableMap<String, String>()
+        val libraryScripts = sortedMutableMap<String, String>()
         val globalScripts = mutableListOf<String>()
         val stateScripts = mutableListOf<String>()
         val assets = mutableListOf<String>()
@@ -190,7 +191,7 @@ object CodenameModScanner {
             }
         }
         return scores.entries
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { Integer.bitCount(it.value) }.thenBy { it.key.length })
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { (it.value).countOneBits() }.thenBy { it.key.length })
             .firstOrNull()?.key ?: ""
     }
 }

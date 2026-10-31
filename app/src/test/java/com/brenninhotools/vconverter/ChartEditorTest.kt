@@ -13,7 +13,7 @@ import com.brenninhotools.vconverter.editor.EditorNote
 import com.brenninhotools.vconverter.editor.EditorTiming
 import com.brenninhotools.vconverter.editor.EventTemplates
 import com.brenninhotools.vconverter.reverse.VSliceParser
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

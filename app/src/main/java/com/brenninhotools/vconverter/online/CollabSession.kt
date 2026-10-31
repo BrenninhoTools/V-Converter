@@ -1,7 +1,10 @@
 package com.brenninhotools.vconverter.online
 
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.platform.Platform
+import com.brenninhotools.vconverter.platform.PlatformLock
+import kotlin.concurrent.Volatile
 
 data class RoomWelcome(val id: Int, val kind: String, val title: String, val peers: List<RoomPeer>, val snapshot: JSONObject?, val ops: List<JSONObject>, val assets: List<String>)
 
@@ -19,6 +22,7 @@ interface CollabListener {
 
 class CollabSession(socketUrl: String, private val listener: CollabListener) {
     private val peers = LinkedHashMap<Int, RoomPeer>()
+    private val lock = PlatformLock()
     private var lastCursor = 0L
     @Volatile var selfId = 0
         private set
@@ -39,7 +43,7 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
 
     fun close() = socket.close()
 
-    fun peerList(): List<RoomPeer> = synchronized(peers) { peers.values.toList() }
+    fun peerList(): List<RoomPeer> = lock.withLock { peers.values.toList() }
 
     private fun peer(obj: JSONObject) = RoomPeer(obj.optInt("id"), obj.optString("name"))
 
@@ -49,7 +53,7 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
             "welcome" -> {
                 selfId = message.optInt("id")
                 val list = message.optJSONArray("peers") ?: JSONArray()
-                synchronized(peers) {
+                lock.withLock {
                     peers.clear()
                     (0 until list.length()).mapNotNull { list.optJSONObject(it) }.map(::peer).forEach { peers[it.id] = it }
                 }
@@ -67,11 +71,11 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
             "op" -> message.optJSONObject("op")?.let { listener.onOp(message.optInt("from"), it) }
             "snapshot" -> message.optJSONObject("snapshot")?.let { listener.onSnapshot(message.optInt("from"), it) }
             "join" -> message.optJSONObject("peer")?.let {
-                synchronized(peers) { peers[it.optInt("id")] = peer(it) }
+                lock.withLock { peers[it.optInt("id")] = peer(it) }
                 listener.onPeers(peerList())
             }
             "leave" -> {
-                synchronized(peers) { peers.remove(message.optInt("id")) }
+                lock.withLock { peers.remove(message.optInt("id")) }
                 listener.onPeers(peerList())
             }
             "cursor" -> listener.onCursor(message.optInt("from"), message.optDouble("time", 0.0), message.optString("difficulty"))
@@ -85,7 +89,7 @@ class CollabSession(socketUrl: String, private val listener: CollabListener) {
     fun sendSnapshot(snapshot: JSONObject): Boolean = socket.send(JSONObject().put("type", "snapshot").put("snapshot", snapshot).toString())
 
     fun sendCursor(time: Double, difficulty: String) {
-        val now = System.currentTimeMillis()
+        val now = Platform.currentTimeMillis()
         if (now - lastCursor < 150) return
         lastCursor = now
         socket.send(JSONObject().put("type", "cursor").put("time", time).put("difficulty", difficulty).toString())

@@ -28,6 +28,7 @@ import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.script.ScriptConverter
+import com.brenninhotools.vconverter.core.sortedMutableSet
 
 private fun segments(path: String) = path.replace('\\', '/').split('/').filter { it.isNotEmpty() }
 
@@ -80,7 +81,7 @@ class CodenameChartsConverter : CodenameEngineConverter() {
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
-        val kept = sortedSetOf<String>()
+        val kept = sortedMutableSet<String>()
         var altKind = false
         items.groupBy { songFolder(it) }.forEach { (folder, group) ->
             val baseMeta = group.firstOrNull { it.kind == "metadata" && variantOf(it).isEmpty() }?.let { CodenameChartParser.parseMeta(it.text, folder.ifEmpty { "song" }) }

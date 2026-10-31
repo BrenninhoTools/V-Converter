@@ -4,8 +4,8 @@ import com.brenninhotools.vconverter.character.PsychToVSliceCharacter
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class AnimSpec(
     val name: String,

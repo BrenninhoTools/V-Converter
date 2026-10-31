@@ -3,8 +3,8 @@ package com.brenninhotools.vconverter.generator
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 enum class MenuProp(val label: String) {
     NONE("None"),

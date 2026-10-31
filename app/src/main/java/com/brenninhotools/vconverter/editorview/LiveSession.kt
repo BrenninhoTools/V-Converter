@@ -26,7 +26,7 @@ import com.brenninhotools.vconverter.online.CollabSession
 import com.brenninhotools.vconverter.online.Online
 import com.brenninhotools.vconverter.online.RoomPeer
 import com.brenninhotools.vconverter.online.RoomWelcome
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import java.util.Collections
 import java.util.Timer
 import java.util.TimerTask

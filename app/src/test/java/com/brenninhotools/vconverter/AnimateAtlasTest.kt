@@ -8,7 +8,7 @@ import com.brenninhotools.vconverter.core.AnimateAtlas
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.reverse.VSliceParser
 import com.brenninhotools.vconverter.reverse.VSliceToPsychCharacter
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

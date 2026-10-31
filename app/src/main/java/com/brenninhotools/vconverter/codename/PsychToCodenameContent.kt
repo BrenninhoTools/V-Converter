@@ -11,6 +11,7 @@ import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.week.PsychMenuCharacter
 import com.brenninhotools.vconverter.week.PsychWeek
 import kotlin.math.abs
+import com.brenninhotools.vconverter.core.roundLong
 
 object PsychToCodenameCharacter {
     fun designedForPlayer(id: String, character: PsychCharacter): Boolean = character.editorIsPlayer ?: run {
@@ -116,7 +117,7 @@ object PsychToCodenameCharacter {
         return parts.joinToString(",")
     }
 
-    fun round(value: Double): Double = Math.round(value * 100.0) / 100.0
+    fun round(value: Double): Double = (value * 100.0).roundLong() / 100.0
 }
 
 object PsychToCodenameStage {
@@ -198,8 +199,8 @@ object PsychToCodenameStage {
                 "name" to obj.name,
                 "x" to obj.x,
                 "y" to obj.y,
-                "width" to Math.round(obj.scale.x).toInt().coerceAtLeast(1),
-                "height" to Math.round(obj.scale.y).toInt().coerceAtLeast(1),
+                "width" to (obj.scale.x).roundLong().toInt().coerceAtLeast(1),
+                "height" to (obj.scale.y).roundLong().toInt().coerceAtLeast(1),
                 "color" to (color(obj.color) ?: "#FFFFFF"),
                 *scrollAttrs(obj),
                 "alpha" to obj.alpha.takeIf { it != 1.0 },
@@ -240,7 +241,7 @@ object PsychToCodenameStage {
             alternate -> setOf("danceLeft", "danceRight")
             else -> setOf(first)
         }
-        if (bops) xml.open("sprite", *attrs, "type" to "beat", "beatInterval" to Math.round(obj.danceEvery).toInt().coerceAtLeast(1))
+        if (bops) xml.open("sprite", *attrs, "type" to "beat", "beatInterval" to (obj.danceEvery).roundLong().toInt().coerceAtLeast(1))
         else xml.open("sprite", *attrs, "type" to "loop")
         val ordered = if (bops) obj.animations.sortedBy { if (it.anim == "danceLeft") 0 else if (it.anim in beatAnims) 1 else 2 }
         else obj.animations.filter { it.anim != first } + obj.animations.filter { it.anim == first }

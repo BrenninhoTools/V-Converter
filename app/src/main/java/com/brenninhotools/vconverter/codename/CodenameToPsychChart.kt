@@ -5,10 +5,14 @@ import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.reverse.PsychChartFile
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.roundToLong
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
+import com.brenninhotools.vconverter.core.roundLong
 
 data class CodenamePsychOptions(
     val stageIds: Map<String, String> = emptyMap(),
@@ -89,8 +93,8 @@ object CodenameToPsychChart {
         val id = psychSongId(song)
         val report = ReportBuilder()
         val files = mutableListOf<PsychChartFile>()
-        val customEvents = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
-        val usedTypes = sortedSetOf<String>()
+        val customEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+        val usedTypes = sortedMutableSet<String>()
         val difficulties = song.charts.keys.sortedWith(compareBy<String> { difficultyOrder.indexOf(it.lowercase()).let { i -> if (i < 0) 99 else i } }.thenBy { it })
         var characters: Map<String, String> = emptyMap()
         val displayName = song.meta.displayName.trim()
@@ -112,7 +116,7 @@ object CodenameToPsychChart {
             var duplicates = 0
             var wrapped = 0
             var typedGf = 0
-            val dropped = sortedMapOf<String, Int>()
+            val dropped = sortedMutableMap<String, Int>()
 
             val speaker = mutableListOf<Pair<Double, Int>>()
             roles.forEach { role ->
@@ -122,7 +126,7 @@ object CodenameToPsychChart {
                     return@forEach
                 }
                 if (role.mode == Mode.SPEAKER) {
-                    line.notes.forEach { speaker += it.time to Math.floorMod(it.id, 4) }
+                    line.notes.forEach { speaker += it.time to (it.id).mod(4) }
                     return@forEach
                 }
                 if (line.keyCount != 4) report.warn("$difficulty: strumline ${role.index} has ${line.keyCount} keys; Psych charts have 4, so lanes were wrapped.")
@@ -135,7 +139,7 @@ object CodenameToPsychChart {
                         else -> Unit
                     }
                     if (type.isEmpty() && altState.singAt(role.index, note.time)) type = "Alt Animation"
-                    val lane = role.laneBase + Math.floorMod(note.id, 4)
+                    val lane = role.laneBase + (note.id).mod(4)
                     if (!seen.add(Triple(lane, (note.time * 10).roundToLong(), type))) {
                         duplicates++
                         return@forEach
@@ -169,7 +173,7 @@ object CodenameToPsychChart {
                 if (note.lane < 4) section.playerNotes++ else section.opponentNotes++
             }
 
-            val psychEvents = sortedMapOf<Double, MutableList<List<String>>>()
+            val psychEvents = sortedMutableMap<Double, MutableList<List<String>>>()
             fun add(time: Double, eventName: String, v1: String, v2: String) {
                 psychEvents.getOrPut(time) { mutableListOf() } += listOf(eventName, v1, v2)
             }
@@ -246,7 +250,7 @@ object CodenameToPsychChart {
             var speed = chart.scrollSpeed.takeIf { it > 0 } ?: 1.0
             val baseSpeed = speed
             val idleAlt = HashMap<Int, Boolean>()
-            val unknown = sortedMapOf<String, Int>()
+            val unknown = sortedMutableMap<String, Int>()
             var easedScroll = 0
             events.forEach { event ->
                 val p = event.params
@@ -360,7 +364,7 @@ object CodenameToPsychChart {
     }
 
     private fun precise(value: Double): Number {
-        val rounded = Math.round(value * 1_000_000.0) / 1_000_000.0
+        val rounded = (value * 1_000_000.0).roundLong() / 1_000_000.0
         return if (rounded % 1.0 == 0.0) rounded.toLong() else rounded
     }
 

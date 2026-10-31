@@ -6,7 +6,7 @@ import com.brenninhotools.vconverter.editor.StageExport
 import com.brenninhotools.vconverter.editor.StageLoader
 import com.brenninhotools.vconverter.editor.StageProp
 import com.brenninhotools.vconverter.editor.StageSlot
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

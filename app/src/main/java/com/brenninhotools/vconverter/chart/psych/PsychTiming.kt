@@ -1,5 +1,8 @@
 package com.brenninhotools.vconverter.chart.psych
 
+import kotlin.math.abs
+import com.brenninhotools.vconverter.core.roundLong
+
 class PsychTiming(song: PsychSong) {
     data class TimeChange(val time: Double, val beat: Double, val bpm: Double, val numerator: Int = 4)
 
@@ -21,8 +24,8 @@ class PsychTiming(song: PsychSong) {
 
         for (section in song.sections) {
             val newBpm = if (section.changeBpm && section.bpm > 0.0) section.bpm else bpm
-            val whole = Math.round(section.beats).toInt()
-            val integral = Math.abs(section.beats - whole) < 1e-6 && whole in 1..64
+            val whole = (section.beats).roundLong().toInt()
+            val integral = abs(section.beats - whole) < 1e-6 && whole in 1..64
             val newNumerator = if (integral) whole else numerator
             if (section.beats != 4.0) irregular++
             if (!integral) fractional++

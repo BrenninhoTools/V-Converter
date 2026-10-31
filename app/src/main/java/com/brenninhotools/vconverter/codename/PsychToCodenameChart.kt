@@ -8,6 +8,10 @@ import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
 import kotlin.math.roundToLong
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
+import com.brenninhotools.vconverter.core.roundLong
 
 data class PsychCodenameChartOptions(
     val songFolder: String = "",
@@ -74,8 +78,8 @@ object PsychToCodenameChart {
         val main = ordered.firstOrNull { it.difficulty.equals("normal", true) }?.song ?: ordered.first().song
         val folder = options.songFolder.ifBlank { SongPath.format(main.name).ifEmpty { "song" } }
         val charts = LinkedHashMap<String, String>()
-        val usedEvents = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
-        val usedTypes = sortedSetOf<String>()
+        val usedEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+        val usedTypes = sortedMutableSet<String>()
         var characters: Map<String, String> = emptyMap()
 
         ordered.forEach { source ->
@@ -265,7 +269,7 @@ object PsychToCodenameChart {
         return PsychCodenameChartResult(folder, charts, meta, usedEvents, usedTypes, characters, report.build())
     }
 
-    private fun round(value: Double): Double = Math.round(value * 100.0) / 100.0
+    private fun round(value: Double): Double = (value * 100.0).roundLong() / 100.0
 
     private fun forcedCamera(events: List<PsychEvent>): List<Pair<Double, Double>> {
         val result = mutableListOf<Pair<Double, Double>>()

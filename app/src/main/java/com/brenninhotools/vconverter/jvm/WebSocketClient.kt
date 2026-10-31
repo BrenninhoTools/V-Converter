@@ -16,13 +16,6 @@ import java.util.concurrent.Executors
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
-interface WebSocketListener {
-    fun onOpen() {}
-    fun onText(text: String)
-    fun onClose(code: Int, reason: String) {}
-    fun onError(error: Throwable) {}
-}
-
 class WebSocketClient(private val url: String, private val listener: WebSocketListener, private val maxMessage: Int = 16 * 1024 * 1024) {
     private val random = SecureRandom()
     private val writer: ExecutorService = Executors.newSingleThreadExecutor { r -> Thread(r, "v-converter-websocket-writer").apply { isDaemon = true } }

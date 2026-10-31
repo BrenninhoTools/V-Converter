@@ -4,6 +4,8 @@ import com.brenninhotools.vconverter.chart.PsychEventIds
 import com.brenninhotools.vconverter.chart.PsychToVSliceChart
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.platform.Platform
 
 data class ScriptSource(val path: String, val text: String, val target: ScriptTarget? = null, val skipLines: Set<Int> = emptySet())
 
@@ -147,7 +149,7 @@ $body
         val fallbacks = mutableListOf<String>()
         var converted = 0
         var hooks = 0
-        val apiUsed = sortedSetOf<String>()
+        val apiUsed = sortedMutableSet<String>()
         val prefix = pascal(modSlug)
 
         fun unique(base: String): String {
@@ -260,6 +262,6 @@ $body
     }
 
     private fun resource(name: String): String =
-        ScriptConverter::class.java.getResourceAsStream("/vconverter/$name")?.use { it.readBytes().toString(Charsets.UTF_8) }
+        Platform.resourceBytes("vconverter/$name")?.decodeToString()
             ?: throw IllegalStateException("Missing bundled template $name")
 }

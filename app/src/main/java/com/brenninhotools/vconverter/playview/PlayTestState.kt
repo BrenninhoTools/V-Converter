@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.exp
 import kotlin.math.floor
+import com.brenninhotools.vconverter.core.fmt
 
 interface PlayTestPlatform {
     fun player(audio: List<EditorAudio>): SongPlayer?
@@ -404,7 +405,7 @@ class PlayTestState(private val scope: CoroutineScope, private val platform: Pla
         if (offsets.size >= 8) {
             val average = offsets.average()
             if (kotlin.math.abs(average) > 25) {
-                runIssues = runIssues + PlayIssue(IssueLevel.INFO, "Gameplay", "Hits were on average ${"%.0f".format(kotlin.math.abs(average))} ms ${if (average > 0) "late" else "early"}: check the song offset or your device latency.")
+                runIssues = runIssues + PlayIssue(IssueLevel.INFO, "Gameplay", "Hits were on average ${fmt("%.0f", kotlin.math.abs(average))} ms ${if (average > 0) "late" else "early"}: check the song offset or your device latency.")
             }
         }
     }
@@ -424,7 +425,7 @@ class PlayTestState(private val scope: CoroutineScope, private val platform: Pla
     companion object {
         fun formatMs(ms: Double): String {
             val total = ms.coerceAtLeast(0.0).toLong()
-            return "%d:%02d".format(total / 60000, (total / 1000) % 60)
+            return fmt("%d:%02d", total / 60000, (total / 1000) % 60)
         }
 
         val judgementOrder = Judgement.entries

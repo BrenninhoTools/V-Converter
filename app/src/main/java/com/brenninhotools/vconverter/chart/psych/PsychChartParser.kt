@@ -4,9 +4,9 @@ import com.brenninhotools.vconverter.core.json.asBool
 import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.core.json.value
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONException
+import com.brenninhotools.vconverter.json.JSONObject
 
 class PsychChartException(message: String, cause: Throwable? = null) : Exception(message, cause)
 

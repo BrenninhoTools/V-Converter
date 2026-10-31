@@ -6,9 +6,10 @@ import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.Locale
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import kotlin.math.floor
+import com.brenninhotools.vconverter.core.roundLong
 
 data class ReverseResult(
     val path: String,
@@ -245,8 +246,8 @@ end
         report.stat("Animations", kept.size + if (split) death.size else 0)
         report.stat("Slot", slot.label)
         report.stat("Accuracy", if (exact) "Exact" else "Approximate")
-        notes += "Health bar color set to the default ${slot.label.lowercase(Locale.US)} color; change it in Psych's Character Editor."
-        notes += "Positions were rebased for the ${slot.label.lowercase(Locale.US)} slot."
+        notes += "Health bar color set to the default ${slot.label.lowercase()} color; change it in Psych's Character Editor."
+        notes += "Positions were rebased for the ${slot.label.lowercase()} slot."
         val loops = kept.filter { it.name.endsWith("-hold") }.map { it.name }
         if (loops.isNotEmpty()) notes += "V-Slice \"-hold\" animations became Psych's \"-loop\": ${loops.joinToString()}."
         report.section("Notes", notes)
@@ -371,7 +372,7 @@ object VSliceToPsychStage {
                     if (start != null) setup += "playAnim(${lua(name)}, ${lua(start)}, true)"
                 }
                 if (prop.danceEvery > 0.0) {
-                    val integral = prop.danceEvery == Math.floor(prop.danceEvery)
+                    val integral = prop.danceEvery == floor(prop.danceEvery)
                     val alternate = prop.animations.any { it.name == "danceLeft" } && prop.animations.any { it.name == "danceRight" }
                     if (alternate && integral && prop.danceEvery == 1.0) {
                         beats += "if curBeat % 2 == 0 then"
@@ -462,7 +463,7 @@ object VSliceToPsychStage {
         return ReverseResult("stages/$id.json", root.toString(2), report.build(), extra)
     }
 
-    private fun round(value: Double): Double = Math.round(value * 1000.0) / 1000.0
+    private fun round(value: Double): Double = (value * 1000.0).roundLong() / 1000.0
 
     private fun luaVar(name: String, axis: String): String = "o_" + name.replace(Regex("[^A-Za-z0-9_]"), "_") + "_" + axis
 
@@ -539,12 +540,12 @@ object VSliceToPsychLevel {
             .put("weekBackground", "stage")
             .put("weekBefore", "")
             .put("storyName", level.name)
-            .put("weekName", level.name.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) })
+            .put("weekName", level.name.lowercase().replaceFirstChar { it.titlecase() })
             .put("startUnlocked", true)
             .put("hiddenUntilUnlocked", false)
             .put("hideStoryMode", !level.visible)
             .put("hideFreeplay", false)
-            .put("difficulties", if (custom) diffs.joinToString(",") { it.replaceFirstChar { c -> c.titlecase(Locale.US) } } else "")
+            .put("difficulties", if (custom) diffs.joinToString(",") { it.replaceFirstChar { c -> c.titlecase() } } else "")
         report.stat("Songs", level.songs.size)
         report.stat("Menu characters", characters.count { it.isNotEmpty() })
         report.section("Title image", listOf("V-Slice: images/${level.titleAsset}.png", "Psych: images/storymenu/$id.png"))

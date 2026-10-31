@@ -13,6 +13,10 @@ import com.brenninhotools.vconverter.core.json.asBool
 import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.asText
 import kotlin.math.roundToLong
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
+import com.brenninhotools.vconverter.core.putIfMissing
 
 data class CodenameSong(
     val id: String,
@@ -103,7 +107,7 @@ object CodenameToVSliceChart {
             report.warn("A ${positionLabel(it)} strumline sings with ${it.characters.size} characters (${it.characters.joinToString()}); V-Slice uses only \"${it.characters.first()}\".")
         }
 
-        val kinds = sortedSetOf<String>()
+        val kinds = sortedMutableSet<String>()
         val kindNames = LinkedHashMap<String, String>()
         val notes = LinkedHashMap<String, List<VSliceNote>>()
         val scrollSpeed = LinkedHashMap<String, Double>()
@@ -133,7 +137,7 @@ object CodenameToVSliceChart {
                     val kind = if (typeName.isBlank() || typeName.equals("Default Note", ignoreCase = true)) "" else noteKindFor(typeName)
                     if (kind.isNotEmpty()) {
                         kinds += kind
-                        kindNames.putIfAbsent(kind, typeName)
+                        kindNames.putIfMissing(kind, typeName)
                     }
                     result += VSliceNote(note.time, lane, note.length, kind)
                 }
@@ -152,7 +156,7 @@ object CodenameToVSliceChart {
         val timing = Timing(meta)
         allEvents.forEach { timing.add(it, report) }
 
-        val kept = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
+        val kept = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
         val events = mutableListOf<VSliceEvent>()
         var converted = 0
         allEvents.forEach { event ->

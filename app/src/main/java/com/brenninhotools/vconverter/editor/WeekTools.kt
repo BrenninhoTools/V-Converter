@@ -15,9 +15,8 @@ import com.brenninhotools.vconverter.week.PsychMenuCharacter
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
 import com.brenninhotools.vconverter.week.PsychWeekParser
 import com.brenninhotools.vconverter.week.WeekSource
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.Locale
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class LoadedWeek(val document: WeekDocument, val assets: Map<String, StageAsset>, val source: String)
 
@@ -38,7 +37,7 @@ object WeekLoader {
 
     fun load(files: List<Pair<String, ByteArray>>): LoadedWeek {
         val assets = StageAssets.collect(files)
-        val texts = files.filter { it.first.substringAfterLast('.').lowercase() in setOf("json", "xml", "hxc") }.map { it.first to it.second.toString(Charsets.UTF_8) }
+        val texts = files.filter { it.first.substringAfterLast('.').lowercase() in setOf("json", "xml", "hxc") }.map { it.first to it.second.decodeToString() }
         val jsons = texts.filter { it.first.endsWith(".json", true) }
         val xmls = texts.filter { it.first.endsWith(".xml", true) }
 
@@ -81,7 +80,7 @@ object WeekLoader {
             val document = base.copy(
                 weekName = week.weekName,
                 songs = week.songs.map { WeekSong(SongPath.format(it.name), it.name, it.icon, WeekDocument.hex(it.color)) },
-                difficulties = week.difficulties.map { it.lowercase(Locale.US) }.ifEmpty { WeekDocument.DEFAULT_DIFFICULTIES },
+                difficulties = week.difficulties.map { it.lowercase() }.ifEmpty { WeekDocument.DEFAULT_DIFFICULTIES },
                 visible = !week.hideStoryMode,
                 hideFreeplay = week.hideFreeplay,
                 weekBefore = week.weekBefore,
@@ -101,7 +100,7 @@ object WeekLoader {
             val base = WeekDocument.fromVSlice(id, level.json).copy(rawJson = null)
             val document = base.copy(
                 songs = week.songs.map { WeekSong(SongPath.format(it.name), it.displayName ?: it.name) },
-                difficulties = week.difficulties.map { it.lowercase(Locale.US) },
+                difficulties = week.difficulties.map { it.lowercase() },
                 hideFreeplay = week.songs.isNotEmpty() && week.songs.all { it.hidden }
             )
             return LoadedWeek(document, assets, "Codename Engine")
@@ -114,7 +113,7 @@ object WeekLoader {
 object WeekExport {
     private fun imagePath(raw: String) = raw.trim().replace('\\', '/').substringAfter(':').removePrefix("images/").removeSuffix(".png")
 
-    private fun capitalize(value: String) = value.replaceFirstChar { it.titlecase(Locale.US) }
+    private fun capitalize(value: String) = value.replaceFirstChar { it.titlecase() }
 
     fun build(document: WeekDocument, target: ExportTarget, assets: Map<String, StageAsset>): ConvertedOutput {
         require(document.id.isNotBlank()) { "Enter a week id." }

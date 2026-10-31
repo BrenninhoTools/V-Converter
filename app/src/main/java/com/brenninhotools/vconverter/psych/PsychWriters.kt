@@ -7,8 +7,8 @@ import com.brenninhotools.vconverter.stage.PsychStage
 import com.brenninhotools.vconverter.stage.PsychStageObject
 import com.brenninhotools.vconverter.week.PsychMenuCharacter
 import com.brenninhotools.vconverter.week.PsychWeek
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 object PsychWriters {
     fun character(c: PsychCharacter): String {

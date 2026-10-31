@@ -29,13 +29,13 @@ import com.brenninhotools.vconverter.editorview.TextValueField
 import com.brenninhotools.vconverter.online.ModEngine
 import com.brenninhotools.vconverter.online.ModEntry
 import com.brenninhotools.vconverter.online.RoomInfo
-import java.util.Locale
+import com.brenninhotools.vconverter.core.fmt
 
 private val warning = Color(0xFFFFC94A)
 
 private fun size(bytes: Long): String = when {
-    bytes >= 1024 * 1024 -> String.format(Locale.US, "%.1f MB", bytes / 1024.0 / 1024.0)
-    bytes >= 1024 -> String.format(Locale.US, "%.0f KB", bytes / 1024.0)
+    bytes >= 1024 * 1024 -> fmt("%.1f MB", bytes / 1024.0 / 1024.0)
+    bytes >= 1024 -> fmt("%.0f KB", bytes / 1024.0)
     else -> "$bytes B"
 }
 

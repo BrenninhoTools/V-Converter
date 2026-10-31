@@ -6,6 +6,7 @@ import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import com.brenninhotools.vconverter.core.sortedMutableSet
 
 class CodenameTimeline(
     bpm: Double,
@@ -166,7 +167,7 @@ class CodenameTimeline(
 
     fun spans(endTime: Double): List<Span> {
         val endStep = ceil(stepAt(endTime.coerceAtLeast(0.0)) - 1e-6).toInt().coerceAtLeast(1)
-        val breaks = sortedSetOf(0)
+        val breaks = sortedMutableSet(0)
         changes.forEachIndexed { i, c ->
             val start = c.stepTime
             val stop = changes.getOrNull(i + 1)?.stepTime ?: (endStep + c.measureSteps * 2)

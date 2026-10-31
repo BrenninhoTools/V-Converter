@@ -9,7 +9,7 @@ import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.Report
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class CodenameAnimation(
     val name: String,

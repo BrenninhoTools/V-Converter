@@ -5,6 +5,7 @@ import com.brenninhotools.vconverter.script.lua.LuaParser
 import com.brenninhotools.vconverter.script.lua.LuaSyntaxException
 import com.brenninhotools.vconverter.script.lua.Stat
 import com.brenninhotools.vconverter.script.lua.TableField
+import com.brenninhotools.vconverter.core.fmt
 
 enum class ScriptScope(val label: String) {
     GLOBAL("Global"),
@@ -131,7 +132,7 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
                     c == '\r' -> sb.append("\\r")
                     c == '\t' -> sb.append("\\t")
                     c == '$' -> sb.append("$")
-                    c.code < 0x20 -> sb.append(String.format("\\x%02X", c.code))
+                    c.code < 0x20 -> sb.append(fmt("\\x%02X", c.code))
                     else -> sb.append(c)
                 }
             }
@@ -686,8 +687,8 @@ abstract class LuaTranspiler(protected val skipLines: Set<Int> = emptySet()) {
         if (t.startsWith(".")) t = "0$t"
         if (t.endsWith(".")) t += "0"
         if (!t.startsWith("0x") && !t.startsWith("0X") && !t.contains('.') && !t.contains('e') && !t.contains('E')) {
-            val value = t.toBigIntegerOrNull()
-            if (value != null && value > Int.MAX_VALUE.toBigInteger()) t += ".0"
+            val digits = t.trimStart('-', '+').trimStart('0')
+            if (digits.all { it.isDigit() } && (digits.length > 10 || (digits.length == 10 && digits > Int.MAX_VALUE.toString()))) t += ".0"
         }
         return t
     }

@@ -18,8 +18,11 @@ import com.brenninhotools.vconverter.mod.ModProgress
 import com.brenninhotools.vconverter.mod.ModWriter
 import com.brenninhotools.vconverter.mod.readText
 import com.brenninhotools.vconverter.script.ScriptConverter
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
+import com.brenninhotools.vconverter.core.toSortedMutableSet
 
 object ImageProbe {
     fun pngSize(header: ByteArray): Pair<Int, Int>? {
@@ -40,7 +43,7 @@ class CodenameModConverter(
     private var written = 0
     private var done = 0
     private val total = scan.songs.size + scan.characters.size + scan.stages.size + scan.weeks.size + scan.assets.size + scan.scriptCount + 2
-    private val keptEvents = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
+    private val keptEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
     private val noteKindNames = LinkedHashMap<String, String>()
     private val usage = HashMap<String, MutableMap<CharacterSlot, Int>>()
     private val moduleIds = mutableListOf<String>()
@@ -315,7 +318,7 @@ class CodenameModConverter(
         }
 
         val planner = CodenameScriptPlanner(info.title)
-        val usedEvents = (keptEvents.keys + definitions.keys).toSortedSet(String.CASE_INSENSITIVE_ORDER)
+        val usedEvents = (keptEvents.keys + definitions.keys).toSortedMutableSet(CaseInsensitiveOrder)
         val eventDefs = usedEvents.map { CodenameEvents.definitionFor(it, definitions, 0) }
         val context = CodenameScriptContext(noteTypeNames = noteKindNames, events = eventDefs)
         val results = mutableListOf<Triple<Job, String, CodenameScriptResult>>()

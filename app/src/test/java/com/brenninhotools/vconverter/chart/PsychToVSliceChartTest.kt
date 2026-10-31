@@ -2,7 +2,7 @@ package com.brenninhotools.vconverter.chart
 
 import com.brenninhotools.vconverter.chart.psych.PsychChartParser
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

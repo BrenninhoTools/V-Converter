@@ -7,8 +7,8 @@ import com.brenninhotools.vconverter.chart.vslice.VSliceMetadata
 import com.brenninhotools.vconverter.chart.vslice.VSliceTimeChange
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
 import com.brenninhotools.vconverter.core.ReportBuilder
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class SongSpec(
     val id: String,

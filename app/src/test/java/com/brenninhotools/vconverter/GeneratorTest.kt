@@ -19,7 +19,7 @@ import com.brenninhotools.vconverter.generator.SongGenerator
 import com.brenninhotools.vconverter.generator.SongSpec
 import com.brenninhotools.vconverter.generator.StageGenerator
 import com.brenninhotools.vconverter.generator.StageSpec
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

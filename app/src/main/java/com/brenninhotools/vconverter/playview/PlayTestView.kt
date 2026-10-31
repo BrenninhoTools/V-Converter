@@ -35,6 +35,7 @@ import com.brenninhotools.vconverter.playtest.PlayNote
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import com.brenninhotools.vconverter.core.fmt
 
 private const val GAME_W = 1280f
 private const val GAME_H = 720f
@@ -180,7 +181,7 @@ private fun DrawScope.drawHud(state: PlayTestState, screen: Screen, skin: NoteSk
     drawRect(Color(0xFFFF0000), Offset(screen.x(barX), screen.y(barY)), Size(barW * (1 - health) * screen.k, 18f * screen.k))
     drawRect(Color(0xFF66FF33), Offset(screen.x(barX + barW * (1 - health)), screen.y(barY)), Size(barW * health * screen.k, 18f * screen.k))
     if (game != null) {
-        val accuracy = "%.2f".format(game.accuracy * 100)
+        val accuracy = fmt("%.2f", game.accuracy * 100)
         val line = "Score: ${game.score}  |  Misses: ${game.misses}  |  Accuracy: $accuracy%  |  ${game.rating}"
         val layout = measurer.measure(line, text)
         drawText(layout, topLeft = Offset(screen.x(GAME_W / 2f) - layout.size.width / 2f, screen.y(barY + 30f)))

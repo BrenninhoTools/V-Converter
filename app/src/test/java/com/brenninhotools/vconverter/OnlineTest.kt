@@ -11,7 +11,7 @@ import com.brenninhotools.vconverter.online.ModEngine
 import com.brenninhotools.vconverter.online.OnlineApi
 import com.brenninhotools.vconverter.online.OnlineException
 import com.brenninhotools.vconverter.online.RoomPeer
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

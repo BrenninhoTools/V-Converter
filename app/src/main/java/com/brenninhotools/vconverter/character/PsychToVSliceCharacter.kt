@@ -7,9 +7,9 @@ import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SparrowAtlas
 import com.brenninhotools.vconverter.core.SparrowFrame
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.Locale
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.fmt
 
 data class CharacterSource(
     val id: String,
@@ -191,7 +191,7 @@ object PsychToVSliceCharacter {
         report.section(
             "Notes",
             listOf(
-                "Offsets were rebased for the ${slot.label.lowercase(Locale.US)} slot of a converted stage. Using the character in another slot can shift it by a few pixels."
+                "Offsets were rebased for the ${slot.label.lowercase()} slot of a converted stage. Using the character in another slot can shift it by a few pixels."
             )
         )
 
@@ -311,8 +311,8 @@ object PsychToVSliceCharacter {
 
     fun prettyName(id: String): String = id.split('-', '_', ' ')
         .filter { it.isNotBlank() }
-        .joinToString(" ") { part -> part.replaceFirstChar { it.titlecase(Locale.US) } }
+        .joinToString(" ") { part -> part.replaceFirstChar { it.titlecase() } }
         .ifBlank { id }
 
-    private fun hex(color: List<Int>): String = String.format(Locale.US, "#%02X%02X%02X", color[0], color[1], color[2])
+    private fun hex(color: List<Int>): String = fmt("#%02X%02X%02X", color[0], color[1], color[2])
 }

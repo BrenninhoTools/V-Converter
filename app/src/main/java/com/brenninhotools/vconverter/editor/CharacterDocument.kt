@@ -6,8 +6,8 @@ import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.generator.CharacterGenerator
 import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.reverse.VSliceParser
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class CharacterAnim(
     val name: String,

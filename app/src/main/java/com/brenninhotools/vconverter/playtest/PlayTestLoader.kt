@@ -16,9 +16,8 @@ import com.brenninhotools.vconverter.mod.ModInfo
 import com.brenninhotools.vconverter.mod.ModScanner
 import com.brenninhotools.vconverter.mod.ModWriter
 import com.brenninhotools.vconverter.reverse.VSliceParser
-import java.io.ByteArrayInputStream
-import java.io.InputStream
-import java.util.Locale
+import com.brenninhotools.vconverter.platform.ByteArrayInputStream
+import com.brenninhotools.vconverter.platform.InputStream
 
 class MemoryModFiles(private val files: Map<String, ByteArray>) : ModFiles {
     override val paths: List<String> = files.keys.sorted()
@@ -29,7 +28,7 @@ class MemoryModFiles(private val files: Map<String, ByteArray>) : ModFiles {
 class MemoryModWriter : ModWriter {
     val files = LinkedHashMap<String, ByteArray>()
     override fun writeText(path: String, text: String) {
-        files[path] = text.toByteArray(Charsets.UTF_8)
+        files[path] = text.encodeToByteArray()
     }
 
     override fun copy(path: String, source: () -> InputStream) {
@@ -50,16 +49,16 @@ class PlayTestMod(
     val conversion: Report? = null,
     val loose: PlayTestSong? = null
 ) {
-    private val index: Map<String, String> = files.keys.associateBy { it.lowercase(Locale.ROOT) }
+    private val index: Map<String, String> = files.keys.associateBy { it.lowercase() }
 
     fun find(path: String): Pair<String, ByteArray>? {
-        val key = index[path.lowercase(Locale.ROOT)] ?: return null
+        val key = index[path.lowercase()] ?: return null
         return key to files.getValue(key)
     }
 
     fun under(folder: String): List<Pair<String, ByteArray>> {
-        val prefix = folder.lowercase(Locale.ROOT).trimEnd('/') + "/"
-        return files.entries.filter { it.key.lowercase(Locale.ROOT).startsWith(prefix) }.map { it.key to it.value }
+        val prefix = folder.lowercase().trimEnd('/') + "/"
+        return files.entries.filter { it.key.lowercase().startsWith(prefix) }.map { it.key to it.value }
     }
 }
 
@@ -88,10 +87,10 @@ object PlayTestLoader {
     private fun songsOf(files: Map<String, ByteArray>): List<PlayTestSongRef> = files.keys.mapNotNull { path ->
         val m = metadataName.find(path) ?: return@mapNotNull null
         if (!m.groupValues[2].equals(m.groupValues[3], ignoreCase = true)) return@mapNotNull null
-        val meta = runCatching { VSliceParser.metadata(files.getValue(path).toString(Charsets.UTF_8)) }.getOrNull()
+        val meta = runCatching { VSliceParser.metadata(files.getValue(path).decodeToString()) }.getOrNull()
         PlayTestSongRef(m.groupValues[2], m.groupValues[4], meta?.songName ?: m.groupValues[2], meta?.difficulties ?: emptyList())
-    }.distinctBy { it.id.lowercase(Locale.ROOT) to it.variation.lowercase(Locale.ROOT) }
-        .sortedWith(compareBy({ it.label.lowercase(Locale.ROOT) }, { it.variation }))
+    }.distinctBy { it.id.lowercase() to it.variation.lowercase() }
+        .sortedWith(compareBy({ it.label.lowercase() }, { it.variation }))
 
     fun open(raw: List<Pair<String, ByteArray>>): PlayTestMod {
         val all = clean(raw)
@@ -139,14 +138,14 @@ object PlayTestLoader {
 
     fun character(mod: PlayTestMod, id: String): LoadedCharacter? {
         val json = mod.find("data/characters/$id.json") ?: return null
-        val parsed = runCatching { VSliceParser.character(json.second.toString(Charsets.UTF_8)) }.getOrNull() ?: return null
+        val parsed = runCatching { VSliceParser.character(json.second.decodeToString()) }.getOrNull() ?: return null
         val images = imageFiles(mod, parsed.assetPath)
         return runCatching { CharacterLoader.load(listOf(json) + images) }.getOrNull()
     }
 
     fun stage(mod: PlayTestMod, id: String): LoadedStage? {
         val json = mod.find("data/stages/$id.json") ?: return null
-        val parsed = runCatching { VSliceParser.stage(json.second.toString(Charsets.UTF_8)) }.getOrNull() ?: return null
+        val parsed = runCatching { VSliceParser.stage(json.second.decodeToString()) }.getOrNull() ?: return null
         val images = parsed.props.flatMap { imageFiles(mod, it.assetPath) }.distinctBy { it.first }
         return runCatching { StageLoader.load(listOf(json) + images) }.getOrNull()
     }
@@ -156,7 +155,7 @@ object PlayTestLoader {
         val suffix = if (ref.variation.isEmpty()) "" else "-${ref.variation}"
         val meta = mod.find("data/songs/${ref.id}/${ref.id}-metadata$suffix.json") ?: throw IllegalArgumentException("No metadata for ${ref.label}.")
         val chart = mod.find("data/songs/${ref.id}/${ref.id}-chart$suffix.json") ?: throw IllegalArgumentException("No chart file for ${ref.label} (data/songs/${ref.id}/${ref.id}-chart$suffix.json).")
-        val audio = mod.under("songs/${ref.id}").filter { it.first.substringAfterLast('.').lowercase(Locale.ROOT) in setOf("ogg", "mp3", "wav") }
+        val audio = mod.under("songs/${ref.id}").filter { it.first.substringAfterLast('.').lowercase() in setOf("ogg", "mp3", "wav") }
         val loaded = SongLoader.load(listOf(meta, chart) + audio)
         val document = loaded.document
         val ids = mapOf(

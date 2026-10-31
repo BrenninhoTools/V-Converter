@@ -154,13 +154,13 @@ object ModScanner {
         val content = scores.keys.associateWith { prefix -> paths.count { it.startsWith(prefix) && !it.endsWith(".txt", ignoreCase = true) && !it.endsWith(".md", ignoreCase = true) } }
         val busiest = content.values.maxOrNull() ?: 0
         return scores.entries
-            .filter { Integer.bitCount(it.value) >= 1 }
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { content.getValue(it.key) * 10 >= busiest }.thenByDescending { Integer.bitCount(it.value) }.thenBy { it.key.length })
+            .filter { (it.value).countOneBits() >= 1 }
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { content.getValue(it.key) * 10 >= busiest }.thenByDescending { (it.value).countOneBits() }.thenBy { it.key.length })
             .map { it.key }
             .let { ranked ->
                 val best = ranked.firstOrNull() ?: return emptyList()
                 listOf(best) + ranked.drop(1).filter { other ->
-                    !other.startsWith(best) && !best.startsWith(other) && Integer.bitCount(scores.getValue(other)) >= 2
+                    !other.startsWith(best) && !best.startsWith(other) && (scores.getValue(other)).countOneBits() >= 2
                 }
             }
     }

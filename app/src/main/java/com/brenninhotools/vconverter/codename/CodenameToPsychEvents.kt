@@ -2,6 +2,7 @@ package com.brenninhotools.vconverter.codename
 
 import com.brenninhotools.vconverter.script.LuaToHScript
 import kotlin.math.abs
+import com.brenninhotools.vconverter.core.roundLong
 
 data class PsychEventScript(val name: String, val script: String, val description: String)
 
@@ -29,7 +30,7 @@ object CodenameToPsychEvents {
 
     fun number(value: Double): String {
         if (value.isNaN() || value.isInfinite()) return "0"
-        val rounded = Math.round(value * 1_000_000.0) / 1_000_000.0
+        val rounded = (value * 1_000_000.0).roundLong() / 1_000_000.0
         return if (rounded % 1.0 == 0.0 && abs(rounded) < 1e15) rounded.toLong().toString() else rounded.toString()
     }
 

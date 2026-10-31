@@ -6,8 +6,9 @@ import com.brenninhotools.vconverter.reverse.VSliceParser
 import com.brenninhotools.vconverter.week.PsychToVSliceLevel
 import com.brenninhotools.vconverter.week.PsychWeek
 import com.brenninhotools.vconverter.week.PsychWeekSong
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.fmt
 
 enum class WeekSlot(val key: String, val label: String) { DAD("dad", "Opponent"), BF("bf", "Boyfriend"), GF("gf", "Girlfriend") }
 
@@ -218,7 +219,7 @@ data class WeekDocument(
             return listOf((value shr 16) and 255, (value shr 8) and 255, value and 255)
         }
 
-        fun hex(rgb: List<Int>): String = "#%02X%02X%02X".format(rgb.getOrElse(0) { 146 }, rgb.getOrElse(1) { 113 }, rgb.getOrElse(2) { 253 })
+        fun hex(rgb: List<Int>): String = fmt("#%02X%02X%02X", rgb.getOrElse(0) { 146 }, rgb.getOrElse(1) { 113 }, rgb.getOrElse(2) { 253 })
 
         fun fromVSlice(id: String, json: String): WeekDocument {
             val level = VSliceParser.level(json)

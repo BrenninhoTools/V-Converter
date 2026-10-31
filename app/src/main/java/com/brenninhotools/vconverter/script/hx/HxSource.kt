@@ -1,5 +1,7 @@
 package com.brenninhotools.vconverter.script.hx
 
+import com.brenninhotools.vconverter.core.fmt
+
 enum class HxKind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
 data class HxTok(val kind: HxKind, val text: String, val line: Int) {
@@ -421,7 +423,7 @@ object HxSource {
                 c == '\n' -> sb.append("\\n")
                 c == '\r' -> sb.append("\\r")
                 c == '\t' -> sb.append("\\t")
-                c.code < 0x20 -> sb.append(String.format("\\x%02X", c.code))
+                c.code < 0x20 -> sb.append(fmt("\\x%02X", c.code))
                 else -> sb.append(c)
             }
         }

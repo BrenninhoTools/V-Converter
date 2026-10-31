@@ -10,8 +10,8 @@ import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
 import com.brenninhotools.vconverter.stage.StageResult
 import com.brenninhotools.vconverter.stage.StageSource
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class ImageInfo(val width: Double, val height: Double, val animated: Boolean)
 

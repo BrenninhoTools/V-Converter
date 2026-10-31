@@ -7,7 +7,9 @@ import com.brenninhotools.vconverter.convert.ReverseChartsConverter
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.putIfMissing
+import com.brenninhotools.vconverter.platform.byteInputStream
 
 class ChartHistory(initial: ChartDocument, private val limit: Int = 200) {
     private val undoStack = ArrayDeque<ChartDocument>()
@@ -177,7 +179,7 @@ object ChartBundle {
 
     fun build(document: ChartDocument, target: ExportTarget, audio: List<EditorAudio>): ConvertedOutput {
         val roles = LinkedHashMap<AudioRole, EditorAudio>()
-        audio.forEach { a -> roles.putIfAbsent(role(a, document), a) }
+        audio.forEach { a -> roles.putIfMissing(role(a, document), a) }
         fun ext(a: EditorAudio) = a.name.substringAfterLast('.', "ogg").lowercase()
         val files = ArrayList<OutputFile>()
         val base = when (target) {

@@ -1,8 +1,9 @@
 package com.brenninhotools.vconverter.codename
 
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.fmt
 
 class XmlBuilder(private val doctype: String? = null) {
     private val sb = StringBuilder()
@@ -135,7 +136,7 @@ object CodenameWriters {
         .put("params", JSONArray(params.map { (name, type, def) -> JSONObject().put("name", name).put("type", type).put("defaultValue", def ?: JSONObject.NULL) }))
         .toString(2)
 
-    fun hex(color: List<Int>): String = String.format("#%02X%02X%02X", color.getOrElse(0) { 161 }.coerceIn(0, 255), color.getOrElse(1) { 161 }.coerceIn(0, 255), color.getOrElse(2) { 161 }.coerceIn(0, 255))
+    fun hex(color: List<Int>): String = fmt("#%02X%02X%02X", color.getOrElse(0) { 161 }.coerceIn(0, 255), color.getOrElse(1) { 161 }.coerceIn(0, 255), color.getOrElse(2) { 161 }.coerceIn(0, 255))
 
     fun modpack(name: String, description: String, author: String, version: String): String = buildString {
         fun q(v: String) = "\"" + v.replace("\n", " ").replace("\"", "'") + "\""

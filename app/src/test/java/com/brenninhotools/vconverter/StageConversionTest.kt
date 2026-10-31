@@ -7,7 +7,7 @@ import com.brenninhotools.vconverter.stage.LuaStageExtractor
 import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
 import com.brenninhotools.vconverter.stage.StageSource
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

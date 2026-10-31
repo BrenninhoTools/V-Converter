@@ -1,8 +1,7 @@
 package com.brenninhotools.vconverter.mod
 
-import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
+import com.brenninhotools.vconverter.platform.InputStream
+import com.brenninhotools.vconverter.platform.OutputStream
 
 interface ModFiles {
     val paths: List<String>
@@ -10,41 +9,11 @@ interface ModFiles {
     fun size(path: String): Long
 }
 
-fun ModFiles.readText(path: String): String = open(path).use { it.readBytes().toString(Charsets.UTF_8) }
+fun ModFiles.readText(path: String): String = open(path).use { it.readBytes().decodeToString() }
 
 interface ModWriter {
     fun writeText(path: String, text: String)
     fun copy(path: String, source: () -> InputStream)
-}
-
-class DirectoryModFiles(private val root: File) : ModFiles {
-    override val paths: List<String> by lazy {
-        root.walkTopDown()
-            .filter { it.isFile }
-            .map { it.relativeTo(root).invariantSeparatorsPath }
-            .sorted()
-            .toList()
-    }
-
-    override fun open(path: String): InputStream = File(root, path).inputStream()
-
-    override fun size(path: String): Long = File(root, path).length()
-}
-
-class DirectoryModWriter(private val root: File) : ModWriter {
-    override fun writeText(path: String, text: String) {
-        target(path).writeText(text, Charsets.UTF_8)
-    }
-
-    override fun copy(path: String, source: () -> InputStream) {
-        source().use { input -> target(path).outputStream().use { output -> input.copyTo(output) } }
-    }
-
-    private fun target(path: String): File {
-        val file = File(root, path)
-        file.parentFile?.mkdirs()
-        return file
-    }
 }
 
 object SafePaths {

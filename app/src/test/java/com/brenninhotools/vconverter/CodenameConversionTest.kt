@@ -23,7 +23,7 @@ import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.mod.DirectoryModFiles
 import com.brenninhotools.vconverter.mod.DirectoryModWriter
 import com.brenninhotools.vconverter.mod.ModInfo
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,7 +1,7 @@
 package com.brenninhotools.vconverter.core.json
 
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.roundToLong
 

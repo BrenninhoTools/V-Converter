@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.sp
 import com.brenninhotools.vconverter.editor.EditorNote
 import kotlin.math.max
 import kotlin.math.roundToInt
+import com.brenninhotools.vconverter.core.fmt
+import kotlin.math.floor
 
 object EditorColors {
     val lanes = listOf(Color(0xFFC24B99), Color(0xFF00FFFF), Color(0xFF12FA05), Color(0xFFF9393F))
@@ -327,4 +329,4 @@ private fun DrawScope.drawHold(note: EditorNote, x: Float, laneWidth: Float, not
     )
 }
 
-internal fun trim(value: Double): String = if (value == Math.floor(value)) value.toLong().toString() else "%.2f".format(value).trimEnd('0').trimEnd('.')
+internal fun trim(value: Double): String = if (value == floor(value)) value.toLong().toString() else fmt("%.2f", value).trimEnd('0').trimEnd('.')

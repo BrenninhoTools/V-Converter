@@ -25,6 +25,10 @@ import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.week.PsychMenuCharacter
 import com.brenninhotools.vconverter.week.PsychWeek
 import com.brenninhotools.vconverter.week.PsychWeekParser
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
+import com.brenninhotools.vconverter.core.toSortedMutableSet
 
 class PsychToCodenameMod(
     private val files: ModFiles,
@@ -43,8 +47,8 @@ class PsychToCodenameMod(
     private var written = 0
     private var done = 0
     private val writtenPaths = HashSet<String>()
-    private val usedEvents = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
-    private val usedNoteTypes = sortedSetOf<String>()
+    private val usedEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+    private val usedNoteTypes = sortedMutableSet<String>()
     private val usage = HashMap<String, MutableMap<CharacterSlot, Int>>()
     private val songCharacters = LinkedHashMap<String, MutableSet<String>>()
     private val scripts: List<ModScript> = scan.scripts.mapNotNull(::classify)
@@ -361,7 +365,7 @@ class PsychToCodenameMod(
 
     private fun convertEvents() {
         val modEvents = scriptsOf(Kind.EVENT).groupBy { it.stem }
-        val names = (usedEvents.keys + modEvents.keys).toSortedSet(String.CASE_INSENSITIVE_ORDER)
+        val names = (usedEvents.keys + modEvents.keys).toSortedMutableSet(CaseInsensitiveOrder)
         val handled = mutableListOf<String>()
         names.forEach { name ->
             val sources = modEvents[name] ?: modEvents.entries.firstOrNull { it.key.equals(name, true) }?.value ?: emptyList()

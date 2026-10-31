@@ -3,8 +3,8 @@ package com.brenninhotools.vconverter.chart.preview
 import com.brenninhotools.vconverter.convert.PsychChartNames
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.io.OutputFile
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class ChartTweaks(
     val songName: String = "",

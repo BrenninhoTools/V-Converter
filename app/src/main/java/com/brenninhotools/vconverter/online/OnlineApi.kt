@@ -1,15 +1,13 @@
 package com.brenninhotools.vconverter.online
 
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
-import java.util.UUID
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.UrlEncoding
+import com.brenninhotools.vconverter.platform.ByteArrayOutputStream
+import com.brenninhotools.vconverter.platform.Http
+import com.brenninhotools.vconverter.platform.HttpResponse
+import com.brenninhotools.vconverter.platform.OutputStream
+import com.brenninhotools.vconverter.platform.Platform
 
 class OnlineException(message: String, val status: Int = 0) : Exception(message)
 
@@ -55,47 +53,39 @@ enum class ModEngine(val key: String, val label: String) {
 class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
     val base: String = normalize(baseUrl)
 
-    private fun encode(value: String) = URLEncoder.encode(value, "UTF-8")
+    private fun encode(value: String) = UrlEncoding.encode(value)
 
-    private fun open(path: String, method: String): HttpURLConnection {
-        require(base.isNotEmpty()) { "Set the server address in the options first." }
-        val connection = URL(base + path).openConnection() as HttpURLConnection
-        connection.requestMethod = method
-        connection.connectTimeout = timeoutMs
-        connection.readTimeout = timeoutMs * 3
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", "V-Converter")
-        return connection
+    private fun failure(response: HttpResponse): Nothing {
+        val body = response.body.decodeToString()
+        val message = runCatching { JSONObject(body).optString("error") }.getOrNull()?.takeIf { it.isNotBlank() }
+            ?: "The server answered ${response.status}."
+        throw OnlineException(message, response.status)
     }
 
-    private fun readAll(stream: InputStream?): String = stream?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-
-    private fun fail(connection: HttpURLConnection): Nothing {
-        val status = connection.responseCode
-        val body = readAll(connection.errorStream)
-        val message = runCatching { JSONObject(body).optString("error") }.getOrNull()?.takeIf { it.isNotBlank() }
-            ?: "The server answered $status."
-        throw OnlineException(message, status)
+    private fun send(
+        path: String,
+        method: String,
+        body: ByteArray? = null,
+        headers: Map<String, String> = emptyMap(),
+        failure: String = "Could not reach the server",
+        onProgress: ((Long, Long) -> Unit)? = null
+    ): ByteArray {
+        require(base.isNotEmpty()) { "Set the server address in the options first." }
+        val all = linkedMapOf("Accept" to "application/json", "User-Agent" to "V-Converter") + headers
+        val response = try {
+            Http.request(base + path, method, all, body, timeoutMs, onProgress)
+        } catch (e: OnlineException) {
+            throw e
+        } catch (e: Exception) {
+            throw OnlineException("$failure: ${e.message ?: Platform.errorName(e)}")
+        }
+        if (response.status !in 200..299) failure(response)
+        return response.body
     }
 
     private fun request(path: String, method: String = "GET", json: JSONObject? = null, headers: Map<String, String> = emptyMap()): String {
-        val connection = open(path, method)
-        try {
-            headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
-            if (json != null) {
-                val bytes = json.toString().toByteArray(Charsets.UTF_8)
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.setFixedLengthStreamingMode(bytes.size)
-                connection.outputStream.use { it.write(bytes) }
-            }
-            if (connection.responseCode !in 200..299) fail(connection)
-            return readAll(connection.inputStream)
-        } catch (e: IOException) {
-            throw OnlineException("Could not reach the server: ${e.message ?: e.javaClass.simpleName}")
-        } finally {
-            connection.disconnect()
-        }
+        val all = if (json != null) headers + ("Content-Type" to "application/json; charset=utf-8") else headers
+        return send(path, method, json?.toString()?.encodeToByteArray(), all).decodeToString()
     }
 
     fun health(): Boolean = runCatching { JSONObject(request("/api/health")).optString("status") == "ok" }.getOrDefault(false)
@@ -148,37 +138,18 @@ class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
     }
 
     fun download(id: String, out: OutputStream, onProgress: (Long, Long) -> Unit = { _, _ -> }) {
-        val connection = open("/api/mods/${encode(id)}/download", "GET")
-        try {
-            if (connection.responseCode !in 200..299) fail(connection)
-            val total = connection.contentLengthLong
-            var done = 0L
-            connection.inputStream.use { input ->
-                val buffer = ByteArray(64 * 1024)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    out.write(buffer, 0, read)
-                    done += read
-                    onProgress(done, total)
-                }
-            }
-        } catch (e: IOException) {
-            throw OnlineException("The download failed: ${e.message ?: e.javaClass.simpleName}")
-        } finally {
-            connection.disconnect()
-        }
+        out.write(send("/api/mods/${encode(id)}/download", "GET", failure = "The download failed", onProgress = onProgress))
     }
 
     fun download(id: String): ByteArray = ByteArrayOutputStream().also { download(id, it) }.toByteArray()
 
     fun upload(fileName: String, bytes: ByteArray, title: String, description: String, author: String, engine: ModEngine, tags: List<String> = emptyList()): UploadedMod {
-        val boundary = "----vconverter" + UUID.randomUUID().toString().replace("-", "")
+        val boundary = "----vconverter" + Platform.randomId().replace("-", "")
         val body = ByteArrayOutputStream()
         fun field(name: String, value: String) {
-            body.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n".toByteArray())
-            body.write(value.toByteArray(Charsets.UTF_8))
-            body.write("\r\n".toByteArray())
+            body.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n".encodeToByteArray())
+            body.write(value.encodeToByteArray())
+            body.write("\r\n".encodeToByteArray())
         }
         field("title", title)
         field("description", description)
@@ -186,24 +157,12 @@ class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
         field("engine", engine.key)
         if (tags.isNotEmpty()) field("tags", tags.joinToString(","))
         val safeName = fileName.replace(Regex("[\"\\r\\n]"), "_").ifBlank { "mod.zip" }
-        body.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$safeName\"\r\nContent-Type: application/zip\r\n\r\n".toByteArray())
+        body.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$safeName\"\r\nContent-Type: application/zip\r\n\r\n".encodeToByteArray())
         body.write(bytes)
-        body.write("\r\n--$boundary--\r\n".toByteArray())
+        body.write("\r\n--$boundary--\r\n".encodeToByteArray())
         val payload = body.toByteArray()
-        val connection = open("/api/mods", "POST")
-        try {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            connection.setFixedLengthStreamingMode(payload.size)
-            connection.outputStream.use { it.write(payload) }
-            if (connection.responseCode !in 200..299) fail(connection)
-            val root = JSONObject(readAll(connection.inputStream))
-            return UploadedMod(mod(root), root.optString("deleteToken"))
-        } catch (e: IOException) {
-            throw OnlineException("The upload failed: ${e.message ?: e.javaClass.simpleName}")
-        } finally {
-            connection.disconnect()
-        }
+        val root = JSONObject(send("/api/mods", "POST", payload, mapOf("Content-Type" to "multipart/form-data; boundary=$boundary"), "The upload failed").decodeToString())
+        return UploadedMod(mod(root), root.optString("deleteToken"))
     }
 
     fun deleteMod(id: String, deleteToken: String) {
@@ -239,31 +198,11 @@ class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
         "/api/rooms/${encode(code.trim().uppercase())}/assets/" + name.split('/').joinToString("/") { encode(it).replace("+", "%20") }
 
     fun uploadRoomAsset(code: String, name: String, bytes: ByteArray) {
-        val connection = open(assetPath(code, name), "PUT")
-        try {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/octet-stream")
-            connection.setFixedLengthStreamingMode(bytes.size)
-            connection.outputStream.use { it.write(bytes) }
-            if (connection.responseCode !in 200..299) fail(connection)
-        } catch (e: IOException) {
-            throw OnlineException("Could not share ${name.substringAfterLast('/')}: ${e.message ?: e.javaClass.simpleName}")
-        } finally {
-            connection.disconnect()
-        }
+        send(assetPath(code, name), "PUT", bytes, mapOf("Content-Type" to "application/octet-stream"), "Could not share ${name.substringAfterLast('/')}")
     }
 
-    fun downloadRoomAsset(code: String, name: String): ByteArray {
-        val connection = open(assetPath(code, name), "GET")
-        try {
-            if (connection.responseCode !in 200..299) fail(connection)
-            return connection.inputStream.use { it.readBytes() }
-        } catch (e: IOException) {
-            throw OnlineException("Could not get ${name.substringAfterLast('/')}: ${e.message ?: e.javaClass.simpleName}")
-        } finally {
-            connection.disconnect()
-        }
-    }
+    fun downloadRoomAsset(code: String, name: String): ByteArray =
+        send(assetPath(code, name), "GET", failure = "Could not get ${name.substringAfterLast('/')}")
 
     fun room(code: String): RoomInfo = room(JSONObject(request("/api/rooms/${encode(code.trim().uppercase())}")))
 

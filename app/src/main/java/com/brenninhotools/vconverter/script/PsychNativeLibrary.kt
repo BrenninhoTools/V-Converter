@@ -1,5 +1,7 @@
 package com.brenninhotools.vconverter.script
 
+import com.brenninhotools.vconverter.platform.Platform
+
 object PsychNativeLibrary {
     class Member(val name: String, val text: String, val isField: Boolean)
 
@@ -24,7 +26,7 @@ object PsychNativeLibrary {
     val builtinEventNames: Set<String> get() = library.builtinEvents.keys
 
     private fun load(name: String): String =
-        PsychNativeLibrary::class.java.getResourceAsStream("/vconverter/$name")?.use { it.readBytes().toString(Charsets.UTF_8) }
+        Platform.resourceBytes("vconverter/$name")?.decodeToString()
             ?: throw IllegalStateException("Missing bundled library $name")
 
     private fun parse(source: String): Library {

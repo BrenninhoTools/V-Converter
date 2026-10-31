@@ -1,8 +1,8 @@
 package com.brenninhotools.vconverter.chart.vslice
 
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 object VSliceWriter {
     const val METADATA_VERSION = "2.2.4"

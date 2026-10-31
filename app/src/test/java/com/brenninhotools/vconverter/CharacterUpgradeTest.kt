@@ -4,7 +4,7 @@ import com.brenninhotools.vconverter.convert.PickedText
 import com.brenninhotools.vconverter.convert.PsychCharactersConverter
 import com.brenninhotools.vconverter.convert.ReverseCharactersConverter
 import com.brenninhotools.vconverter.io.ImportedFile
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

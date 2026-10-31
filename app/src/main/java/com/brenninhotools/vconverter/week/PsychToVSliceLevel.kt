@@ -4,9 +4,9 @@ import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.core.SongPath
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.Locale
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.fmt
 
 data class WeekSource(
     val id: String,
@@ -100,7 +100,7 @@ object PsychToVSliceLevel {
         report.section(
             "Freeplay icons & colors (V-Slice shows the opponent's images/freeplay/icons/<character>pixel.png and has no per-song color)",
             week.songs.map { song ->
-                String.format(Locale.US, "%s → icon %s, #%02X%02X%02X", SongPath.format(song.name), song.icon.ifBlank { "face" }, song.color[0], song.color[1], song.color[2])
+                fmt("%s → icon %s, #%02X%02X%02X", SongPath.format(song.name), song.icon.ifBlank { "face" }, song.color[0], song.color[1], song.color[2])
             }
         )
 

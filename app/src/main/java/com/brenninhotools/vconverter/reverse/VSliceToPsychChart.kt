@@ -7,8 +7,11 @@ import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.core.json.value
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.toSortedMutableMap
+import com.brenninhotools.vconverter.core.roundLong
 
 data class VSliceSongSource(val variation: String, val metadata: VMetadata, val chart: VChart)
 
@@ -50,7 +53,7 @@ object VSliceToPsychChart {
 
     fun convertAll(songId: String, sources: List<VSliceSongSource>, stageZoom: Double? = null): List<ReverseChartResult> {
         require(sources.isNotEmpty()) { "Add the song's metadata and chart files." }
-        return sources.groupBy { it.variation }.toSortedMap().map { (variation, group) ->
+        return sources.groupBy { it.variation }.toSortedMutableMap().map { (variation, group) ->
             convert(songIdFor(songId, variation), group, stageZoom)
         }
     }
@@ -61,7 +64,7 @@ object VSliceToPsychChart {
         val report = ReportBuilder()
         val files = mutableListOf<PsychChartFile>()
         val difficulties = mutableListOf<String>()
-        val skipped = sortedMapOf<String, Int>()
+        val skipped = sortedMutableMap<String, Int>()
         val mainMeta = sources.firstOrNull { it.variation.isEmpty() }?.metadata ?: sources.first().metadata
         val name = songName(id, mainMeta)
         var totalNotes = 0
@@ -167,7 +170,7 @@ object VSliceToPsychChart {
             val next = sorted.getOrNull(changeIndex + 1)
             var length = full * beatMs
             if (next != null && next.time < time + length - 0.001) length = next.time - time
-            val beats = Math.round(length / beatMs * 1000.0) / 1000.0
+            val beats = (length / beatMs * 1000.0).roundLong() / 1000.0
             result += Section(time, if (beats <= 0) full else beats, current.bpm, result.isNotEmpty() && current.bpm != previousBpm)
             previousBpm = current.bpm
             time += length

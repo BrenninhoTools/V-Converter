@@ -4,6 +4,7 @@ import com.brenninhotools.vconverter.convert.CodenameChartsConverter
 import com.brenninhotools.vconverter.convert.FileConverter
 import com.brenninhotools.vconverter.convert.PsychChartsConverter
 import com.brenninhotools.vconverter.io.ImportedFile
+import com.brenninhotools.vconverter.platform.byteInputStream
 
 class EditorAudio(val name: String, val bytes: ByteArray) {
     val isInstrumental: Boolean get() = name.startsWith("Inst", ignoreCase = true)
@@ -16,7 +17,7 @@ object SongLoader {
     private val audioExtensions = setOf("ogg", "mp3", "wav")
 
     fun load(files: List<Pair<String, ByteArray>>): LoadedSong {
-        val texts = files.filter { it.first.endsWith(".json", ignoreCase = true) }.map { it.first to it.second.toString(Charsets.UTF_8) }
+        val texts = files.filter { it.first.endsWith(".json", ignoreCase = true) }.map { it.first to it.second.decodeToString() }
         val audio = files.filter { it.first.substringAfterLast('.').lowercase() in audioExtensions }
             .map { EditorAudio(it.first.replace('\\', '/').substringAfterLast('/'), it.second) }
         val vslice = fromVSlice(texts)

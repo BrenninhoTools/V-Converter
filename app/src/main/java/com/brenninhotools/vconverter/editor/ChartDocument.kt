@@ -5,11 +5,12 @@ import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.asText
 import com.brenninhotools.vconverter.core.json.toJsonNumber
 import com.brenninhotools.vconverter.core.json.value
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToLong
+import com.brenninhotools.vconverter.core.roundLong
 
 data class EditorNote(val time: Double, val data: Int, val length: Double = 0.0, val kind: String = "") {
     val isPlayer: Boolean get() = data in 0..3
@@ -166,7 +167,7 @@ data class ChartDocument(
             changes.put(
                 JSONObject()
                     .put("t", change.time.toJsonNumber())
-                    .put("b", (Math.round(beat * 10000.0) / 10000.0).toJsonNumber())
+                    .put("b", ((beat * 10000.0).roundLong() / 10000.0).toJsonNumber())
                     .put("bpm", change.bpm.toJsonNumber())
                     .put("n", change.numerator)
                     .put("d", 4)
@@ -316,7 +317,7 @@ class Conductor(changes: List<EditorTiming>) {
     fun snap(ms: Double, division: Int): Double {
         val step = 4.0 / division.coerceAtLeast(1)
         val beat = beatAt(ms)
-        val snapped = Math.round(beat / step) * step
+        val snapped = (beat / step).roundLong() * step
         return (timeAt(snapped) * 1000.0).roundToLong() / 1000.0
     }
 
@@ -339,8 +340,8 @@ class Conductor(changes: List<EditorTiming>) {
                 val beatInChange = beat - beats[list.indexOf(change)]
                 val numerator = change.numerator.coerceAtLeast(1)
                 val kind = when {
-                    abs(beatInChange / numerator - Math.round(beatInChange / numerator)) < 1e-6 -> 2
-                    abs(beat - Math.round(beat)) < 1e-6 -> 1
+                    abs(beatInChange / numerator - (beatInChange / numerator).roundLong()) < 1e-6 -> 2
+                    abs(beat - (beat).roundLong()) < 1e-6 -> 1
                     else -> 0
                 }
                 result += time to kind

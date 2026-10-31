@@ -10,7 +10,9 @@ import com.brenninhotools.vconverter.convert.PsychChartNames
 import com.brenninhotools.vconverter.core.json.asDouble
 import com.brenninhotools.vconverter.core.json.value
 import com.brenninhotools.vconverter.reverse.VSliceParser
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
+import kotlin.math.abs
+import com.brenninhotools.vconverter.core.roundLong
 
 object ChartPreviews {
     private val difficultyOrder = listOf("easy", "normal", "hard", "erect", "nightmare")
@@ -52,7 +54,7 @@ object ChartPreviews {
             var duplicates = 0
             val notes = song.sections.flatMap { section ->
                 section.notes.mapNotNull { note ->
-                    if (!seen.add(Math.round(note.time * 1000.0) to note.lane)) {
+                    if (!seen.add((note.time * 1000.0).roundLong() to note.lane)) {
                         duplicates++
                         return@mapNotNull null
                     }
@@ -206,7 +208,7 @@ object ChartPreviews {
         list.sortedBy { it.time }.forEach { change ->
             val last = result.lastOrNull()
             when {
-                last != null && Math.abs(last.time - change.time) < 0.5 -> result[result.lastIndex] = change.copy(time = last.time)
+                last != null && abs(last.time - change.time) < 0.5 -> result[result.lastIndex] = change.copy(time = last.time)
                 last != null && last.bpm == change.bpm && last.numerator == change.numerator -> Unit
                 else -> result += change
             }

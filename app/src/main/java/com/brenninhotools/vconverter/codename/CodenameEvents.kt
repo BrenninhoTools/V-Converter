@@ -6,8 +6,8 @@ import com.brenninhotools.vconverter.core.json.value
 import com.brenninhotools.vconverter.script.HxImports
 import com.brenninhotools.vconverter.script.LuaToHScript
 import com.brenninhotools.vconverter.script.ScriptFile
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 enum class ParamType(val schema: String) { STRING("string"), INTEGER("integer"), FLOAT("float"), BOOL("bool"), ENUM("enum") }
 

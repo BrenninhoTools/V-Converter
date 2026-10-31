@@ -1,7 +1,7 @@
 package com.brenninhotools.vconverter.overlay
 
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class PreviewText(val text: String, val totalLines: Int, val shownLines: Int, val truncated: Boolean)
 

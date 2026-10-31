@@ -45,6 +45,9 @@ import com.brenninhotools.vconverter.script.ScriptIssue
 import com.brenninhotools.vconverter.stage.LuaStageExtractor
 import com.brenninhotools.vconverter.stage.PsychStageParser
 import com.brenninhotools.vconverter.week.PsychWeekParser
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
 
 private fun pathParts(path: String) = path.replace('\\', '/').split('/').filter { it.isNotEmpty() }
 
@@ -106,8 +109,8 @@ class CodenameToPsychChartsConverter : CodenameToPsychConverter() {
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
         val definitions: Map<String, EventDefinition> = items.filter { it.kind == "definition" }.associate { stem(it) to CodenameEvents.parseDefinition(stem(it), it.text) }
-        val customEvents = sortedMapOf<String, Int>(String.CASE_INSENSITIVE_ORDER)
-        val noteTypes = sortedSetOf<String>()
+        val customEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+        val noteTypes = sortedMutableSet<String>()
         items.filter { it.kind != "definition" }.groupBy { folderAfter(it.path, "songs") ?: "" }.forEach { (folder, group) ->
             val baseMeta = group.firstOrNull { it.kind == "metadata" && variantOf(it).isEmpty() }?.let { CodenameChartParser.parseMeta(it.text, folder.ifEmpty { "song" }) }
             val name = folder.ifEmpty { baseMeta?.displayName ?: "song" }
@@ -397,8 +400,8 @@ class PsychToCodenameChartsConverter : PsychToCodenameConverter() {
     override fun build(items: List<PickedText>): ConvertedOutput {
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
-        val events = sortedSetOf<String>(String.CASE_INSENSITIVE_ORDER)
-        val types = sortedSetOf<String>()
+        val events = sortedMutableSet<String>(CaseInsensitiveOrder)
+        val types = sortedMutableSet<String>()
         items.groupBy { it.label.substringBefore(" · ") }.forEach { (folder, group) ->
             val sources = group.filter { it.kind == "chart" }.map { ChartSource(it.label.substringAfter(" · "), PsychChartParser.parse(it.text)) }
             if (sources.isEmpty()) return@forEach

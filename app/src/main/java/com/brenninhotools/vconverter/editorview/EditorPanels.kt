@@ -40,8 +40,9 @@ import com.brenninhotools.vconverter.editor.EditorEvent
 import com.brenninhotools.vconverter.editor.EventTemplate
 import com.brenninhotools.vconverter.editor.EventTemplates
 import com.brenninhotools.vconverter.editor.FieldType
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
+import com.brenninhotools.vconverter.core.fmt
 
 object EditorTyping {
     var fields by mutableIntStateOf(0)
@@ -62,7 +63,7 @@ private val directionNames = listOf("Left", "Down", "Up", "Right")
 
 fun formatTime(ms: Double): String {
     val total = ms.coerceAtLeast(0.0).toLong()
-    return "%d:%02d.%03d".format(total / 60000, (total / 1000) % 60, total % 1000)
+    return fmt("%d:%02d.%03d", total / 60000, (total / 1000) % 60, total % 1000)
 }
 
 @Composable

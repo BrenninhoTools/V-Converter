@@ -140,7 +140,7 @@ object Naturalizer {
                     if (sb[j] == '\\') j++
                     j++
                 }
-                for (k in i until minOf(j + 1, sb.length)) sb.setCharAt(k, ' ')
+                for (k in i until minOf(j + 1, sb.length)) sb.set(k, ' ')
                 i = j + 1
             } else {
                 i++

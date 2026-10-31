@@ -180,10 +180,10 @@ object ReflectCalls {
                     if (sb[j] == '\\') j++
                     j++
                 }
-                for (k in i + 1 until minOf(j, sb.length)) sb.setCharAt(k, '_')
+                for (k in i + 1 until minOf(j, sb.length)) sb.set(k, '_')
                 i = j + 1
             } else if (c == '/' && i + 1 < sb.length && sb[i + 1] == '/') {
-                while (i < sb.length && sb[i] != '\n') sb.setCharAt(i++, ' ')
+                while (i < sb.length && sb[i] != '\n') sb.set(i++, ' ')
             } else {
                 i++
             }

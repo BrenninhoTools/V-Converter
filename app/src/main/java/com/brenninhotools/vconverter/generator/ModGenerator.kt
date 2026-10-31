@@ -2,8 +2,8 @@ package com.brenninhotools.vconverter.generator
 
 import com.brenninhotools.vconverter.core.ReportBuilder
 import com.brenninhotools.vconverter.mod.ModConverter
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class ModSpec(
     val title: String,

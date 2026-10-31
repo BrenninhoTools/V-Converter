@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.editor.WeekDocument
 import com.brenninhotools.vconverter.editor.WeekSlot
-import java.util.Locale
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -150,7 +149,7 @@ private fun DrawScope.drawMenuProp(state: WeekEditorState, slot: WeekSlot, m: Me
         val color = slotColors.getValue(slot)
         drawRect(color.copy(alpha = 0.3f), Offset(left, top), Size(w, h))
         drawRect(color, Offset(left, top), Size(w, h), style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 6f))))
-        val label = if (prop.isBase) "BASE ${slot.key.uppercase(Locale.US)}" else prop.assetPath.substringAfterLast('/').uppercase(Locale.US)
+        val label = if (prop.isBase) "BASE ${slot.key.uppercase()}" else prop.assetPath.substringAfterLast('/').uppercase()
         val text = measurer.measure(label, TextStyle(color = Color.White, fontSize = (22f * m.k).toSp(), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
         drawText(text, topLeft = Offset(left + (w - text.size.width) / 2f, top + (h - text.size.height) / 2f))
         return
@@ -198,7 +197,7 @@ private fun DrawScope.drawTexts(state: WeekEditorState, doc: WeekDocument, m: Me
             dstSize = IntSize(tw.roundToInt().coerceAtLeast(1), th.roundToInt().coerceAtLeast(1))
         )
     } else {
-        val text = measurer.measure(doc.storyName.uppercase(Locale.US), style(44f).copy(fontWeight = FontWeight.Bold))
+        val text = measurer.measure(doc.storyName.uppercase(), style(44f).copy(fontWeight = FontWeight.Bold))
         drawText(text, topLeft = Offset(m.x(640.0) - text.size.width / 2f, m.y(titleTop)))
     }
     if (doc.isLocked) {
@@ -206,11 +205,11 @@ private fun DrawScope.drawTexts(state: WeekEditorState, doc: WeekDocument, m: Me
         drawText(lock, topLeft = Offset(m.x(640.0) - lock.size.width / 2f, m.y(titleTop + 70)))
     }
 
-    val tracks = "TRACKS\n\n" + doc.songs.joinToString("\n") { it.displayName.uppercase(Locale.US) }
+    val tracks = "TRACKS\n\n" + doc.songs.joinToString("\n") { it.displayName.uppercase() }
     val tracksText = measurer.measure(tracks, style(32f, tracksColor, TextAlign.Center))
     drawText(tracksText, topLeft = Offset(m.x(640.0 - 1280 * 0.33) - tracksText.size.width / 2f, m.y(500.0)))
 
-    val diff = measurer.measure(state.currentDifficulty().uppercase(Locale.US), style(40f).copy(fontWeight = FontWeight.Bold))
+    val diff = measurer.measure(state.currentDifficulty().uppercase(), style(40f).copy(fontWeight = FontWeight.Bold))
     val arrowStyle = style(40f, Color.White)
     val leftArrow = measurer.measure("◀", arrowStyle)
     val rightArrow = measurer.measure("▶", arrowStyle)

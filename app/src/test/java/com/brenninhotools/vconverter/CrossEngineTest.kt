@@ -25,7 +25,7 @@ import com.brenninhotools.vconverter.mod.DirectoryModFiles
 import com.brenninhotools.vconverter.mod.DirectoryModWriter
 import com.brenninhotools.vconverter.mod.ModInfo
 import com.brenninhotools.vconverter.mod.ModScanner
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

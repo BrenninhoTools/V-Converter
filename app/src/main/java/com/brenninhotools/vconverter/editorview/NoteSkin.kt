@@ -3,6 +3,7 @@ package com.brenninhotools.vconverter.editorview
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.brenninhotools.vconverter.core.putIfMissing
 
 class SkinFrame(val offset: IntOffset, val size: IntSize)
 
@@ -57,7 +58,7 @@ class NoteSkin(val image: ImageBitmap, frames: Map<String, SkinFrame>) {
                 val y = attr(tag, "y")?.toIntOrNull() ?: return@forEach
                 val w = attr(tag, "width")?.toIntOrNull() ?: return@forEach
                 val h = attr(tag, "height")?.toIntOrNull() ?: return@forEach
-                if (w > 0 && h > 0) frames.putIfAbsent(name, SkinFrame(IntOffset(x, y), IntSize(w, h)))
+                if (w > 0 && h > 0) frames.putIfMissing(name, SkinFrame(IntOffset(x, y), IntSize(w, h)))
             }
             return frames
         }

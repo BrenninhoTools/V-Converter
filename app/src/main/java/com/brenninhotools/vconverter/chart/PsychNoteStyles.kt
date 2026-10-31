@@ -1,8 +1,8 @@
 package com.brenninhotools.vconverter.chart
 
 import com.brenninhotools.vconverter.core.SparrowAtlas
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class GeneratedNoteStyle(val id: String, val json: String, val notes: List<String>)
 

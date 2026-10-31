@@ -12,9 +12,10 @@ import com.brenninhotools.vconverter.editor.EditorEvent
 import com.brenninhotools.vconverter.editor.EditorNote
 import com.brenninhotools.vconverter.editor.EditorTiming
 import com.brenninhotools.vconverter.editor.EventTemplates
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.floor
 
 interface SongPlayer {
     val duration: Double
@@ -236,7 +237,7 @@ class ChartEditorState(initial: ChartDocument) {
         val conductor = document.conductor
         val change = conductor.change(position)
         val beat = conductor.beatAt(position)
-        val target = if (direction > 0) Math.floor(beat / change.numerator + 1e-6) * change.numerator + change.numerator
+        val target = if (direction > 0) floor(beat / change.numerator + 1e-6) * change.numerator + change.numerator
         else Math.ceil(beat / change.numerator - 1e-6) * change.numerator - change.numerator
         seek(conductor.timeAt(target.coerceAtLeast(0.0)))
     }

@@ -7,7 +7,7 @@ import com.brenninhotools.vconverter.editor.LoadedCharacter
 import com.brenninhotools.vconverter.editor.LoadedStage
 import com.brenninhotools.vconverter.editor.SpriteAtlas
 import com.brenninhotools.vconverter.editor.StageAssets
-import java.util.Locale
+import com.brenninhotools.vconverter.core.fmt
 
 enum class IssueLevel { ERROR, WARNING, INFO }
 
@@ -16,7 +16,7 @@ data class PlayIssue(val level: IssueLevel, val area: String, val message: Strin
 object PlayTestChecks {
     private fun time(ms: Double): String {
         val total = ms.coerceAtLeast(0.0).toLong()
-        return String.format(Locale.US, "%d:%02d.%03d", total / 60000, (total / 1000) % 60, total % 1000)
+        return fmt("%d:%02d.%03d", total / 60000, (total / 1000) % 60, total % 1000)
     }
 
     fun chart(document: ChartDocument, audio: List<EditorAudio>): List<PlayIssue> {

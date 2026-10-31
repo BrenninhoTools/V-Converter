@@ -11,6 +11,7 @@ import com.brenninhotools.vconverter.chart.vslice.VSliceNote
 import com.brenninhotools.vconverter.chart.vslice.VSliceTimeChange
 import com.brenninhotools.vconverter.chart.vslice.VSliceWriter
 import kotlin.math.roundToLong
+import com.brenninhotools.vconverter.core.roundLong
 
 data class ChartSource(val difficulty: String, val song: PsychSong)
 
@@ -338,7 +339,7 @@ object PsychToVSliceChart {
     private fun animationTarget(raw: String): String = when (raw.lowercase()) {
         "bf", "boyfriend" -> "bf"
         "gf", "girlfriend" -> "gf"
-        else -> when (raw.toDoubleOrNull()?.let { Math.round(it) }) {
+        else -> when (raw.toDoubleOrNull()?.let { (it).roundLong() }) {
             1L -> "bf"
             2L -> "gf"
             else -> "dad"

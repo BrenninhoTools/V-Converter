@@ -8,7 +8,7 @@ import com.brenninhotools.vconverter.editor.EditorAudio
 import com.brenninhotools.vconverter.editor.StageAsset
 import com.brenninhotools.vconverter.editor.StageDocument
 import com.brenninhotools.vconverter.editor.WeekDocument
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 
 sealed interface LiveChange {
     data class Ops(val ops: List<JSONObject>) : LiveChange
@@ -108,7 +108,7 @@ class CharacterLiveAdapter(
 
     override fun receiveFile(name: String, bytes: ByteArray): (() -> Unit)? {
         if (!name.startsWith("sprite/")) return null
-        if (name.endsWith(".png")) png = bytes else if (name.endsWith(".xml")) xml = bytes.toString(Charsets.UTF_8)
+        if (name.endsWith(".png")) png = bytes else if (name.endsWith(".xml")) xml = bytes.decodeToString()
         val image = png
         val text = xml
         return { onSheet(image, text) }
@@ -131,7 +131,7 @@ private class AssetInbox {
         val key = name.removePrefix("images/").substringBeforeLast('.')
         when {
             name.endsWith(".png") -> png[key] = bytes
-            name.endsWith(".xml") -> xml[key] = bytes.toString(Charsets.UTF_8)
+            name.endsWith(".xml") -> xml[key] = bytes.decodeToString()
             else -> return null
         }
         val image = png[key] ?: return null

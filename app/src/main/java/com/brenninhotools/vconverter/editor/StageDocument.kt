@@ -5,8 +5,8 @@ import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.reverse.VSliceParser
 import com.brenninhotools.vconverter.reverse.VStageCharacter
 import com.brenninhotools.vconverter.stage.PsychToVSliceStage
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class StageProp(
     val name: String,

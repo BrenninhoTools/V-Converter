@@ -67,7 +67,7 @@ class TreeModWriter(context: Context, private val treeUri: Uri) : ModWriter {
     private val listings = HashMap<String, MutableMap<String, Child>>()
 
     override fun writeText(path: String, text: String) {
-        output(path).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        output(path).use { it.write(text.encodeToByteArray()) }
     }
 
     override fun copy(path: String, source: () -> InputStream) {

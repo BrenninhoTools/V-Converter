@@ -7,7 +7,7 @@ import com.brenninhotools.vconverter.editor.WeekLoader
 import com.brenninhotools.vconverter.editor.WeekProp
 import com.brenninhotools.vconverter.editor.WeekSlot
 import com.brenninhotools.vconverter.editor.WeekSong
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

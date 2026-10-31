@@ -2,15 +2,16 @@ package com.brenninhotools.vconverter.chart
 
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
-import java.util.Locale
-import java.util.TreeMap
-import java.util.TreeSet
+import com.brenninhotools.vconverter.core.fmt
+import com.brenninhotools.vconverter.core.sortedMutableMap
+import com.brenninhotools.vconverter.core.sortedMutableSet
+import com.brenninhotools.vconverter.core.CaseInsensitiveOrder
 
 class ConversionReport {
     val noteCounts = LinkedHashMap<String, Int>()
     val duplicateNotes = LinkedHashMap<String, Int>()
-    val unsupportedEvents = TreeMap<String, Int>(String.CASE_INSENSITIVE_ORDER)
-    val noteKinds = TreeSet<String>()
+    val unsupportedEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+    val noteKinds = sortedMutableSet<String>()
     val warnings = mutableListOf<String>()
     var cameraEvents = 0
     var convertedEvents = 0
@@ -57,7 +58,7 @@ class ConversionReport {
 
     fun toReport(): Report {
         val builder = ReportBuilder()
-        noteCounts.forEach { (difficulty, count) -> builder.stat(difficulty.replaceFirstChar { it.titlecase(Locale.US) }, count) }
+        noteCounts.forEach { (difficulty, count) -> builder.stat(difficulty.replaceFirstChar { it.titlecase() }, count) }
         builder.stat("Events", cameraEvents + convertedEvents)
         builder.section(
             "Events",
@@ -94,6 +95,6 @@ class ConversionReport {
     }
 
     companion object {
-        fun formatMs(value: Double): String = String.format(Locale.US, "%.0f ms", value)
+        fun formatMs(value: Double): String = fmt("%.0f ms", value)
     }
 }

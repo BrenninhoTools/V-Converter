@@ -1,8 +1,8 @@
 package com.brenninhotools.vconverter.editor
 
 import com.brenninhotools.vconverter.core.json.toJsonNumber
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 
 sealed interface ChartChange {

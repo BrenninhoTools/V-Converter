@@ -13,8 +13,8 @@ import com.brenninhotools.vconverter.mod.ModInfo
 import com.brenninhotools.vconverter.mod.ModProgress
 import com.brenninhotools.vconverter.mod.ModWriter
 import com.brenninhotools.vconverter.mod.readText
-import org.json.JSONArray
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONArray
+import com.brenninhotools.vconverter.json.JSONObject
 
 data class VSliceSongFiles(val id: String, val metadata: Map<String, String>, val charts: Map<String, String>, val audio: List<String>)
 

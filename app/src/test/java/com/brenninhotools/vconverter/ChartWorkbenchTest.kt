@@ -11,7 +11,7 @@ import com.brenninhotools.vconverter.convert.PsychChartsConverter
 import com.brenninhotools.vconverter.convert.PsychToCodenameChartsConverter
 import com.brenninhotools.vconverter.convert.ReverseChartsConverter
 import com.brenninhotools.vconverter.io.ImportedFile
-import org.json.JSONObject
+import com.brenninhotools.vconverter.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
