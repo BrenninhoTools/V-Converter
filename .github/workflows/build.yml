@@ -190,21 +190,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          key: konan-${{ runner.os }}-debug-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
 
       - name: Build the Kotlin framework
-        run: ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache
+        run: ./gradlew :ios:linkDebugFrameworkIosArm64 --no-configuration-cache --build-cache
 
       - name: Generate the Xcode project
         run: |
-          brew install xcodegen
-          cd iosApp && xcodegen generate
+          curl -sSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          cd iosApp && "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --quiet
 
       - name: Build the app
         run: |
           cd iosApp
           set -o pipefail
-          xcodebuild -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos \
+          xcodebuild -quiet -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos -jobs 8 \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ENABLE_EXPLICIT_MODULES=NO build 2>&1 | tee xcodebuild.log \
             || { grep -E "error:|fatal error|Undefined symbol|ld:" xcodebuild.log | head -60; exit 1; }
 
