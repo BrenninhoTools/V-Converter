@@ -40,4 +40,4 @@ targets:
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
         FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../ios/build/bin/iosArm64/releaseFramework $(SRCROOT)/../ios/build/bin/iosArm64/debugFramework
-        OTHER_LDFLAGS: $(inherited) -framework VConverter -lc++ -framework UIKit -framework Foundation -framework Metal -framework MetalKit -framework CoreText -framework CoreGraphics -framework QuartzCore -framework AVFAudio -framework UniformTypeIdentifiers -framework CoreServices -framework Security
+        OTHER_LDFLAGS: $(inherited) -ObjC -framework VConverter -lc++ -framework UIKit -framework Foundation -framework Metal -framework MetalKit -framework CoreText -framework CoreGraphics -framework QuartzCore -framework AVFAudio -framework UniformTypeIdentifiers -framework CoreServices -framework Security
