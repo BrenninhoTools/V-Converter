@@ -172,11 +172,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-release-${{ hashFiles('gradle/libs.versions.toml') }}
+          key: konan-${{ runner.os }}-debug-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: konan-${{ runner.os }}-
 
       - name: Build the Kotlin framework
-        run: ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache --build-cache
+        run: ./gradlew :ios:linkDebugFrameworkIosArm64 --no-configuration-cache --build-cache "-Dorg.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=768m"
 
       - name: Generate the Xcode project
         run: |

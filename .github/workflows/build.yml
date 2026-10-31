@@ -194,7 +194,7 @@ jobs:
           restore-keys: konan-${{ runner.os }}-
 
       - name: Build the Kotlin framework
-        run: ./gradlew :ios:linkDebugFrameworkIosArm64 --no-configuration-cache --build-cache
+        run: ./gradlew :ios:linkDebugFrameworkIosArm64 --no-configuration-cache --build-cache "-Dorg.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=768m"
 
       - name: Generate the Xcode project
         run: |
