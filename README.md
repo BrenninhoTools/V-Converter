@@ -10,6 +10,7 @@
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
+![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
 ![Vibe coded](https://img.shields.io/badge/vibe%20coded-%E2%9C%A8-ff69b4)
@@ -19,7 +20,7 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **Windows** and **Linux**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
 
 ## Contents
 
@@ -41,6 +42,7 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | `V Converter-Android` | 📱 Android | `V Converter-Android.apk`, the optimized (R8) signed APK |
 | `V Converter-Windows` | 🪟 Windows | `V Converter-Windows.exe`, the installer |
 | `V Converter-Linux` | 🐧 Linux | `V Converter-Linux.deb` for Debian/Ubuntu and `V Converter-Linux.tar.gz`, a portable folder for any distro (run `V-Converter/bin/V-Converter`) |
+| `V Converter-MacOS` | 🍎 macOS | `V Converter-MacOS.dmg` (drag the app to Applications) and `V Converter-MacOS.zip` with the app itself. It isn't notarized: the first time, right-click the app and choose **Open**, or allow it in **System Settings → Privacy & Security** |
 
 ## Supported conversions
 
@@ -61,7 +63,7 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | Codename → Psych | Codename HScript → Psych HScript |
 | Psych → Codename | Lua / HScript → Codename HScript |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows and Linux the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use an original FNF-style icon (a microphone and the four arrows) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (Boyfriend in a hard hat, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -78,7 +80,7 @@ Every tab can download the result as a `.zip` or write it into the mod folder.
 
 ## Chart Editor
 
-The **Chart** tab of the Generator on Android, and **Chart Editor** in the sidebar on Windows and Linux.
+The **Chart** tab of the Generator on Android, and **Chart Editor** in the sidebar on Windows, Linux and macOS.
 
 - **New or existing charts**: start a song from a name, BPM and difficulties, or open V-Slice `<song>-metadata.json` + `<song>-chart.json`, Psych chart `.json` files or a Codename song (`meta.json` + `charts/*.json`). Folders and `.zip`/`.rar`/`.7z` archives work too, and `Inst`/`Voices` audio found next to the charts is loaded with them.
 - **Note grid**: a V-Slice style checkerboard with the strumline on top, notes, holds and receptors drawn with the base game sprites from `assets/images/ui/NOTE_assets.png`, opponent lanes on the left, player lanes on the right and the event lane last, with events shown with `assets/images/ui/charter/event.png`. Tap/click a lane to place a note snapped to the grid (1/4 up to 1/192), tap it again to select it and once more to delete it. Selected notes get a hold length and a note kind (`alt`, `hurt`…). Drag or use the mouse wheel to scroll, zoom in and out, jump by measures, undo and redo from the toolbar, and tap or drag the mini-map next to the grid to jump around the song. On wide screens the grid sits between the side panels; on phones the panels are tabs under it.
@@ -87,11 +89,11 @@ The **Chart** tab of the Generator on Android, and **Chart Editor** in the sideb
 - **Difficulties**: add empty or copied difficulties, remove them, mirror or clear notes and set the scroll speed of each one. The song info (name, artist, charter, characters, stage, note style, offset, variation) is edited in place.
 - **Export**: V-Slice (`data/songs/<id>/` + `songs/<id>/` audio), Psych Engine (`data/<id>/` charts and `events.json`, `songs/<id>/Inst.ogg` and `Voices*.ogg`) or Codename Engine (`songs/<id>/meta.json`, `charts/` and `song/` audio, with the strumlines pointed at split voices), as a `.zip` or straight into a mod folder.
 
-On Windows and Linux: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
+On Windows, Linux and macOS: <kbd>Space</kbd> plays, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Q</kbd> / <kbd>E</kbd> shorten and lengthen the selected hold, <kbd>Delete</kbd> removes the selection, <kbd>Page Up</kbd> / <kbd>Page Down</kbd> jump a measure.
 
 ## Character Editor
 
-The **Char** tab of the Generator on Android, and **Character Editor** in the sidebar on Windows and Linux.
+The **Char** tab of the Generator on Android, and **Character Editor** in the sidebar on Windows, Linux and macOS.
 
 - **Open anything**: a V-Slice or Psych character `.json` or a Codename character `.xml`, together with its spritesheet `.png` + `.xml` (folders and archives work too). A spritesheet alone starts a new character with the animations guessed from the frame names (`idle`, `singLEFT`…, misses, `danceLeft`/`danceRight`).
 - **Animation preview**: plays every animation from the spritesheet with its frame rate, loop and indices, frame by frame if you want, drawn the way V-Slice places characters (feet on the floor line, offsets scaled with the sprite).
@@ -100,22 +102,22 @@ The **Char** tab of the Generator on Android, and **Character Editor** in the si
 - **Character settings**: side (player, opponent, girlfriend), scale, position, camera offset (dragged on the preview too), flip X, pixel art, health icon, sing time, dance rate and starting animation.
 - **Export**: V-Slice (`data/characters/<id>.json` + `images/…`), Psych Engine (`characters/<id>.json`, offsets and position converted for the chosen side) or Codename Engine (`data/characters/<id>.xml` + `images/characters/…`), always with the spritesheet.
 
-On Windows and Linux: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
+On Windows, Linux and macOS: <kbd>Space</kbd> plays, the arrow keys move the offset (<kbd>Shift</kbd> for 10), <kbd>W</kbd> / <kbd>S</kbd> pick the animation, <kbd>,</kbd> / <kbd>.</kbd> step frames, <kbd>G</kbd> toggles the ghost and the mouse wheel zooms.
 
 ## Stage Editor
 
-The **Stage** tab of the Generator on Android, and **Stage Editor** in the sidebar on Windows and Linux.
+The **Stage** tab of the Generator on Android, and **Stage Editor** in the sidebar on Windows, Linux and macOS.
 
 - **Open anything**: a V-Slice or Psych stage `.json` (with its `.lua` when it builds sprites there) or a Codename stage `.xml`, together with the stage images; opening a whole mod folder or archive finds every image the stage uses. A new stage starts with the base game character positions.
 - **Layout**: every prop drawn with its image (the first frame for animated Sparrow props), scale, scroll factor, alpha, angle and flips, plus boxes for the player, opponent and girlfriend at their feet position with their camera points. A dashed frame shows the game camera at the stage's zoom, and parallax follows the scroll factors as you move the view.
 - **Editing**: tap or click to select, drag to move, arrow buttons to nudge, layers sorted by `zIndex` with bring forward / send back, duplicate and delete, solid color props, images added from `.png` (+ `.xml` for animations), stage name, zoom and library. Undo and redo cover every change.
 - **Export**: V-Slice (`data/stages/<id>.json`), Psych Engine (`stages/<id>.json` plus a Lua script for what Psych JSON can't hold) or Codename Engine (`data/stages/<id>.xml`), always with the images in `images/`.
 
-On Windows and Linux: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
+On Windows, Linux and macOS: the arrow keys nudge the selection (<kbd>Shift</kbd> for 10), <kbd>Page Up</kbd> / <kbd>Page Down</kbd> change its layer, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Delete</kbd> removes a prop and the mouse wheel zooms.
 
 ## Week Editor
 
-The **Week** tab of the Generator on Android, and **Week Editor** in the sidebar on Windows and Linux.
+The **Week** tab of the Generator on Android, and **Week Editor** in the sidebar on Windows, Linux and macOS.
 
 - **Open anything**: a V-Slice level `.json`, a Psych week `.json` (with its `images/menucharacters/*.json`) or a Codename week `.xml` (with its `data/weeks/characters/*.xml`), together with the title and menu character images. V-Slice song metadata files fill in the song names and difficulties, and a V-Slice level script (`scripts/levels/`) brings back the unlocking settings. A new week starts with the base game's dad, bf and gf.
 - **Story menu preview**: the 1280×720 story menu as V-Slice draws it: the background color or image, the menu characters playing their idle (or `danceLeft`/`danceRight`) animations at their offsets, one slot per quarter of the screen, the title image, the tracks list, the score and week name, and the difficulty (switched from the toolbar). **Confirm** plays the confirm animations.
@@ -124,7 +126,7 @@ The **Week** tab of the Generator on Android, and **Week Editor** in the sidebar
 - **Unlocking**: the week to beat first, start unlocked, hidden until unlocked, hidden from story mode and songs hidden from freeplay, plus the difficulty list.
 - **Export**: V-Slice (`data/levels/<id>.json`, plus a level script in `scripts/levels/` for the unlocking and freeplay settings), Psych Engine (`weeks/<id>.json` and `images/menucharacters/*.json`) or Codename Engine (`data/weeks/weeks/<id>.xml` and `data/weeks/characters/*.xml`), always with the title, background and custom menu character images. Undo and redo cover every change.
 
-On Windows and Linux: click a menu character and drag it, the arrow keys nudge it (<kbd>Shift</kbd> for 10) or change the difficulty when nothing is selected, <kbd>Enter</kbd> plays the confirm animation and <kbd>Space</kbd> pauses the animations.
+On Windows, Linux and macOS: click a menu character and drag it, the arrow keys nudge it (<kbd>Shift</kbd> for 10) or change the difficulty when nothing is selected, <kbd>Enter</kbd> plays the confirm animation and <kbd>Space</kbd> pauses the animations.
 
 ---
 
@@ -348,14 +350,14 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 
 Every editor (Chart, Character, Stage and Week) has a **Multieditor** card: two or more people edit the same thing at the same time through the [online server](#online-server).
 
-- **Rooms**: start a room and share its 6-letter code, or tick **List my room publicly** so anyone can find it in **Online → Rooms** (Android) or the **Online** page (Windows and Linux), filtered by editor. Joining from the list opens the right editor.
+- **Rooms**: start a room and share its 6-letter code, or tick **List my room publicly** so anyone can find it in **Online → Rooms** (Android) or the **Online** page (Windows, Linux and macOS), filtered by editor. Joining from the list opens the right editor.
 - **Live changes**: in the Chart Editor notes and events sync one by one, and anything else sends the whole chart; the other editors send their whole document (a character, a stage or a week) a few times per second while you work. Undo and redo stay local and sync like any other change. People who join later get the current state.
 - **Shared files**: images, spritesheets and song audio you load are uploaded to the room and downloaded by everyone in it, so the previews match.
 - **Presence**: who is in the room, where each person is in the song (Chart Editor) and a small chat.
 
 ## PlayTest
 
-The **Test** section on Android and **PlayTest** in the sidebar on Windows and Linux play songs the way the game does, to check converted mods and your own projects.
+The **Test** section on Android and **PlayTest** in the sidebar on Windows, Linux and macOS play songs the way the game does, to check converted mods and your own projects.
 
 - **What it opens**: a mod folder or archive (V-Slice, Psych or Codename; Psych and Codename mods go through the converter to V-Slice first, so the converter itself is tested), the result of any conversion (**PlayTest the result** under the output), the converted mod (**PlayTest the converted mod**), or the Chart Editor's chart (**PlayTest this chart**).
 - **Gameplay**: notes scroll with the chart's speed (downscroll too), with Sick/Good/Bad/Shit timing windows, holds, misses, combo, score, accuracy, rating (PFC, GFC, FC…) and health. Play from any point of the song, or turn on **Botplay** to watch the chart play itself. On phones the screen is split into four lanes to tap; on a computer the arrow keys or D F J K hit the notes.
@@ -368,7 +370,7 @@ The `server/` folder holds the V-Converter online server, written in JavaScript 
 
 | Feature | In the apps | Server API |
 | --- | --- | --- |
-| Mod gallery | **Online** section on Android (Mods / Share tabs) and **Online** in the sidebar on Windows and Linux: search, filter by engine, sort, download, and upload a `.zip` with title, description, author, engine and tags. Uploading returns a delete key, the only way to remove the mod later | `GET /api/mods`, `GET /api/mods/:id`, `GET /api/mods/:id/download`, `POST /api/mods` (multipart, field `file`), `DELETE /api/mods/:id` (`X-Delete-Token`) |
+| Mod gallery | **Online** section on Android (Mods / Share tabs) and **Online** in the sidebar on Windows, Linux and macOS: search, filter by engine, sort, download, and upload a `.zip` with title, description, author, engine and tags. Uploading returns a delete key, the only way to remove the mod later | `GET /api/mods`, `GET /api/mods/:id`, `GET /api/mods/:id/download`, `POST /api/mods` (multipart, field `file`), `DELETE /api/mods/:id` (`X-Delete-Token`) |
 | Updates and news | **News** tab: tells you when a newer V-Converter is out (from the latest GitHub release, with the download for your platform) and shows the server's announcements | `GET /api/version?platform=&current=`, `GET /api/announcements?platform=` |
 | Error reports | When enabled, failed conversions and crashes send their message, stack trace, app version and platform | `POST /api/reports` |
 | Multieditor | **Multieditor** card in every editor (see [Multieditor](#multieditor)): private or public rooms, live changes, shared images, spritesheets and audio, presence and chat | `GET /api/rooms?kind=` (public rooms), `POST /api/rooms`, `GET /api/rooms/:code`, `PUT`/`GET /api/rooms/:code/assets/<path>`, WebSocket `/ws?room=CODE&name=NAME` |
@@ -421,11 +423,17 @@ Linux (`.deb` package and portable app, run on Linux with JDK 17):
 ./gradlew :desktop:packageDeb :desktop:createDistributable
 ```
 
-The desktop app (Windows and Linux) is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
+macOS (`.dmg` and `.app`, run on a Mac with JDK 17):
+
+```
+./gradlew :desktop:packageDmg :desktop:createDistributable
+```
+
+The desktop app (Windows, Linux and macOS) is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
 
 ### Credits
 
-- Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows and Linux (RAR, RAR5, 7z)
+- Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows, Linux and Intel Macs (RAR, RAR5, 7z; on Apple Silicon Macs those archives need to be extracted first)
 - The desktop Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI
 - The UI uses the Friday Night Funkin' style font in `assets/fonts/funkin.ttf`
 

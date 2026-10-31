@@ -25,6 +25,9 @@ object SevenZipExtractor {
             } catch (e: SevenZipException) {
                 stream.close()
                 throw IOException("This archive could not be opened. It may be damaged, split into parts or password protected.", e)
+            } catch (e: Throwable) {
+                stream.close()
+                throw IOException("RAR and 7z archives can't be opened on this system. Extract it first, or use a .zip.", e)
             }
             try {
                 val count = inArchive.numberOfItems

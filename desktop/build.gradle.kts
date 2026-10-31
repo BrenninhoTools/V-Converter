@@ -48,7 +48,7 @@ compose.desktop {
     application {
         mainClass = "com.brenninhotools.vconverter.desktop.MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Dmg)
             packageName = "V-Converter"
             packageVersion = "0.0.1"
             description = "Friday Night Funkin' converter for Psych Engine, Codename Engine and V-Slice"
@@ -62,6 +62,15 @@ compose.desktop {
                 dirChooser = true
                 perUserInstall = true
                 upgradeUuid = "6f3e2d9a-4b1c-4e8a-9d5f-2a7b8c1e0f43"
+            }
+            macOS {
+                iconFile.set(project.file("icon.icns"))
+                bundleID = "com.brenninhotools.vconverter"
+                packageName = "V-Converter"
+                dockName = "V-Converter"
+                packageVersion = "1.0.0"
+                dmgPackageVersion = "1.0.0"
+                appCategory = "public.app-category.developer-tools"
             }
             linux {
                 iconFile.set(project.file("icon.png"))
