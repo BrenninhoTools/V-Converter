@@ -5,6 +5,9 @@ import kotlinx.cinterop.usePinned
 import platform.Foundation.NSBundle
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSError
+import platform.Foundation.NSURLResponse
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSRecursiveLock
@@ -12,6 +15,7 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSUUID
+import platform.Foundation.dataTaskWithRequest
 import platform.Foundation.dataWithBytes
 import platform.Foundation.setHTTPBody
 import platform.Foundation.setHTTPMethod
@@ -79,7 +83,7 @@ object Platform {
         val root = NSBundle.mainBundle.resourcePath ?: return null
         val candidates = listOf("$root/$clean", "$root/assets/$clean")
         for (path in candidates) {
-            val data = NSData.dataWithContentsOfFile(path) ?: continue
+            val data = NSFileManager.defaultManager.contentsAtPath(path) ?: continue
             return data.toByteArray()
         }
         return null
@@ -125,7 +129,7 @@ object Http {
         val semaphore = dispatch_semaphore_create(0)
         var result: HttpResponse? = null
         var failure: String? = null
-        val task = session.dataTaskWithRequest(request) { data, response, error ->
+        val task = session.dataTaskWithRequest(request) { data: NSData?, response: NSURLResponse?, error: NSError? ->
             if (error != null) {
                 failure = error.localizedDescription
             } else {

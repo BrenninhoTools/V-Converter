@@ -76,7 +76,7 @@ class OnlineState(private val scope: CoroutineScope) {
         val kind = roomKind
         scope.launch {
             try {
-                rooms = withContext(Dispatchers.IO) { Online.api().publicRooms(kind) }
+                rooms = withContext(ioDispatcher) { Online.api().publicRooms(kind) }
             } catch (e: Exception) {
                 roomsError = e.message ?: "Could not load the rooms."
             } finally {
@@ -92,7 +92,7 @@ class OnlineState(private val scope: CoroutineScope) {
         scope.launch {
             try {
                 val api = Online.api()
-                val (v, list) = withContext(Dispatchers.IO) {
+                val (v, list) = withContext(ioDispatcher) {
                     runCatching { api.version(Online.platform, Online.appVersion) }.getOrNull() to api.announcements(Online.platform)
                 }
                 version = v
@@ -114,7 +114,7 @@ class OnlineState(private val scope: CoroutineScope) {
         val s = sort
         scope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { Online.api().mods(q, e, s, target) }
+                val result = withContext(ioDispatcher) { Online.api().mods(q, e, s, target) }
                 page = result
                 pageNumber = result.page
             } catch (ex: Exception) {
@@ -132,7 +132,7 @@ class OnlineState(private val scope: CoroutineScope) {
         message = null
         scope.launch {
             val ok = try {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     val out = open() ?: return@withContext false
                     out.use { stream ->
                         Online.api().download(mod.id, stream) { done, total -> if (total > 0) progress = (done.toFloat() / total).coerceIn(0f, 1f) }
@@ -164,7 +164,7 @@ class OnlineState(private val scope: CoroutineScope) {
                 val kind = uploadEngine
                 scope.launch {
                     try {
-                        val result = withContext(Dispatchers.IO) { Online.api().upload(chosen.first, chosen.second, fields[0], fields[1], fields[2], kind, list) }
+                        val result = withContext(ioDispatcher) { Online.api().upload(chosen.first, chosen.second, fields[0], fields[1], fields[2], kind, list) }
                         uploaded = result
                         file = null
                         title = ""
@@ -185,7 +185,7 @@ class OnlineState(private val scope: CoroutineScope) {
         val mod = uploaded ?: return
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { Online.api().deleteMod(mod.mod.id, mod.deleteToken) }
+                withContext(ioDispatcher) { Online.api().deleteMod(mod.mod.id, mod.deleteToken) }
                 uploaded = null
                 uploadError = "Removed \"${mod.mod.title}\" from the gallery."
                 search()

@@ -29,8 +29,6 @@ import kotlinx.coroutines.withContext
 import platform.AVFAudio.AVAudioFile
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPlayer
-import platform.AVFAudio.AVAudioSession
-import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.Foundation.NSURL
 import stbvorbis.vc_decode_ogg
 import stbvorbis.vc_free
@@ -38,18 +36,6 @@ import stbvorbis.vc_free
 class PcmTrack(val samples: ShortArray, val rate: Int)
 
 object AudioDecoder {
-    private var sessionReady = false
-
-    fun prepareSession() {
-        if (sessionReady) return
-        sessionReady = true
-        runCatching {
-            val session = AVAudioSession.sharedInstance()
-            session.setCategory(AVAudioSessionCategoryPlayback, null)
-            session.setActive(true, null)
-        }
-    }
-
     private fun ogg(bytes: ByteArray): PcmTrack = memScoped {
         val channels = alloc<IntVar>()
         val rate = alloc<IntVar>()
@@ -162,7 +148,6 @@ class IosSongPlayer private constructor(wav: ByteArray?, frames: Int, rate: Int)
 
     override fun play() {
         val p = player ?: return
-        AudioDecoder.prepareSession()
         if (paused >= duration - 1) paused = 0.0
         p.currentTime = paused / 1000.0
         p.play()

@@ -24,6 +24,7 @@ kotlin {
             kotlin.exclude(
                 "com/brenninhotools/vconverter/ui/**",
                 "com/brenninhotools/vconverter/jvm/**",
+                "**/jvmonly/**",
                 "com/brenninhotools/vconverter/MainActivity.kt",
                 "com/brenninhotools/vconverter/io/DocumentIO.kt",
                 "com/brenninhotools/vconverter/io/Downloads.kt",

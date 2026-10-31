@@ -44,6 +44,7 @@ import com.brenninhotools.vconverter.editorview.EditorTyping
 import com.brenninhotools.vconverter.io.Archives
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 

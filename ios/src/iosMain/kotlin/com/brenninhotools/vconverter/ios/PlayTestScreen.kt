@@ -41,6 +41,7 @@ import com.brenninhotools.vconverter.playview.PlayTestState
 import com.brenninhotools.vconverter.playview.PlayTestView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 

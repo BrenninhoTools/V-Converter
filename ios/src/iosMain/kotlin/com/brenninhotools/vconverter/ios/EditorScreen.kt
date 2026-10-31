@@ -45,6 +45,7 @@ import com.brenninhotools.vconverter.generator.Ids
 import com.brenninhotools.vconverter.io.Archives
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 

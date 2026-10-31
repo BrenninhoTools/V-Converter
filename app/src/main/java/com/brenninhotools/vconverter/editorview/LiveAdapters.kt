@@ -102,7 +102,7 @@ class CharacterLiveAdapter(
         val (image, text) = sheet()
         return buildMap {
             if (image != null) put("sprite/sheet-${image.size}.png") { image }
-            if (text != null) put("sprite/sheet-${text.length}.xml") { text.toByteArray() }
+            if (text != null) put("sprite/sheet-${text.length}.xml") { text.encodeToByteArray() }
         }
     }
 
@@ -118,7 +118,7 @@ class CharacterLiveAdapter(
 private fun assetFiles(assets: Map<String, StageAsset>): Map<String, () -> ByteArray?> = buildMap {
     assets.forEach { (key, asset) ->
         put("images/$key.png") { asset.png }
-        asset.xml?.let { text -> put("images/$key.xml") { text.toByteArray() } }
+        asset.xml?.let { text -> put("images/$key.xml") { text.encodeToByteArray() } }
     }
 }
 

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.brenninhotools.vconverter.mod.ModConversionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.brenninhotools.vconverter.platform.File
