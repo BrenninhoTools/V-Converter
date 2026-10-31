@@ -11,6 +11,7 @@
 ![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
+![iOS](https://img.shields.io/badge/iOS-000000?logo=ios&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
 ![Vibe coded](https://img.shields.io/badge/vibe%20coded-%E2%9C%A8-ff69b4)
@@ -20,7 +21,7 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
 
 ## Contents
 
@@ -43,6 +44,7 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | `V Converter-Windows` | 🪟 Windows | `V Converter-Windows.exe`, the installer |
 | `V Converter-Linux` | 🐧 Linux | `V Converter-Linux.deb` for Debian/Ubuntu and `V Converter-Linux.tar.gz`, a portable folder for any distro (run `V-Converter/bin/V-Converter`) |
 | `V Converter-MacOS` | 🍎 macOS | `V Converter-MacOS.dmg` (drag the app to Applications) and `V Converter-MacOS.zip` with the app itself. It isn't notarized: the first time, right-click the app and choose **Open**, or allow it in **System Settings → Privacy & Security** |
+| `V Converter-IOS` | 📱 iOS / iPadOS | `V Converter-IOS.ipa`, unsigned: install it with AltStore, SideStore, Sideloadly or TrollStore (iOS 15 or newer) |
 
 ## Supported conversions
 
@@ -429,12 +431,22 @@ macOS (`.dmg` and `.app`, run on a Mac with JDK 17):
 ./gradlew :desktop:packageDmg :desktop:createDistributable
 ```
 
+iOS (unsigned `.ipa`, run on a Mac with Xcode, JDK 17 and [XcodeGen](https://github.com/yonaskolb/XcodeGen)):
+
+```
+./gradlew :ios:linkReleaseFrameworkIosArm64
+cd iosApp && xcodegen generate
+xcodebuild -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+```
+
+The iOS app is a Compose Multiplatform build of the same screens as the desktop app (a side menu on iPhone, the full sidebar on iPad), running every converter, editor, PlayTest and the online features natively. The shared code is plain Kotlin with no JVM-only APIs (its own JSON library, ZIP reader/writer and small platform layer), so Android, desktop and iOS run the very same converters. Files and archives are picked with the Files app; mod folders are read and written in place, and `.zip` results are saved through the Files export sheet. iOS can't open RAR or 7z archives (extract them first or use a `.zip`).
+
 The desktop app (Windows, Linux and macOS) is a [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) build that shares every converter with the Android app.
 
 ### Credits
 
 - Archives are extracted with `java.util.zip` (ZIP) and [7-Zip-JBinding-4Android](https://github.com/omicronapps/7-Zip-JBinding-4Android) / [7-Zip-JBinding](https://sevenzipjbind.sourceforge.net/) on Windows, Linux and Intel Macs (RAR, RAR5, 7z; on Apple Silicon Macs those archives need to be extracted first)
-- The desktop Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI
+- The desktop Chart Editor plays `.ogg` and `.mp3` with [VorbisSPI](https://github.com/pdudits/soundlibs) and MP3SPI; on iOS, `.ogg` is decoded with Sean Barrett's [stb_vorbis](https://github.com/nothings/stb) (public domain)
 - The UI uses the Friday Night Funkin' style font in `assets/fonts/funkin.ttf`
 
 ## References
