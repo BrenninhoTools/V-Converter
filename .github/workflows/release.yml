@@ -185,8 +185,10 @@ jobs:
       - name: Build the app
         run: |
           cd iosApp
+          set -o pipefail
           xcodebuild -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ENABLE_EXPLICIT_MODULES=NO build 2>&1 | tee xcodebuild.log \
+            || { grep -E "error:|fatal error|Undefined symbol|ld:" xcodebuild.log | head -60; exit 1; }
 
       - name: Package the IPA
         run: |
