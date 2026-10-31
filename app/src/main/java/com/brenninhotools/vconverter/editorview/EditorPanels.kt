@@ -43,6 +43,7 @@ import com.brenninhotools.vconverter.editor.FieldType
 import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import com.brenninhotools.vconverter.core.fmt
+import com.brenninhotools.vconverter.core.roundLong
 
 object EditorTyping {
     var fields by mutableIntStateOf(0)
@@ -178,7 +179,7 @@ fun SelectionPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
                 EditorSectionTitle("Note")
                 Text(
                     "${if (note.isPlayer) "Player" else "Opponent"} ${directionNames[note.direction]} at ${formatTime(note.time)}" +
-                        if (note.length > 0) " · hold ${trim(Math.round(note.length).toDouble())} ms" else "",
+                        if (note.length > 0) " · hold ${trim((note.length).roundLong().toDouble())} ms" else "",
                     fontSize = 13.sp
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

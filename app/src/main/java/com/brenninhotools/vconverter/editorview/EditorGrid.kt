@@ -38,6 +38,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import com.brenninhotools.vconverter.core.fmt
 import kotlin.math.floor
+import com.brenninhotools.vconverter.core.roundLong
 
 object EditorColors {
     val lanes = listOf(Color(0xFFC24B99), Color(0xFF00FFFF), Color(0xFF12FA05), Color(0xFFF9393F))
@@ -163,7 +164,7 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
                     val top = y(edges[i]).coerceIn(songTop, songBottom)
                     val bottom = y(edges[i + 1]).coerceIn(songTop, songBottom)
                     if (bottom <= top) continue
-                    val stepIndex = Math.round(conductor.beatAt(edges[i]) * 4).toInt()
+                    val stepIndex = (conductor.beatAt(edges[i]) * 4).roundLong().toInt()
                     for (column in 0 until 8) {
                         val light = (stepIndex + column) % 2 == 0
                         drawRect(if (light) EditorColors.cellLight else EditorColors.cellDark, Offset(laneX(column), top), Size(laneWidth + 0.5f, bottom - top))

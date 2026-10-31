@@ -26,3 +26,4 @@ dependencyResolutionManagement {
 rootProject.name = "V-Converter"
 include(":app")
 include(":desktop")
+if (System.getProperty("os.name").startsWith("Mac")) include(":ios")

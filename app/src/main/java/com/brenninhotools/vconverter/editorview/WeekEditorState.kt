@@ -13,6 +13,7 @@ import com.brenninhotools.vconverter.editor.WeekDocument
 import com.brenninhotools.vconverter.editor.WeekProp
 import com.brenninhotools.vconverter.editor.WeekSlot
 import com.brenninhotools.vconverter.editor.WeekSong
+import com.brenninhotools.vconverter.core.roundLong
 
 class WeekRect(val left: Double, val top: Double, val width: Double, val height: Double) {
     fun contains(x: Double, y: Double) = x >= left && x <= left + width && y >= top && y <= top + height
@@ -208,7 +209,7 @@ class WeekEditorState(initial: WeekDocument) {
         if (!dragging) return
         dragging = false
         val slot = selected ?: return
-        liveEdit { doc -> doc.prop(slot)?.let { doc.withProp(slot, it.copy(offsetX = Math.round(it.offsetX).toDouble(), offsetY = Math.round(it.offsetY).toDouble())) } ?: doc }
+        liveEdit { doc -> doc.prop(slot)?.let { doc.withProp(slot, it.copy(offsetX = (it.offsetX).roundLong().toDouble(), offsetY = (it.offsetY).roundLong().toDouble())) } ?: doc }
     }
 
     fun nudge(dx: Double, dy: Double) {

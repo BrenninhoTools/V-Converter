@@ -13,6 +13,7 @@ import com.brenninhotools.vconverter.editor.StageAssets
 import com.brenninhotools.vconverter.editor.StageDocument
 import com.brenninhotools.vconverter.editor.StageProp
 import com.brenninhotools.vconverter.editor.StageSlot
+import com.brenninhotools.vconverter.core.roundLong
 
 class StageImage(val image: ImageBitmap, val width: Int, val height: Int, val atlas: SpriteAtlas? = null, val sheetScale: Float = 1f)
 
@@ -194,8 +195,8 @@ class StageEditorState(initial: StageDocument) {
         if (!draggingItem) return
         draggingItem = false
         when (val sel = selection) {
-            is StageSelection.Prop -> liveEdit { doc -> doc.replaceProp(sel.index, doc.props[sel.index].let { it.copy(x = Math.round(it.x).toDouble(), y = Math.round(it.y).toDouble()) }) }
-            is StageSelection.Spot -> liveEdit { doc -> doc.withSpot(sel.slot, doc.spot(sel.slot).let { it.copy(x = Math.round(it.x * 2) / 2.0, y = Math.round(it.y * 2) / 2.0) }) }
+            is StageSelection.Prop -> liveEdit { doc -> doc.replaceProp(sel.index, doc.props[sel.index].let { it.copy(x = (it.x).roundLong().toDouble(), y = (it.y).roundLong().toDouble()) }) }
+            is StageSelection.Spot -> liveEdit { doc -> doc.withSpot(sel.slot, doc.spot(sel.slot).let { it.copy(x = (it.x * 2).roundLong() / 2.0, y = (it.y * 2).roundLong() / 2.0) }) }
             null -> Unit
         }
     }

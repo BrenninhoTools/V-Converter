@@ -34,6 +34,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.exp
 import kotlin.math.floor
 import com.brenninhotools.vconverter.core.fmt
+import com.brenninhotools.vconverter.platform.Platform
 
 interface PlayTestPlatform {
     fun player(audio: List<EditorAudio>): SongPlayer?
@@ -267,7 +268,7 @@ class PlayTestState(private val scope: CoroutineScope, private val platform: Pla
             actors.values.forEach { it.dance(begin) }
             time = begin
             created?.seek(begin)
-            clockStart = System.nanoTime() - (begin * 1_000_000).toLong()
+            clockStart = Platform.nanoTime() - (begin * 1_000_000).toLong()
             lastNanos = -1L
             created?.play()
             phase = PlayPhase.PLAYING
@@ -286,7 +287,7 @@ class PlayTestState(private val scope: CoroutineScope, private val platform: Pla
         else -> CharacterRole.OPPONENT
     }
 
-    private fun now(): Double = player?.position() ?: ((System.nanoTime() - clockStart) / 1_000_000.0)
+    private fun now(): Double = player?.position() ?: ((Platform.nanoTime() - clockStart) / 1_000_000.0)
 
     fun tick(nanos: Long) {
         if (phase != PlayPhase.PLAYING) return
@@ -390,7 +391,7 @@ class PlayTestState(private val scope: CoroutineScope, private val platform: Pla
 
     fun resume() {
         if (phase != PlayPhase.PAUSED) return
-        clockStart = System.nanoTime() - (time * 1_000_000).toLong()
+        clockStart = Platform.nanoTime() - (time * 1_000_000).toLong()
         lastNanos = -1L
         player?.seek(time)
         player?.play()

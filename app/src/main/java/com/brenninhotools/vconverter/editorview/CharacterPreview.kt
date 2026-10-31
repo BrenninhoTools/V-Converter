@@ -27,6 +27,7 @@ import com.brenninhotools.vconverter.editor.AtlasFrame
 import com.brenninhotools.vconverter.editor.CharacterAnim
 import com.brenninhotools.vconverter.editor.CharacterDocument
 import kotlin.math.roundToInt
+import com.brenninhotools.vconverter.core.roundLong
 
 private val previewBackground = Color(0xFF15131F)
 private val previewGrid = Color(0xFF221F33)
@@ -202,7 +203,7 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier,
                 append("  ·  zoom ${(zoom * 100).roundToInt()}%")
                 if (state.showCamera) {
                     val game = state.gameCamera()
-                    append("  ·  camera ${trim(Math.round(game.first.toDouble()).toDouble())}, ${trim(Math.round(game.second.toDouble()).toDouble())}")
+                    append("  ·  camera ${trim((game.first.toDouble()).roundLong().toDouble())}, ${trim((game.second.toDouble()).roundLong().toDouble())}")
                 }
             }
             drawText(measurer.measure(info, labelStyle), topLeft = Offset(8.dp.toPx(), 6.dp.toPx()))

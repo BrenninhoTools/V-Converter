@@ -27,9 +27,9 @@ import com.brenninhotools.vconverter.online.Online
 import com.brenninhotools.vconverter.online.RoomPeer
 import com.brenninhotools.vconverter.online.RoomWelcome
 import com.brenninhotools.vconverter.json.JSONObject
-import java.util.Collections
-import java.util.Timer
-import java.util.TimerTask
+import com.brenninhotools.vconverter.platform.Platform
+import com.brenninhotools.vconverter.platform.PlatformLock
+import com.brenninhotools.vconverter.platform.Scheduled
 
 data class PeerCursor(val name: String, val time: Double, val difficulty: String)
 
@@ -56,10 +56,10 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
 
     private var session: CollabSession? = null
     private var hosting = false
-    private val known: MutableSet<String> = Collections.synchronizedSet(HashSet())
-    private val timer = Timer("v-converter-live", true)
+    private val known = HashSet<String>()
+    private val lock = PlatformLock()
     private var lastSnapshot = 0L
-    private var pending: TimerTask? = null
+    private var pending: Scheduled? = null
 
     init {
         adapter.watch { change ->
@@ -74,43 +74,41 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
         }
     }
 
-    private fun background(name: String, block: () -> Unit) = Thread(block, name).apply { isDaemon = true }.start()
+    private fun background(name: String, block: () -> Unit) = Platform.background(block)
 
-    @Synchronized
     private fun sendSnapshot(snapshot: JSONObject) {
-        val now = System.currentTimeMillis()
-        pending?.cancel()
-        pending = null
-        if (now - lastSnapshot >= 150) {
-            lastSnapshot = now
-            session?.sendSnapshot(snapshot)
-            return
-        }
-        val task = object : TimerTask() {
-            override fun run() {
+        lock.withLock {
+            val now = Platform.currentTimeMillis()
+            pending?.cancel()
+            pending = null
+            if (now - lastSnapshot >= 150) {
+                lastSnapshot = now
+                session?.sendSnapshot(snapshot)
+                return@withLock
+            }
+            pending = Platform.schedule(150 - (now - lastSnapshot)) {
                 post {
-                    synchronized(this@LiveSession) {
-                        lastSnapshot = System.currentTimeMillis()
+                    lock.withLock {
+                        lastSnapshot = Platform.currentTimeMillis()
                         pending = null
                     }
                     if (connected) session?.sendSnapshot(adapter.snapshot())
                 }
             }
         }
-        pending = task
-        timer.schedule(task, 150 - (now - lastSnapshot))
     }
+
+    private fun knownCount(): Int = lock.withLock { known.size }
 
     private fun shareNewFiles() {
         val room = code
-        val fresh = adapter.sharedFiles().filterKeys { it !in known }
+        val fresh = lock.withLock { adapter.sharedFiles().filterKeys { it !in known }.also { known += it.keys } }
         if (fresh.isEmpty()) return
-        known += fresh.keys
         background("v-converter-share") {
             fresh.forEach { (fileName, bytes) ->
                 val data = runCatching { bytes() }.getOrNull() ?: return@forEach
                 runCatching { Online.api().uploadRoomAsset(room, fileName, data) }
-                    .onSuccess { post { files = known.size } }
+                    .onSuccess { post { files = knownCount() } }
                     .onFailure { e -> post { status = e.message } }
             }
         }
@@ -118,7 +116,7 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
 
     private fun fetch(names: List<String>) {
         val room = code
-        val wanted = names.filter { known.add(it) }
+        val wanted = lock.withLock { names.filter { known.add(it) } }
         if (wanted.isEmpty()) return
         background("v-converter-fetch") {
             wanted.sortedBy { if (it.endsWith(".xml")) 0 else 1 }.forEach { fileName ->
@@ -126,7 +124,7 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
                 val apply = runCatching { adapter.receiveFile(fileName, bytes) }.getOrNull()
                 post {
                     apply?.invoke()
-                    files = known.size
+                    files = knownCount()
                 }
             }
         }
@@ -181,7 +179,7 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
 
     private fun open(room: String) {
         status = "Connecting to $room…"
-        known.clear()
+        lock.withLock { known.clear() }
         val live = CollabSession(Online.api().socketUrl(room, displayName()), object : CollabListener {
             override fun onWelcome(welcome: RoomWelcome) {
                 if (welcome.kind != adapter.kind.key) {
@@ -203,7 +201,7 @@ class LiveSession(private val adapter: LiveAdapter, private val post: (() -> Uni
                             .onSuccess { status = "Joined \"${welcome.title.ifBlank { room }}\" ($room) with ${welcome.peers.size} other editor(s)." }
                             .onFailure { status = "Joined $room, but its content could not be read: ${it.message}" }
                     } else {
-                        lastSnapshot = System.currentTimeMillis()
+                        lastSnapshot = Platform.currentTimeMillis()
                         session?.sendSnapshot(adapter.snapshot())
                         status = if (hosting) "Room $room is open${if (publicRoom) " and listed publicly" else ""}: share the code so others can join." else "Joined $room and shared your work with it."
                     }

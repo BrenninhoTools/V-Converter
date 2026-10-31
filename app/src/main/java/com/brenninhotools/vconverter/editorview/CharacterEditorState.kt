@@ -10,6 +10,7 @@ import com.brenninhotools.vconverter.editor.CharacterAnim
 import com.brenninhotools.vconverter.editor.CharacterDocument
 import com.brenninhotools.vconverter.editor.SpriteAtlas
 import androidx.compose.ui.graphics.ImageBitmap
+import com.brenninhotools.vconverter.core.roundLong
 
 class EditHistory<T>(initial: T, private val limit: Int = 200) {
     private val undoStack = ArrayDeque<T>()
@@ -258,9 +259,9 @@ class CharacterEditorState(initial: CharacterDocument) {
         if (dragMode == DragMode.VIEW) return
         val anim = animation
         if (anim != null && dragMode == DragMode.OFFSET) {
-            liveEdit { it.replaceAnim(selected, anim.copy(offsetX = Math.round(anim.offsetX).toDouble(), offsetY = Math.round(anim.offsetY).toDouble())) }
+            liveEdit { it.replaceAnim(selected, anim.copy(offsetX = (anim.offsetX).roundLong().toDouble(), offsetY = (anim.offsetY).roundLong().toDouble())) }
         } else if (dragMode == DragMode.CAMERA) {
-            liveEdit { it.copy(cameraX = Math.round(it.cameraX).toDouble(), cameraY = Math.round(it.cameraY).toDouble()) }
+            liveEdit { it.copy(cameraX = (it.cameraX).roundLong().toDouble(), cameraY = (it.cameraY).roundLong().toDouble()) }
         }
     }
 

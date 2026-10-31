@@ -24,8 +24,26 @@ class PlatformLock {
     }
 }
 
+class Scheduled(private val task: java.util.TimerTask) {
+    fun cancel() {
+        task.cancel()
+    }
+}
+
 object Platform {
+    private val timer by lazy { java.util.Timer("v-converter-timer", true) }
+
     fun currentTimeMillis(): Long = System.currentTimeMillis()
+
+    fun nanoTime(): Long = System.nanoTime()
+
+    fun schedule(delayMs: Long, block: () -> Unit): Scheduled {
+        val task = object : java.util.TimerTask() {
+            override fun run() = block()
+        }
+        timer.schedule(task, delayMs.coerceAtLeast(0))
+        return Scheduled(task)
+    }
 
     fun randomId(): String = UUID.randomUUID().toString()
 

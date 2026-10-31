@@ -36,7 +36,6 @@ kotlin {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
-    implementation(libs.org.json)
     implementation(libs.sevenzip.desktop)
     implementation(libs.sevenzip.desktop.platforms)
     implementation(libs.kotlinx.coroutines.swing)

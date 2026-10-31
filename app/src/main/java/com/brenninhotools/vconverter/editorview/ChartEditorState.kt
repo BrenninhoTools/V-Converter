@@ -16,6 +16,8 @@ import com.brenninhotools.vconverter.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.floor
+import com.brenninhotools.vconverter.core.roundLong
+import kotlin.math.ceil
 
 interface SongPlayer {
     val duration: Double
@@ -186,7 +188,7 @@ class ChartEditorState(initial: ChartDocument) {
         val conductor = document.conductor
         val stepMs = conductor.stepMs(note.time) * 16.0 / snap
         val length = (note.length + steps * stepMs).coerceAtLeast(0.0).let { if (it < stepMs * 0.5) 0.0 else it }
-        val updated = note.copy(length = Math.round(length * 1000.0) / 1000.0)
+        val updated = note.copy(length = (length * 1000.0).roundLong() / 1000.0)
         edit { it.replaceNote(difficulty, note, updated) }
         selectedNote = updated
     }
@@ -238,7 +240,7 @@ class ChartEditorState(initial: ChartDocument) {
         val change = conductor.change(position)
         val beat = conductor.beatAt(position)
         val target = if (direction > 0) floor(beat / change.numerator + 1e-6) * change.numerator + change.numerator
-        else Math.ceil(beat / change.numerator - 1e-6) * change.numerator - change.numerator
+        else ceil(beat / change.numerator - 1e-6) * change.numerator - change.numerator
         seek(conductor.timeAt(target.coerceAtLeast(0.0)))
     }
 

@@ -1,0 +1,13 @@
+package = stbvorbis
+compilerOpts = -DSTB_VORBIS_NO_STDIO -DSTB_VORBIS_NO_PUSHDATA_API -O2
+headerFilter = vconverter_none.h
+---
+#include "stb_vorbis.c"
+
+static inline int vc_decode_ogg(const unsigned char *data, int length, int *channels, int *rate, short **output) {
+    return stb_vorbis_decode_memory(data, length, channels, rate, output);
+}
+
+static inline void vc_free(void *pointer) {
+    free(pointer);
+}

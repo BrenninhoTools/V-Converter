@@ -166,3 +166,55 @@ jobs:
             out/V Converter-MacOS.dmg
             out/V Converter-MacOS.zip
           compression-level: 0
+
+  ios:
+    name: V Converter-IOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          gradle-home-cache-cleanup: true
+
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      - name: Build the Kotlin framework
+        run: ./gradlew :ios:linkReleaseFrameworkIosArm64 --no-configuration-cache
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: Build the app
+        run: |
+          cd iosApp
+          xcodebuild -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+      - name: Package the IPA
+        run: |
+          mkdir -p out/Payload
+          cp -R "iosApp/build/Release-iphoneos/V-Converter.app" out/Payload/
+          cd out && zip -qr "V Converter-IOS.ipa" Payload
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: V Converter-IOS
+          path: out/V Converter-IOS.ipa
+          compression-level: 0

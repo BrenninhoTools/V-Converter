@@ -1,0 +1,38 @@
+name: VConverter
+options:
+  bundleIdPrefix: com.brenninhotools
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  VConverter:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Sources
+      - path: Assets.xcassets
+      - path: ../assets
+        type: folder
+        buildPhase: resources
+      - path: ../app/src/main/resources/vconverter
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: V-Converter
+        PRODUCT_BUNDLE_IDENTIFIER: com.brenninhotools.vconverter
+        INFOPLIST_FILE: Sources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ENABLE_BITCODE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+        FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../ios/build/bin/iosArm64/releaseFramework
+        OTHER_LDFLAGS: $(inherited) -framework VConverter -lc++ -framework UIKit -framework Foundation -framework Metal -framework MetalKit -framework CoreText -framework CoreGraphics -framework QuartzCore -framework AVFAudio -framework UniformTypeIdentifiers -framework CoreServices -framework Security

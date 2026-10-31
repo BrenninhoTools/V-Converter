@@ -17,7 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.OutputStream
+import com.brenninhotools.vconverter.platform.OutputStream
 
 class OnlineState(private val scope: CoroutineScope) {
     var version by mutableStateOf<VersionInfo?>(null)
