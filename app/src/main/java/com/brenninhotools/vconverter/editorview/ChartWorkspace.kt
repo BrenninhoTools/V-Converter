@@ -1,5 +1,6 @@
 package com.brenninhotools.vconverter.editorview
 
+import com.brenninhotools.vconverter.core.fmt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
