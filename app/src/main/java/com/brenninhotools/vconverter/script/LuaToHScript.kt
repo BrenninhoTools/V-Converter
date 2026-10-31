@@ -1111,7 +1111,8 @@ class LuaToHScript(
     private val noteTypes: String = "[]",
     private val eventNames: Map<String, String> = emptyMap(),
     private val ownEvent: String? = null,
-    skipLines: Set<Int> = emptySet()
+    skipLines: Set<Int> = emptySet(),
+    private val host: ScriptHost = ScriptHost(ScriptBase.MODULE, moduleId)
 ) : LuaTranspiler(skipLines) {
     companion object {
         fun hxString(value: String): String = LuaTranspiler.hxString(value)
@@ -1289,7 +1290,8 @@ class LuaToHScript(
                 setters = assignedGlobals.filter { "g_$it" in usedFields && "g_$it" !in methodNames },
                 noteObjects = false,
                 imports = (haxeImports.toList() + if (dynamicGlobals) listOf("haxe.ds.StringMap") else emptyList()).distinct(),
-                tailLines = tail
+                tailLines = tail,
+                host = host
             )
         )
     }

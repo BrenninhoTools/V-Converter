@@ -11,7 +11,7 @@ object Naturalizer {
         "psychCallback" to "callback",
         "LUA_SIBLINGS" to "SIBLINGS",
         "LUA_EVENT_NAMES" to "EVENT_NAMES",
-        "luaSiblingModules" to "siblingModules",
+        "luaSiblingModules" to "siblingScripts",
         "luaOwnObject" to "ownObject",
         "luaCleanup" to "cleanup",
         "luaTrackFocus" to "trackFocus",
@@ -79,7 +79,7 @@ object Naturalizer {
 
     private val classMember = Regex("^  (?:(?:override|public|private|static|inline)\\s+)*(var|function)\\s+([A-Za-z_][A-Za-z0-9_]*)", RegexOption.MULTILINE)
 
-    fun module(text: String): String {
+    fun module(text: String, baseMembers: Set<String> = emptySet()): String {
         var t = PsychNativeLibrary.replaceIdentifiers(text, internal)
         internal.forEach { (from, to) ->
             if (from.startsWith("lua") || from.startsWith("psych")) t = t.replace("\"$from\"", "\"$to\"")
@@ -89,11 +89,21 @@ object Naturalizer {
 
         val declared = classMember.findAll(t).map { it.groupValues[2] }.toList()
         val prefixed = declared.filter { isPrefixed(it) }.distinct()
-        val reserved = (declared.filter { !isPrefixed(it) } + moduleMembers + keywords).toMutableSet()
+        val inherited = moduleMembers + baseMembers
+        val overridden = Regex("^  (?:(?:public|private|static|inline)\\s+)*override\\s+(?:(?:public|private|static|inline)\\s+)*function\\s+([A-Za-z_][A-Za-z0-9_]*)", RegexOption.MULTILINE)
+            .findAll(t).map { it.groupValues[1] }.toSet()
+        val reserved = (declared.filter { !isPrefixed(it) } + inherited + keywords).toMutableSet()
         val renames = LinkedHashMap<String, String>()
+        declared.filter { !isPrefixed(it) && it in baseMembers && it !in overridden }.distinct().forEach { name ->
+            var candidate = name + "Script"
+            var n = 2
+            while (candidate in reserved) candidate = name + "Script" + n++
+            reserved += candidate
+            renames[name] = candidate
+        }
         prefixed.forEach { name ->
             val base = name.substring(2)
-            var candidate = if (base in moduleMembers || base in reserved) base + "Script" else base
+            var candidate = if (base in inherited || base in reserved) base + "Script" else base
             var n = 2
             while (candidate in reserved) candidate = base + "Script" + n++
             reserved += candidate
@@ -110,7 +120,7 @@ object Naturalizer {
                 if (name.isNotEmpty()) locals += name
             }
         }
-        (functions intersect locals).filter { it !in renames.values && it !in moduleMembers }.forEach { name ->
+        (functions intersect locals).filter { it !in renames.values && it !in inherited }.forEach { name ->
             var target = name + "Fn"
             while (target in functions) target += "_"
             t = t.replace(Regex("(?<![.\\w])${Regex.escape(name)}(?=\\s*\\()"), target)

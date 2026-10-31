@@ -351,7 +351,14 @@ class ModConverter(
             }.getOrNull()
         }
         sources.forEach { step("Script ${it.path.substringAfterLast('/')}") }
-        val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames), keptEventNames)
+        val textured = sources.filter { "/custom_notetypes/" in "/" + it.path.lowercase() }.mapNotNull { source ->
+            val texture = PsychNoteStyles.textureIn(source.text) ?: return@mapNotNull null
+            val typeName = source.path.substringAfterLast('/').substringBeforeLast('.')
+            val style = noteStyleFor(texture, strumline = false, label = "note type $typeName") ?: return@mapNotNull null
+            Triple(typeName, texture, style)
+        }
+        val noteStyles = textured.associate { (typeName, _, style) -> PsychToVSliceChart.noteKindFor(typeName) to style }
+        val bundle = ScriptConverter.convert(slug, sources, ScriptConverter.noteTypeMap(noteTypeNames), keptEventNames, noteStyles)
         val scriptedEvents = sources.map { ScriptConverter.detectTarget(it.path) }.filter { it.scope == com.brenninhotools.vconverter.script.ScriptScope.EVENT }.map { it.key }
         val outputs = bundle.files + ScriptConverter.eventFiles(keptEventNames, scriptedEvents)
         val renamed = keptEventNames.filter { ScriptConverter.eventId(it) != it }
@@ -360,13 +367,17 @@ class ModConverter(
             writer.writeText(file.path, file.content)
             written++
         }
-        sources.filter { "/custom_notetypes/" in "/" + it.path.lowercase() }.forEach { source ->
-            val texture = PsychNoteStyles.textureIn(source.text) ?: return@forEach
-            val typeName = source.path.substringAfterLast('/').substringBeforeLast('.')
-            val style = noteStyleFor(texture, strumline = false, label = "note type $typeName") ?: return@forEach
-            val (path, text) = PsychNoteStyles.noteKindScript(PsychToVSliceChart.noteKindFor(typeName), typeName, style)
-            writer.writeText(path, text)
-            written++
+        textured.forEach { (typeName, texture, style) ->
+            val kind = PsychToVSliceChart.noteKindFor(typeName)
+            val scripted = bundle.noteKinds[kind]
+            val path = if (scripted != null) {
+                "scripts/notekinds/$scripted.hxc"
+            } else {
+                val (path, text) = PsychNoteStyles.noteKindScript(kind, typeName, style)
+                writer.writeText(path, text)
+                written++
+                path
+            }
             report.section("Note type $typeName", listOf("Its texture images/$texture became note style \"$style\", applied by $path."))
         }
         report.stat("Scripts", bundle.converted)

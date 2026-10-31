@@ -9,6 +9,7 @@ import com.brenninhotools.vconverter.codename.CodenameMeta
 import com.brenninhotools.vconverter.codename.CodenameScope
 import com.brenninhotools.vconverter.codename.CodenameScriptContext
 import com.brenninhotools.vconverter.codename.CodenameScriptConverter
+import com.brenninhotools.vconverter.codename.CodenameScriptPlanner
 import com.brenninhotools.vconverter.codename.CodenameScriptTarget
 import com.brenninhotools.vconverter.codename.CodenameSong
 import com.brenninhotools.vconverter.codename.CodenameStageParser
@@ -300,35 +301,22 @@ class CodenameScriptsConverter : CodenameEngineConverter() {
         val events: Map<String, EventDefinition> = items.filter { it.kind == "event" }.associate { stem(it) to CodenameEvents.parseDefinition(stem(it), it.text) }
         val report = ReportBuilder()
         val outputs = mutableListOf<OutputFile>()
-        val used = HashSet<String>()
-        val moduleIds = mutableListOf<String>()
+        val planner = CodenameScriptPlanner()
         val context = CodenameScriptContext(events = (CodenameEvents.builtins.values + events.values).toList())
         items.filter { it.kind == "script" }.forEach { item ->
             val stem = stem(item)
             var target = target(item.path, stem)
             if (target.scope == CodenameScope.GLOBAL && stages.containsKey(stem)) target = CodenameScriptTarget(CodenameScope.STAGE, stem)
-            val base = when (target.scope) {
-                CodenameScope.GLOBAL -> ScriptConverter.keepName(stem)
-                CodenameScope.SONG -> ScriptConverter.pascal(target.key) + ScriptConverter.pascal(stem)
-                CodenameScope.STAGE -> ScriptConverter.pascal(target.key) + "Stage"
-                CodenameScope.CHARACTER -> ScriptConverter.pascal(target.key) + "Character"
-                CodenameScope.EVENT -> CodenameEvents.eventId(target.key) + "Handler"
-                CodenameScope.NOTE_TYPE -> ScriptConverter.pascal(target.key) + "NoteType"
-            }
-            var className = base
-            var n = 2
-            while (!used.add(className)) className = base + n++
-            val moduleId = if (target.scope == CodenameScope.GLOBAL) stem else ScriptConverter.kebab(className)
+            val plan = planner.plan(target, stem, item.text)
             val sprites = if (target.scope == CodenameScope.STAGE) stages[target.key]?.spriteNames?.toSet() ?: emptySet() else emptySet()
-            val result = CodenameScriptConverter(className, moduleId, target, context.copy(stageSprites = sprites)).convert(item.text)
-            val fileName = if (target.scope == CodenameScope.GLOBAL) ScriptConverter.keepFileName(stem) else className
-            outputs += out("scripts/modules/$fileName.hxc", result.source)
-            moduleIds += moduleId
+            val result = CodenameScriptConverter(plan.className, plan.host.id, target, context.copy(stageSprites = sprites), plan.host).convert(item.text)
+            outputs += out(plan.path, result.source)
+            plan.note?.let { report.warn("${item.name} became the Module ${plan.className}: $it") }
             if (result.issues.isNotEmpty()) report.section(item.name, result.issues.map { if (it.line > 0) "line ${it.line}: ${it.message}" else it.message })
             if (target.scope == CodenameScope.STAGE && sprites.isEmpty()) report.warn("${item.name}: add the stage XML too so references to stage sprites become getNamedProp() calls.")
         }
         events.values.forEach { def ->
-            val file = CodenameEvents.songEventFile(def, moduleIds)
+            val file = CodenameEvents.songEventFile(def, planner.refs)
             outputs += out(file.path, file.content)
         }
         report.stat("Scripts", items.count { it.kind == "script" })

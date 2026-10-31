@@ -32,6 +32,7 @@ enum class CharacterRender(val label: String, val className: String) {
     SPARROW("Sparrow", "SparrowCharacter"),
     MULTI_SPARROW("Multi-Sparrow", "MultiSparrowCharacter"),
     ATLAS("Animate atlas", "AnimateAtlasCharacter"),
+    MULTI_ATLAS("Multi-atlas", "MultiAnimateAtlasCharacter"),
     PACKER("Packer", "PackerCharacter")
 }
 
@@ -59,7 +60,6 @@ object ScriptGenerator {
     val noteKindCallbacks = setOf(Callback.CREATE, Callback.UPDATE, Callback.NOTE_INCOMING, Callback.NOTE_HIT, Callback.NOTE_MISS, Callback.DESTROY)
 
     fun callbacksFor(kind: ScriptKind): List<Callback> = when (kind) {
-        ScriptKind.EVENT -> emptyList()
         ScriptKind.NOTE_KIND -> Callback.entries.filter { it in noteKindCallbacks }
         else -> Callback.entries
     }
@@ -100,7 +100,7 @@ object ScriptGenerator {
                     ScriptKind.SONG -> "Only while the song \"$target\" is playing."
                     ScriptKind.STAGE -> "Only on the stage \"$target\"; it replaces the stage's default class."
                     ScriptKind.CHARACTER -> "Every time the character \"$target\" is used; its JSON must exist in data/characters/."
-                    ScriptKind.EVENT -> "Adds the \"$target\" event to the Chart Editor and runs handleEvent when it fires."
+                    ScriptKind.EVENT -> "Adds the \"$target\" event to the Chart Editor and runs handleEvent when it fires; its other callbacks run in songs that use the event."
                     ScriptKind.NOTE_KIND -> "Runs for notes whose kind is \"$target\"."
                 }
             )
@@ -164,6 +164,13 @@ object ScriptGenerator {
         }
         appendLine("  }")
         appendLine()
+        callbacksFor(spec.kind).filter { it in spec.callbacks }.forEach { callback ->
+            appendLine("  override public function ${callback.method}(event:${callback.eventType}):Void")
+            appendLine("  {")
+            appendLine("    super.${callback.method}(event);")
+            appendLine("  }")
+            appendLine()
+        }
         appendLine("  override public function getTitle():String")
         appendLine("  {")
         appendLine("    return ${str(spec.title.ifBlank { Ids.pretty(target) })};")

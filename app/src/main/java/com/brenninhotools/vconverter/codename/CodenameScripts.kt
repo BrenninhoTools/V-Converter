@@ -4,6 +4,10 @@ import com.brenninhotools.vconverter.script.HxImports
 import com.brenninhotools.vconverter.script.LuaToHScript
 import com.brenninhotools.vconverter.script.Naturalizer
 import com.brenninhotools.vconverter.script.ReflectCalls
+import com.brenninhotools.vconverter.script.ModuleWriter
+import com.brenninhotools.vconverter.script.ScriptBase
+import com.brenninhotools.vconverter.script.ScriptBases
+import com.brenninhotools.vconverter.script.ScriptHost
 import com.brenninhotools.vconverter.script.ScriptIssue
 
 enum class CodenameScope { GLOBAL, SONG, STAGE, EVENT, NOTE_TYPE, CHARACTER }
@@ -22,7 +26,8 @@ class CodenameScriptConverter(
     private val className: String,
     private val moduleId: String,
     private val target: CodenameScriptTarget,
-    private val context: CodenameScriptContext = CodenameScriptContext()
+    private val context: CodenameScriptContext = CodenameScriptContext(),
+    private val host: ScriptHost = ScriptHost(ScriptBase.MODULE, moduleId)
 ) {
     private enum class Kind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
@@ -165,7 +170,8 @@ class CodenameScriptConverter(
         val segs = segments(tokenize(reflect.text))
         val functions = segs.filter { it.kind == "function" }.map { it.name }.toSet()
         val fields = segs.filter { it.kind == "var" && it.name.isNotEmpty() }.map { it.name }.toSet()
-        val imports = linkedSetOf("flixel.FlxG", "funkin.Conductor", "funkin.modding.module.Module", "funkin.play.PlayState")
+        val imports = linkedSetOf("flixel.FlxG", "funkin.Conductor", "funkin.play.PlayState")
+        imports += ScriptBases.imports.getValue(host.base)
         segs.filter { it.kind == "import" }.forEach { seg ->
             val path = seg.head.filter { it.kind != Kind.SPACE }.drop(1).takeWhile { !(it.kind == Kind.PUNCT && it.text == ";") }.joinToString("") { it.text }
             when {
@@ -206,7 +212,7 @@ class CodenameScriptConverter(
         val used = callbacks.filter { it in functions }
         val text = write(imports.toList(), fields.toList(), fieldInit, boot, arities, tail)
         val classes = hoisted.joinToString("") { "\n" + rewrite(it.body, emptySet(), emptySet()).trim() + "\n" }
-        val final = stripGenerics(Naturalizer.module(text) + classes)
+        val final = stripGenerics(Naturalizer.module(text, ScriptBases.members(host.base)) + classes)
         return CodenameScriptResult(className, moduleId, HxImports.complete(final.replace(Regex("\n{3,}"), "\n\n")), issues.sortedBy { it.line }, used)
     }
 
@@ -252,17 +258,20 @@ class CodenameScriptConverter(
         val needsHit = listOf("onNoteHit", "onPlayerHit", "onDadHit", "onPostNoteHit").any(::has)
         val needsMiss = listOf("onPlayerMiss", "onPostPlayerMiss").any(::has)
         val needsQueue = needsHit || needsMiss
+        val noteKind = host.base == ScriptBase.NOTE_KIND
+        val module = host.base == ScriptBase.MODULE
+        val guard = if (noteKind) "if (!boot()) return;" else "if (!isActive()) return;"
 
         imports.distinct().forEach { line("import $it;") }
         line()
-        open("class $className extends Module")
+        open("class $className extends ${host.base.className}")
         line("var activeGame:Dynamic = null;")
         line("var closed:Bool = false;")
         if (needsQueue) line("var pendingAnims:Array<Dynamic> = [];")
         fields.forEach { line("var h_$it:Dynamic = null;") }
         line()
         open("public function new()")
-        line("super(${LuaToHScript.hxString(moduleId)}, 1100);")
+        line(ModuleWriter.superCall(host))
         close()
         line()
         open("function inScope():Bool")
@@ -306,7 +315,7 @@ class CodenameScriptConverter(
         close()
         close()
 
-        override("onCountdownStart", "CountdownScriptEvent") {
+        if (!noteKind) override("onCountdownStart", "CountdownScriptEvent") {
             line("if (!boot()) return;")
             if (has("onStartCountdown") || has("onPostStartCountdown")) {
                 line("var e:Dynamic = cancellable(event);")
@@ -317,7 +326,7 @@ class CodenameScriptConverter(
         }
         if (has("onCountdown") || has("onPostCountdown")) {
             override("onCountdownStep", "CountdownScriptEvent") {
-                line("if (!isActive()) return;")
+                line(guard)
                 line("var step:String = Std.string(event.step);")
                 line("var tick:Int = step == \"THREE\" ? 0 : (step == \"TWO\" ? 1 : (step == \"ONE\" ? 2 : (step == \"GO\" ? 3 : 4)));")
                 line("var e:Dynamic = cancellable(event);")
@@ -326,9 +335,9 @@ class CodenameScriptConverter(
                 if (has("onPostCountdown")) line(call("onPostCountdown", "e"))
             }
         }
-        if (has("update") || has("postUpdate") || needsQueue) {
+        if (noteKind || has("update") || has("postUpdate") || needsQueue) {
             override("onUpdate", "UpdateScriptEvent") {
-                line("if (!isActive()) return;")
+                line(guard)
                 if (needsQueue) line("flushAnims();")
                 if (has("update")) line(call("update", "event.elapsed"))
                 if (has("postUpdate")) line(call("postUpdate", "event.elapsed"))
@@ -336,7 +345,7 @@ class CodenameScriptConverter(
         }
         if (has("beatHit") || has("measureHit")) {
             override("onBeatHit", "SongTimeScriptEvent") {
-                line("if (!isActive()) return;")
+                line(guard)
                 if (has("beatHit")) line(call("beatHit", "event.beat"))
                 if (has("measureHit")) {
                     line("var perMeasure:Int = Std.int(Conductor.instance.beatsPerMeasure);")
@@ -345,21 +354,21 @@ class CodenameScriptConverter(
             }
         }
         if (has("stepHit")) override("onStepHit", "SongTimeScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line(call("stepHit", "event.step"))
         }
         if (has("onSongStart") || has("onStartSong")) override("onSongStart", "ScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             if (has("onStartSong")) line(call("onStartSong"))
             if (has("onSongStart")) line(call("onSongStart"))
         }
         if (has("onSongEnd")) override("onSongEnd", "ScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var e:Dynamic = cancellable(event);")
             line(call("onSongEnd", "e"))
         }
         if (needsHit) override("onNoteHit", "HitNoteScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var player:Bool = event.note.noteData.data < 4;")
             line("var e:Dynamic = noteEvent(event, player);")
             if (has("onPlayerHit")) line("if (player) " + call("onPlayerHit", "e"))
@@ -370,14 +379,14 @@ class CodenameScriptConverter(
         }
         if (needsMiss) {
             override("onNoteMiss", "NoteScriptEvent") {
-                line("if (!isActive()) return;")
+                line(guard)
                 line("var e:Dynamic = noteEvent(event, true, true);")
                 if (has("onPlayerMiss")) line(call("onPlayerMiss", "e"))
                 if (has("onPostPlayerMiss")) line(call("onPostPlayerMiss", "e"))
                 line("applyNoteEvent(event, e, true);")
             }
-            override("onNoteGhostMiss", "GhostMissNoteScriptEvent") {
-                line("if (!isActive()) return;")
+            if (!noteKind) override("onNoteGhostMiss", "GhostMissNoteScriptEvent") {
+                line(guard)
                 line("var e:Dynamic = ghostEvent(event);")
                 if (has("onPlayerMiss")) line(call("onPlayerMiss", "e"))
                 if (has("onPostPlayerMiss")) line(call("onPostPlayerMiss", "e"))
@@ -385,40 +394,51 @@ class CodenameScriptConverter(
             }
         }
         if (has("onNoteCreation") || has("onPostNoteCreation")) override("onNoteIncoming", "NoteScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var e:Dynamic = noteEvent(event, event.note.noteData.data < 4, false, true);")
             if (has("onNoteCreation")) line(call("onNoteCreation", "e"))
             if (has("onPostNoteCreation")) line(call("onPostNoteCreation", "e"))
         }
         if (has("onEvent") || has("onPostEvent")) override("onSongEvent", "SongEventScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var e:Dynamic = songEvent(event);")
             if (has("onEvent")) line(call("onEvent", "e"))
             line("if (e.cancelled) event.cancel();")
             if (has("onPostEvent")) line(call("onPostEvent", "e"))
         }
         if (has("onGamePause")) override("onPause", "PauseScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var e:Dynamic = cancellable(event);")
             line(call("onGamePause", "e"))
         }
         if (has("onGameOver")) override("onGameOver", "ScriptEvent") {
-            line("if (!isActive()) return;")
+            line(guard)
             line("var e:Dynamic = cancellable(event);")
             line(call("onGameOver", "e"))
         }
-        if (has("onFocus")) override("onFocusGained", "FocusScriptEvent") {
-            line("if (!isActive()) return;")
+        if (module && has("onFocus")) override("onFocusGained", "FocusScriptEvent") {
+            line(guard)
             line(call("onFocus"))
         }
-        if (has("onFocusLost")) override("onFocusLost", "FocusScriptEvent") {
-            line("if (!isActive()) return;")
+        if (module && has("onFocusLost")) override("onFocusLost", "FocusScriptEvent") {
+            line(guard)
             line(call("onFocusLost"))
         }
-        override("onStateChangeBegin", "StateChangeScriptEvent") {
+        if (module) {
+            override("onStateChangeBegin", "StateChangeScriptEvent") {
+                open("if (activeGame != null)")
+                if (has("destroy")) line("if (!closed) " + call("destroy"))
+                line("activeGame = null;")
+                close()
+            }
+        } else {
+            line()
+            open("override public function onDestroy(event:ScriptEvent):Void")
             open("if (activeGame != null)")
             if (has("destroy")) line("if (!closed) " + call("destroy"))
             line("activeGame = null;")
+            close()
+            line("super.onDestroy(event);")
             close()
         }
 
@@ -438,7 +458,7 @@ class CodenameScriptConverter(
         return body.append(helpers).append("}\n").toString()
     }
 
-    private fun scope(): List<String> = when (target.scope) {
+    private fun scope(): List<String> = if (host.base == ScriptBase.SONG || host.base == ScriptBase.STAGE) listOf("return true;") else when (target.scope) {
         CodenameScope.GLOBAL -> listOf("return true;")
         CodenameScope.SONG -> listOf("return game.currentSong != null && game.currentSong.id == ${LuaToHScript.hxString(target.key)};")
         CodenameScope.STAGE -> listOf("return game.currentStageId == ${LuaToHScript.hxString(target.key)};")

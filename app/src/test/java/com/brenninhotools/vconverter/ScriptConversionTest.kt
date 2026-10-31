@@ -143,26 +143,73 @@ class ScriptConversionTest {
     }
 
     @Test
-    fun bundleIncludesRuntimeAndUniqueClasses() {
+    fun scriptsBecomeTheirStandardVSliceClasses() {
+        val bundle = ScriptConverter.convert(
+            "Test",
+            listOf(
+                ScriptSource("data/my-song/script.lua", "function onCreate() end"),
+                ScriptSource("data/my-song/extra.lua", "function onBeatHit() end"),
+                ScriptSource("stages/polus.lua", "function onCreate() makeLuaSprite('bg', 'bg', 0, 0) addLuaSprite('bg') end"),
+                ScriptSource("custom_notetypes/Ghost Note.lua", "function goodNoteHit(i, d, t, s) end"),
+                ScriptSource("custom_notetypes/Bomb.lua", "function onCreate() end\nfunction onBeatHit() end"),
+                ScriptSource("scripts/hud.lua", "function onUpdate(e) end")
+            ),
+            ScriptConverter.noteTypeMap(listOf("Ghost Note", "Bomb")),
+            noteStyles = mapOf("ghost-note" to "ghost-style")
+        )
+        assertEquals(6, bundle.converted)
+        assertEquals(
+            listOf(
+                "scripts/songs/MySongSong.hxc",
+                "scripts/modules/MySongExtraModule.hxc",
+                "scripts/stages/PolusStage.hxc",
+                "scripts/notekinds/GhostNoteNoteKind.hxc",
+                "scripts/modules/BombNoteTypeModule.hxc",
+                "scripts/modules/hud.hxc"
+            ),
+            bundle.files.map { it.path }
+        )
+        fun file(name: String) = bundle.files.first { it.path.endsWith("/$name.hxc") }.content
+        assertTrue(file("MySongSong").contains("class MySongSong extends Song"))
+        assertTrue(file("MySongSong").contains("super(\"my-song\");"))
+        assertTrue(file("MySongSong").contains("import funkin.play.song.Song;"))
+        assertTrue(file("MySongSong").contains("override public function onDestroy(event:ScriptEvent):Void"))
+        assertTrue(!file("MySongSong").contains("onStateChangeBegin"))
+        assertTrue(file("MySongExtraModule").contains("class MySongExtraModule extends Module"))
+        assertTrue(file("MySongExtraModule").contains("game.currentSong.id == \"my-song\""))
+        val stage = file("PolusStage")
+        assertTrue(stage.contains("class PolusStage extends Stage"))
+        assertTrue(stage.contains("super(\"polus\");"))
+        assertTrue(!Regex("^  (?:public )?function (add|remove|update|draw|kill|destroy|insert|color|camera)\\(", RegexOption.MULTILINE).containsMatchIn(stage))
+        val kind = file("GhostNoteNoteKind")
+        assertTrue(kind.contains("class GhostNoteNoteKind extends NoteKind"))
+        assertTrue(kind.contains("super(\"ghost-note\", \"Ghost Note\", \"ghost-style\");"))
+        assertTrue(!kind.contains("onCountdownStart") && !kind.contains("onSongEvent"))
+        assertEquals(mapOf("ghost-note" to "GhostNoteNoteKind"), bundle.noteKinds)
+        assertTrue(file("BombNoteTypeModule").contains("extends Module"))
+        assertTrue(file("BombNoteTypeModule").contains("function songUsesNoteType"))
+        assertTrue(file("hud").contains("class Hud extends Module"))
+        assertTrue(bundle.files.none { it.content.contains("ModuleHandler.getModule(\"") })
+        bundle.files.forEach { assertNoLua(it.content) }
+        bundle.files.forEach { assertImported(it.content) }
+    }
+
+    @Test
+    fun baseGameIdsAndClassNamesAreNotTakenOver() {
         val bundle = ScriptConverter.convert(
             "Test",
             listOf(
                 ScriptSource("data/bopeebo/script.lua", "function onCreate() end"),
-                ScriptSource("data/fresh/script.lua", "function onCreate() end"),
-                ScriptSource("custom_notetypes/Ghost Note.lua", "function goodNoteHit() end")
+                ScriptSource("stages/philly-train.lua", "function onCreate() end"),
+                ScriptSource("stages/phillyTrain.lua", "function onCreate() end")
             ),
-            ScriptConverter.noteTypeMap(listOf("Ghost Note"))
+            emptyMap()
         )
-        assertEquals(3, bundle.converted)
-        val names = bundle.files.map { it.path.substringAfterLast('/') }
-        assertEquals(listOf("TestBopeeboScript.hxc", "TestFreshScript.hxc", "TestGhostNoteNoteType.hxc"), names)
-        assertTrue(bundle.files.all { it.path.startsWith("scripts/modules/") })
-        val noteType = bundle.files.first { it.path.endsWith("TestGhostNoteNoteType.hxc") }.content
-        assertTrue(noteType.contains("\"Ghost Note\""))
-        assertTrue(noteType.contains("function songUsesNoteType"))
-        assertTrue(noteType.contains("super(\"test-ghost-note-note-type\""))
-        bundle.files.forEach { assertNoLua(it.content) }
-        bundle.files.forEach { assertImported(it.content) }
+        assertEquals(
+            listOf("scripts/modules/BopeeboScriptModule.hxc", "scripts/stages/TestPhillyTrainStage.hxc", "scripts/modules/PhillyTrainLuaModule.hxc"),
+            bundle.files.map { it.path }
+        )
+        assertTrue(bundle.files[1].content.contains("super(\"philly-train\");"))
     }
 
     @Test
@@ -197,7 +244,8 @@ class ScriptConversionTest {
         assertTrue(text.contains("class FlashCameraEvent extends SongEvent"))
         assertTrue(text.contains("super(\"FlashCamera\")"))
         assertTrue(text.contains("return \"Flash Camera\";"))
-        assertTrue(text.contains("class FlashCameraEventHandler extends Module"))
+        assertTrue(!text.contains("extends Module"))
+        assertTrue(text.contains("override public function handleEvent(data:Dynamic):Void"))
         assertTrue(text.contains("if (data.eventKind == \"FlashCamera\") return;"))
         assertTrue(text.contains("[\"FlashCamera\", \"Flash Camera\"]"))
         assertEquals(1, Regex("^import funkin.play.event.SongEvent;", RegexOption.MULTILINE).findAll(text).count())

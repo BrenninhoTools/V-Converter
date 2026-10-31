@@ -14,6 +14,7 @@ import funkin.PlayerSettings;
 import funkin.Preferences;
 import funkin.audio.FunkinSound;
 import funkin.data.character.CharacterDataParser;
+import funkin.data.event.SongEventRegistry;
 import funkin.data.song.SongRegistry;
 import funkin.graphics.FunkinSprite;
 import funkin.play.cutscene.VideoCutscene;
@@ -23,6 +24,7 @@ import funkin.modding.module.Module;
 import funkin.modding.module.ModuleHandler;
 import funkin.play.PlayState;
 import funkin.play.PlayStatePlaylist;
+import funkin.play.notes.notekind.NoteKindManager;
 import haxe.ds.StringMap;
 import openfl.display.BlendMode;
 
@@ -91,12 +93,32 @@ class PsychApiLibrary extends Module
   function luaSiblingModules():Array<Dynamic>
   {
     var result:Array<Dynamic> = [];
-    for (id in LUA_SIBLINGS)
+    for (ref in LUA_SIBLINGS)
     {
-      var m:Dynamic = ModuleHandler.getModule(id);
-      if (m != null) result.push(m);
+      var m:Dynamic = luaFindScript(ref);
+      if (m != null && result.indexOf(m) < 0) result.push(m);
     }
     return result;
+  }
+
+  function luaFindScript(ref:String):Dynamic
+  {
+    var split:Int = ref.indexOf(":");
+    var kind:String = split < 0 ? "module" : ref.substr(0, split);
+    var id:String = split < 0 ? ref : ref.substr(split + 1);
+    try
+    {
+      switch (kind)
+      {
+        case "song": return game != null && game.currentSong != null && game.currentSong.id == id ? game.currentSong : null;
+        case "stage": return game != null && game.currentStage != null && game.currentStageId == id ? game.currentStage : null;
+        case "event": return SongEventRegistry.getEvent(id);
+        case "notekind": return NoteKindManager.getNoteKind(id);
+        default: return ModuleHandler.getModule(id);
+      }
+    }
+    catch (e:Dynamic) {}
+    return null;
   }
 
   public function luaOwnObject(name:String):Dynamic

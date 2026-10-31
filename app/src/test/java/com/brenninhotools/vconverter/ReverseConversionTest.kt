@@ -181,6 +181,39 @@ class ReverseConversionTest {
     }
 
     @Test
+    fun vSliceOnlyClassesAreLeftOut() {
+        val source = """
+            import funkin.play.PlayState;
+            import funkin.graphics.shaders.RuntimeRainShader;
+            import funkin.play.cutscene.VideoCutscene;
+            import funkin.play.stage.Stage;
+            class RainStage extends Stage
+            {
+              var rain:RuntimeRainShader = new RuntimeRainShader();
+              var prop:StageProp;
+              public function new() { super("rain"); }
+              override function onCreate(event:ScriptEvent):Void
+              {
+                rain.intensity = 0.5;
+                if (rain != null) rain.update(1);
+                else trace("none");
+                FlxTweenUtil.pauseTweensOf(prop);
+                var keep:Float = 2;
+                keep = 3;
+                VideoCutscene.play(Paths.videos("intro.mp4"));
+              }
+            }
+        """.trimIndent()
+        val text = HxcToPsych.convert("RainStage.hxc", source).files.single().content
+        listOf("RuntimeRainShader", "StageProp", "FlxTweenUtil", "VideoCutscene", "rain.").forEach { assertFalse("$it left in", text.contains(it)) }
+        assertTrue(text.contains("var prop:Dynamic;"))
+        assertTrue(text.contains("var keep:Float = 2;"))
+        assertTrue(text.contains("keep = 3;"))
+        assertTrue(text.contains("PlayState.instance.startVideo(\"intro\");"))
+        assertEquals(text.count { it == '{' }, text.count { it == '}' })
+    }
+
+    @Test
     fun songEventBecomesCustomEvent() {
         val source = """
             import funkin.play.event.SongEvent;

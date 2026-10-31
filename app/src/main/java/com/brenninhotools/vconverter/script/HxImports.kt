@@ -51,6 +51,11 @@ object HxImports {
         "PlayStatePlaylist" to "funkin.play.PlayStatePlaylist",
         "SongEvent" to "funkin.play.event.SongEvent",
         "SongEventSchema" to "funkin.data.event.SongEventSchema",
+        "SongEventRegistry" to "funkin.data.event.SongEventRegistry",
+        "Song" to "funkin.play.song.Song",
+        "Stage" to "funkin.play.stage.Stage",
+        "NoteKind" to "funkin.play.notes.notekind.NoteKind",
+        "NoteKindManager" to "funkin.play.notes.notekind.NoteKindManager",
         "BaseCharacter" to "funkin.play.character.BaseCharacter",
         "CharacterType" to "funkin.play.character.CharacterType",
         "Countdown" to "funkin.play.Countdown",
@@ -63,6 +68,8 @@ object HxImports {
         "Math", "Std", "Array", "Bool", "Dynamic", "Float", "Int", "String", "Void", "Null", "Any",
         "Assets", "Paths", "Preferences", "Constants", "FlxG"
     )
+
+    fun pathOf(name: String): String? = known[name]
 
     fun complete(text: String): String {
         val code = blank(text)

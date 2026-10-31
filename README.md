@@ -72,7 +72,7 @@ The Android app has two sections, switched at the top: **Converter** and **Gener
 | Character | The [Character Editor](#character-editor): open any character or a spritesheet and fix its animations and offsets |
 | Stage | The [Stage Editor](#stage-editor): open any stage or start from your images and lay it out with the game camera in view |
 | Week | The [Week Editor](#week-editor): open any week or start a new one and lay out its story menu, songs and unlocking |
-| Script | `.hxc` classes: Module, Song, Stage, Character, Song event (with Chart Editor fields) and Note kind, with the callbacks you pick |
+| Script | `.hxc` classes: Module, Song, Stage, Character (Sparrow, Multi-Sparrow, Animate atlas, Multi-atlas, Packer), Song event (with Chart Editor fields and gameplay callbacks) and Note kind, with the callbacks you pick |
 
 Every tab can download the result as a `.zip` or write it into the mod folder.
 
@@ -143,7 +143,7 @@ The **Mod** tab converts an entire Psych Engine mod in one go, from its folder o
 - Character slots are inferred from how the charts use each character
 - Placeholder folders that hold nothing but a single text file (like a template's `readme.txt`) are left out automatically, in both directions
 - `pack.json` / `pack.png` → `_polymod_meta.json` / `_polymod_icon.png`
-- Lua and HScript scripts (`scripts/`, `data/<song>/`, `stages/`, `custom_events/`, `custom_notetypes/`) → `scripts/modules/*.hxc`
+- Lua and HScript scripts → their V-Slice classes: `data/<song>/` → `scripts/songs/` (`Song`), `stages/` → `scripts/stages/` (`Stage`), `custom_notetypes/` → `scripts/notekinds/` (`NoteKind`), `custom_events/` → `scripts/events/` (`SongEvent`), `scripts/` → `scripts/modules/` (`Module`)
 - A chart's custom `arrowSkin` (and `splashSkin`) → a V-Slice note style in `data/notestyles/` built from the same sheet; note types that set their own `texture` get a note style plus a `NoteKind` script that applies it
 - Songs on a pixel stage (`isPixelStage` or `stageUI: "pixel"`) use the `pixel` note style
 
@@ -189,7 +189,7 @@ The same Charts tab is used for every direction (Psych ↔ V-Slice, Codename →
 - Stacked duplicate notes are removed
 - Stage ids mapped to the V-Slice ones (`stage` → `mainStage`, `spooky` → `spookyMansion`, …); `school`/`schoolEvil` or pixel arrow skins → `pixel` note style
 
-Other Psych events get a V-Slice style id (`Flash Camera` → `FlashCamera`, never clashing with built-in ids like `FocusCamera`), applied the same way in charts and scripts, while converted scripts still receive the original name in `onEvent`. `custom_events/*.lua`/`.hx` become `scripts/events/<Name>Event.hxc` holding a `SongEvent` (Chart Editor entry with Value 1/Value 2) and a `Module` with the converted code. Built-in Psych events without a V-Slice event (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`) get a `SongEvent` script there too. Anything that can't be converted yet is listed in the in-app report.
+Other Psych events get a V-Slice style id (`Flash Camera` → `FlashCamera`, never clashing with built-in ids like `FocusCamera`), applied the same way in charts and scripts, while converted scripts still receive the original name in `onEvent`. `custom_events/*.lua`/`.hx` become `scripts/events/<Name>Event.hxc`: a single `SongEvent` (Chart Editor entry with Value 1/Value 2) that holds the converted code and runs it in `handleEvent`. Built-in Psych events without a V-Slice event (`Add Camera Zoom`, `Screen Shake`, `Set Property`, `Play Sound`, `Set GF Speed`, `Alt Idle Animation`) get a `SongEvent` script there too. Anything that can't be converted yet is listed in the in-app report.
 
 ## Saving
 
@@ -201,6 +201,10 @@ Pick your V-Slice mod folder once (it is remembered). Converted files go straigh
 <mod>/data/characters/<id>.json
 <mod>/data/stages/<id>.json
 <mod>/data/levels/<id>.json
+<mod>/scripts/songs/<Song>Song.hxc
+<mod>/scripts/stages/<Stage>Stage.hxc
+<mod>/scripts/notekinds/<Type>NoteKind.hxc
+<mod>/scripts/events/<Name>Event.hxc
 <mod>/scripts/modules/<Class>.hxc
 ```
 
@@ -252,11 +256,22 @@ Not carried over: per-song freeplay icons/colors (V-Slice shows the opponent's p
 The **Scripts** tab (and the Mod tab) turns Psych Engine scripts into V-Slice scripted classes (`.hxc`).
 
 - **Lua** is fully parsed (Lua 5.1 / LuaJIT syntax) and transpiled to HScript: locals, globals, closures, varargs, tables (arrays and maps), `pairs`/`ipairs`, numeric loops, `goto continue`, `and`/`or` with Lua truthiness, and the `string`, `table`, `math`, `os` and `bit` libraries, including Lua patterns (`find`, `match`, `gmatch`, `gsub`, `format`)
-- **Psych HScript** (`.hx`) is wrapped into a module: imports are mapped (`states.PlayState` → `funkin.play.PlayState`, …), and `game.boyfriend`, `camFollow`, `defaultCamZoom`, `Conductor.songPosition`, `curBeat`, `ClientPrefs`… are rewritten to their V-Slice equivalents
-- Every script becomes a `Module` that only runs where Psych would run it: its song (`data/<song>/`), its stage (`stages/`), charts that use its event (`custom_events/`) or note type (`custom_notetypes/`), or everywhere (`scripts/`)
+- **Psych HScript** (`.hx`) is wrapped into its class: imports are mapped (`states.PlayState` → `funkin.play.PlayState`, …), and `game.boyfriend`, `camFollow`, `defaultCamZoom`, `Conductor.songPosition`, `curBeat`, `ClientPrefs`… are rewritten to their V-Slice equivalents
+- Every script becomes the standard V-Slice class for its job, named after its id (no mod prefix, no invented base classes), built against FunkinCrew/Funkin's `Song`, `Stage`, `NoteKind`, `SongEvent` and `Module`:
+
+| Psych | V-Slice | Class |
+| --- | --- | --- |
+| `data/<song>/*.lua`, `.hx` | `scripts/songs/<Song>Song.hxc` | `extends Song`, `super('<song>')` |
+| `stages/<stage>.lua`, `.hx` | `scripts/stages/<Stage>Stage.hxc` | `extends Stage`, `super('<stage>')` |
+| `custom_notetypes/<type>` | `scripts/notekinds/<Type>NoteKind.hxc` | `extends NoteKind`, `super('<kind>', '<type>'[, '<note style>'])` |
+| `custom_events/<event>` | `scripts/events/<Event>Event.hxc` | `extends SongEvent`, code runs in `handleEvent` |
+| `scripts/*` | `scripts/modules/<name>.hxc` | `extends Module` |
+
+- A script only falls back to a scoped `Module` (`<Name>Module`, listed in the report) when its class can't carry it: a second script for the same song or stage (V-Slice allows one `Song`/`Stage` class per id), a note type that uses callbacks a `NoteKind` never receives (a `NoteKind` only gets update, note and create/destroy events), or an id the base game already scripts (`bopeebo`, `phillyTrain`…). Class names that clash with base game classes get the mod name in front
+- Members are renamed when they would override something the class inherits (a Lua `update` or `color` in a stage becomes `updateScript`/`colorScript`, so `FlxSpriteGroup.update` keeps working), `Song`/`Stage`/`SongEvent`/`NoteKind` clean up in `onDestroy` (they have no `onStateChangeBegin`), and a note type texture becomes the note style of its own `NoteKind` instead of a second class
 - Psych callbacks are hooked to V-Slice events: `onCreate`, `onCreatePost`, `onUpdate`, `onBeatHit`, `onStepHit`, `onSectionHit` (on real measures, so time signatures work), `goodNoteHit`, `opponentNoteHit`, `noteMiss`, `noteMissPress`, `onGhostTap`, `onKeyPress`/`onKeyRelease` (and their `Pre` versions), `onUpdateScore`, `onRecalculateRating`, `onEvent`, `onEventPushed`, `onMoveCamera`, `onSpawnNote`, `onCountdownTick`, `onStartCountdown`, `onEndSong`, `onSongStart`, `onPause`, `onResume`, `onGameOver`, `onGameOverStart`, `onGameOverConfirm`, `onDestroy`, `onTimerCompleted`, `onTweenCompleted`, `onSoundFinished`; returning `Function_Stop` cancels the countdown and the song end like in Psych
 - `runHaxeCode` with code written in the script is converted inline (its functions, variables and the variables passed to it), and `runHaxeFunction` calls those functions; `_G.name`, `_G["name"]` and `_G[key]` work, and so does Psych 0.7's `FlxColor("#RRGGBB")`
-- The output is plain V-Slice HScript: no Lua-style leftovers (no `Function_*` constants, no `psych("…")` dispatch, no `g_`/`l_` prefixes). Script names keep their own names (`onUpdate` becomes `onUpdateScript` where it would clash with a `Module` method), and Psych calls become real functions such as `makeSprite(...)`. No runtime or helper classes are added: each module carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
+- The output is plain V-Slice HScript: no Lua-style leftovers (no `Function_*` constants, no `psych("…")` dispatch, no `g_`/`l_` prefixes). Script names keep their own names (`onUpdate` becomes `onUpdateScript` where it would clash with a method of the class), and Psych calls become real functions such as `makeSprite(...)`. No runtime or helper classes are added: each class carries native V-Slice/Flixel code for exactly the Psych functions it uses (Lua sprites and texts, `getProperty`/`setProperty` paths, tweens, timers, sounds, camera, health, score, strum notes, shaders, saves, shared variables). Scripts of the same mod can still reach each other's Lua sprites
 - `precacheImage`, `precacheSound`, `precacheMusic` and `addCharacterToList` cache through V-Slice's `FunkinMemory` (`cacheTexture`/`cacheSound`, and the character's spritesheet from its data), so the assets are ready before they show up
 - Every class, field and event the generated code touches was checked against the FunkinCrew/Funkin source
 
@@ -275,7 +290,7 @@ The report lists, line by line, anything a script uses that has no V-Slice equiv
 | `data/characters/<id>.json` (+ XML) | `characters/<id>.json`, positions and camera rebased exactly with the spritesheet; library prefixes (`shared:`) are removed from image paths, several Sparrow sheets are merged in `image`, and texture atlas characters keep the animations of their main atlas (the report lists those from other atlases) |
 | `data/stages/<id>.json` (+ images' `.xml`) | `stages/<id>.json` with stage-editor objects, layer order and character markers, plus `stages/<id>.lua` when needed: props with `danceEvery` bop on the beat (idle or danceLeft/danceRight), scaled animated props get V-Slice's offset math and start on their starting animation, props without one stay still, Packer animations, blend modes, and character scroll/alpha/angle; an invisible girlfriend becomes `hide_girlfriend` |
 | `data/levels/<id>.json` | `weeks/<id>.json` + `images/menucharacters/*.json` for custom props |
-| `.hxc` scripts | Psych HScript: modules → `scripts/`, songs → `data/<song>/`, stages → `stages/`, characters → `characters/`, song events → `custom_events/` (+ `.txt`), note kinds → `custom_notetypes/`. Properties (`get`/`set`) become getter/setter calls, `FunkinSprite.create`/`createSparrow`, `Save.instance.hasBeatenSong`/`hasBeatenLevel`, `PlayStatePlaylist.isStoryMode`, `GameOverSubState`, `Constants` and `Preferences` values are mapped, haptics are dropped, `FunkinMemory` caching becomes Psych's own caching (`Paths.image`/`Paths.sound`) and V-Slice library names (`"week4"`, `"shared"`) are removed from `Paths` calls. Stage scripts run like in V-Slice: `buildStage()` runs at the start of `onCreate` (after Psych builds the stage objects), `addCharacter()` is called for boyfriend, dad and gf, `fetchAssetPaths()` precaches its assets, `onCountdownEnd` runs at song start, `getNamedProp`/`add`/`addProp`/`refresh()` work, and `zIndex` keeps working through small helpers that reorder the stage objects, characters and new props with the stage JSON's layers. `funkin.util.Sequence` becomes FlxTimers and `AdjustColorShader` becomes Psych's `adjustColor` runtime shader with the same color math. The report names each line that still uses a V-Slice-only class, field or callback. All 114 base game scripts convert to HScript that Psych 1.0's parser accepts |
+| `.hxc` scripts | Psych HScript: modules → `scripts/`, songs → `data/<song>/`, stages → `stages/`, characters → `characters/`, song events → `custom_events/` (+ `.txt`), note kinds → `custom_notetypes/`. Properties (`get`/`set`) become getter/setter calls, `FunkinSprite.create`/`createSparrow`, `Save.instance.hasBeatenSong`/`hasBeatenLevel`, `PlayStatePlaylist.isStoryMode`, `GameOverSubState`, `Constants` and `Preferences` values are mapped, haptics are dropped, `FunkinMemory` caching becomes Psych's own caching (`Paths.image`/`Paths.sound`) and V-Slice library names (`"week4"`, `"shared"`) are removed from `Paths` calls. Stage scripts run like in V-Slice: `buildStage()` runs at the start of `onCreate` (after Psych builds the stage objects), `addCharacter()` is called for boyfriend, dad and gf, `fetchAssetPaths()` precaches its assets, `onCountdownEnd` runs at song start, `getNamedProp`/`add`/`addProp`/`refresh()` work, and `zIndex` keeps working through small helpers that reorder the stage objects, characters and new props with the stage JSON's layers. `funkin.util.Sequence` becomes FlxTimers and `AdjustColorShader` becomes Psych's `adjustColor` runtime shader with the same color math. `VideoCutscene.play(Paths.videos(...))` becomes `PlayState.instance.startVideo(...)`. Only classes Psych 1.0 really has are left in the output: types of V-Slice-only classes become `Dynamic`, and statements that need a V-Slice-only class (`StageProp`, `RuntimeRainShader`, `FlxTweenUtil`, other scripted classes…), plus the code that uses values made from them, are left out and listed line by line in the report. All 114 base game scripts convert to HScript that Psych 1.0's parser accepts, with no class Psych lacks |
 | Player characters with `firstDeath`/`deathLoop`/`deathConfirm` | `characters/<id>-dead.json` with the game over animations plus `characters/<id>.lua`, which makes Psych use it when that character is the player |
 | Mod | `pack.json`/`pack.png`, `Voices-<char>.ogg` → `Voices-Player.ogg`/`Voices-Opponent.ogg`, assets copied |
 
@@ -293,7 +308,7 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `data/characters/<id>.xml` (+ spritesheet XML) | `data/characters/<id>.json`: offsets multiplied by the scale (Codename scales them, V-Slice does not), characters used on the other side mirrored like Codename does at runtime, `<id>-dead`/`gameOverChar` animations merged in for game over |
 | `data/stages/<id>.xml` | `data/stages/<id>.json`: sprites, boxes, `high-memory` content, beat sprites (`danceEvery`), layer order and character spots; scaled sprites without `updateHitbox` are moved to where Codename draws them |
 | `data/weeks/weeks/*.xml` + `data/weeks/characters/*.xml` | `data/levels/*.json` with menu props |
-| `.hx` scripts | V-Slice modules scoped like Codename runs them (song, stage, stage extension, character, event, note type, global). `create`/`update`/`beatHit`/`onPlayerHit`/`onEvent`… become module events with Codename-style event objects; `boyfriend`, `camHUD`, `curBeat`, `Conductor.crochet`, stage sprites by name and so on are mapped to the V-Slice API |
+| `.hx` scripts | The same standard classes: song scripts → `Song`, stage scripts → `Stage`, note type scripts → `NoteKind` (when they only use note, update and create/destroy callbacks), global ones → `Module`; stage extensions, characters and events become `Module`s scoped like Codename runs them, and so does any script whose id already has a class. `create`/`update`/`beatHit`/`onPlayerHit`/`onEvent`… become module events with Codename-style event objects; `boyfriend`, `camHUD`, `curBeat`, `Conductor.crochet`, stage sprites by name and so on are mapped to the V-Slice API |
 | Mod | `_polymod_meta.json` from `data/config/modpack.ini`, `song/Inst.ogg`/`Voices*.ogg` moved to `songs/<song>/`, assets copied |
 
 ---

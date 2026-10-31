@@ -278,14 +278,23 @@ function update(elapsed:Float)
             "images/stages/limo/sky.png",
             "scripts/events/CameraFlashEvent.hxc",
             "scripts/notekinds/AltAnimNoteKind.hxc",
-            "scripts/modules/CoolModDadBattleZoom.hxc",
-            "scripts/modules/CoolModLimoStage.hxc",
-            "scripts/modules/CoolModMineNoteNoteType.hxc",
+            "scripts/songs/DadBattleSong.hxc",
+            "scripts/stages/LimoStage.hxc",
+            "scripts/notekinds/MineNoteNoteKind.hxc",
             "_polymod_meta.json"
         ).forEach { assertTrue("missing $it", File(out, it).exists()) }
-        val stageScript = File(out, "scripts/modules/CoolModLimoStage.hxc").readText()
+        val songScript = File(out, "scripts/songs/DadBattleSong.hxc").readText()
+        assertTrue(songScript.contains("class DadBattleSong extends Song"))
+        assertTrue(songScript.contains("super(\"dad-battle\");"))
+        val stageScript = File(out, "scripts/stages/LimoStage.hxc").readText()
+        assertTrue(stageScript.contains("class LimoStage extends Stage"))
+        assertTrue(stageScript.contains("super(\"limo\");"))
         assertTrue(stageScript.contains("getNamedProp(\"sky\").alpha = 0.5;"))
-        val noteScript = File(out, "scripts/modules/CoolModMineNoteNoteType.hxc").readText()
+        assertTrue(!stageScript.contains("onStateChangeBegin"))
+        val noteScript = File(out, "scripts/notekinds/MineNoteNoteKind.hxc").readText()
+        assertTrue(noteScript.contains("class MineNoteNoteKind extends NoteKind"))
+        assertTrue(noteScript.contains("super(\"mine-note\", \"Mine Note\");"))
+        assertTrue(!noteScript.contains("onCountdownStart"))
         assertTrue(noteScript.contains("n.kind == \"mine-note\""))
         assertTrue(noteScript.contains("case \"mine-note\": return \"Mine Note\";"))
         assertTrue(noteScript.contains("PlayState.instance.health -= 0.2;"))

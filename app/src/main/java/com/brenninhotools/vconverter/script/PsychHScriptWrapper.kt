@@ -8,7 +8,8 @@ class PsychHScriptWrapper(
     private val noteTypes: String = "[]",
     private val eventNames: Map<String, String> = emptyMap(),
     private val ownEvent: String? = null,
-    private val memberPrefix: String = "h_"
+    private val memberPrefix: String = "h_",
+    private val host: ScriptHost = ScriptHost(ScriptBase.MODULE, moduleId)
 ) {
     private enum class Kind { SPACE, IDENT, NUMBER, STRING, PUNCT }
 
@@ -297,7 +298,8 @@ class PsychHScriptWrapper(
                 setters = fields.toList(),
                 noteObjects = true,
                 imports = imports.toList(),
-                tailLines = tail
+                tailLines = tail,
+                host = host
             )
         )
         if (functions.any { it in setOf("goodNoteHit", "opponentNoteHit", "noteMiss", "onSpawnNote") }) {

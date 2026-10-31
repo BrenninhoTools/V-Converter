@@ -137,13 +137,13 @@ object CodenameEvents {
         ParamType.STRING -> ""
     }
 
-    fun songEventFile(definition: EventDefinition, moduleIds: List<String>): ScriptFile {
+    fun songEventFile(definition: EventDefinition, scriptRefs: List<String>): ScriptFile {
         val body = when (definition.name) {
             "Camera Flash" -> CAMERA_FLASH
             "Add Camera Zoom" -> ADD_CAMERA_ZOOM
             "Camera Bop" -> CAMERA_BOP
             "Camera Zoom" -> CAMERA_ZOOM
-            "HScript Call" -> HSCRIPT_CALL.replace("@@MODULES@@", moduleIds.joinToString(", ") { LuaToHScript.hxString(it) })
+            "HScript Call" -> HSCRIPT_CALL.replace("@@MODULES@@", scriptRefs.joinToString(", ") { LuaToHScript.hxString(it) })
             else -> ""
         }
         val helpers = if (definition.name == "Camera Zoom") EASE_HELPER else ""
@@ -310,13 +310,21 @@ var name:String = v == null ? "" : Std.string(Reflect.field(v, "function"));
 if (name == "" || name == "null") return;
 var raw:Dynamic = v == null ? null : Reflect.field(v, "parameters");
 var args:Array<Dynamic> = raw == null || Std.string(raw) == "" ? [] : Std.string(raw).split(",");
-for (id in [@@MODULES@@])
+for (ref in [@@MODULES@@])
 {
-  var module:Dynamic = ModuleHandler.getModule(id);
-  if (module == null) continue;
+  var split:Int = ref.indexOf(":");
+  var kind:String = split < 0 ? "module" : ref.substr(0, split);
+  var id:String = split < 0 ? ref : ref.substr(split + 1);
+  var target:Dynamic = null;
+  if (kind == "song") target = game.currentSong != null && game.currentSong.id == id ? game.currentSong : null;
+  else if (kind == "stage") target = game.currentStage != null && game.currentStageId == id ? game.currentStage : null;
+  else if (kind == "notekind") target = NoteKindManager.getNoteKind(id);
+  else if (kind == "event") target = SongEventRegistry.getEvent(id);
+  else target = ModuleHandler.getModule(id);
+  if (target == null) continue;
   try
   {
-    module.scriptCall("hscriptCall", [name, args]);
+    target.scriptCall("hscriptCall", [name, args]);
   }
   catch (e:Dynamic) {}
 }

@@ -2,6 +2,7 @@ package com.brenninhotools.vconverter.reverse
 
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportBuilder
+import com.brenninhotools.vconverter.script.HxImports
 import com.brenninhotools.vconverter.script.ReflectCalls
 
 enum class HxcKind(val label: String) {
@@ -32,6 +33,23 @@ object HxcToPsych {
         "funkin.play.PauseSubState" to "substates.PauseSubState",
         "funkin.audio.FunkinSound" to "flixel.sound.FlxSound",
         "funkin.play.character.BaseCharacter" to "objects.Character"
+    )
+    private val psychGlobals = setOf(
+        "Std", "Math", "String", "Array", "Int", "Float", "Bool", "Dynamic", "Void", "Null", "Map", "StringTools", "Lambda", "Date", "EReg",
+        "Xml", "StringBuf", "Class", "Enum", "Any", "Reflect", "Type", "Json",
+        "FlxG", "FlxSprite", "FlxCamera", "FlxTimer", "FlxTween", "FlxEase", "FlxColor", "FlxMath", "FlxText", "FlxSound", "FlxBasic",
+        "FlxObject", "FlxGroup", "FlxSpriteGroup", "FlxTypedGroup", "FlxPoint", "FlxRect", "FlxAxes", "FlxAtlasFrames", "FlxSave",
+        "FlxRuntimeShader", "ErrorHandledRuntimeShader", "FlxAnimate", "PsychFlxAnimate", "PlayState", "Paths", "Conductor",
+        "ClientPrefs", "Character", "Alphabet", "Note", "StrumNote", "CustomSubstate", "ShaderFilter", "Countdown", "Controls",
+        "FunkinLua", "Achievements", "CoolUtil", "MusicBeatState", "Main", "HScript", "LuaUtils", "BGSprite", "Bar", "HealthIcon",
+        "Lib", "Assets", "Highscore", "GameOverSubstate", "PauseSubState"
+    )
+
+    private val renamedTypes = mapOf(
+        "funkin.graphics.FunkinSprite" to ("FunkinSprite" to "FlxSprite"),
+        "funkin.audio.FunkinSound" to ("FunkinSound" to "FlxSound"),
+        "funkin.play.character.BaseCharacter" to ("BaseCharacter" to "Character"),
+        "funkin.play.GameOverSubState" to ("GameOverSubState" to "GameOverSubstate")
     )
     private val silentDrops = setOf(
         "funkin.modding.module.Module", "funkin.modding.module.ModuleHandler", "funkin.play.song.Song", "funkin.play.stage.Stage",
@@ -243,7 +261,48 @@ object HxcToPsych {
             if (entry.second.isEmpty() && name in psychCallbacks) return@forEach
             emit(functionText, name, entry.first, entry.second.joinToString("\n"))
         }
-        val protectedText = passes(out.toString() + functionText.toString(), kind, members.map { it.name }.toSet(), notes, source, usesLayers)
+        var protectedText = passes(out.toString() + functionText.toString(), kind, members.map { it.name }.toSet(), notes, source, usesLayers)
+        renamedTypes.filterKeys { imp -> imp in imports }.values.forEach { (from, to) ->
+            protectedText = Regex("(:\\s*|\\bnew\\s+|<\\s*)$from\\b").replace(protectedText) { it.groupValues[1] + to }
+        }
+        fun present(name: String, text: String) = Regex("(?<![\\w.])${Regex.escape(name)}\\b").containsMatchIn(text)
+        protectedText = Regex("(?<![\\w.])${Regex.escape(className)}\\.(?=[a-z_])").replace(protectedText, "")
+        var videos = 0
+        protectedText = calls(protectedText, Regex("\\bVideoCutscene\\.play\\s*\\(")) { _, args ->
+            val inner = Regex("^Paths\\.videos\\s*\\((.*)\\)$").find(args.firstOrNull()?.trim().orEmpty())?.groupValues?.get(1)?.trim() ?: return@calls null
+            Regex("^\u0001(\\d+)\u0001$").find(inner)?.let { m ->
+                val index = m.groupValues[1].toInt()
+                strings[index] = strings[index].replace(Regex("\\.(mp4|mkv|webm)(?=[\"'])"), "")
+            }
+            videos++
+            "PlayState.instance.startVideo($inner)"
+        }
+        if (videos > 0) notes += "VideoCutscene.play() became PlayState.instance.startVideo(); Psych plays videos/<name>.mp4."
+        val keptNames = keptImports.map { it.substringAfterLast('.') }.toSet()
+        val declaredNames = Regex("\\b(?:class|typedef|enum|abstract)\\s+(\\w+)").findAll(protectedText).map { it.groupValues[1] }.toSet()
+        val bodyOnly = protectedText.lines().filterNot { it.trimStart().startsWith("import ") }.joinToString("\n")
+        val used = LinkedHashSet<String>()
+        Regex("(?<![\\w.])([A-Z][A-Za-z0-9_]*)\\s*(?=\\.|\\()").findAll(bodyOnly).forEach { used += it.groupValues[1] }
+        Regex("\\bnew\\s+([A-Z]\\w*)").findAll(bodyOnly).forEach { used += it.groupValues[1] }
+        Regex(":\\s*([A-Z]\\w*)").findAll(bodyOnly).forEach { used += it.groupValues[1] }
+        val foreign = used.filter { name ->
+            !Regex("[A-Z0-9_]+").matches(name) && name !in keptNames && name !in declaredNames && name !in psychGlobals
+        }
+        val addImports = foreign.mapNotNull { name -> HxImports.pathOf(name)?.takeIf { !it.startsWith("funkin.") && it.contains('.') } }
+        if (addImports.isNotEmpty()) {
+            protectedText = addImports.joinToString("") { "import $it;\n" } + protectedText
+            keptImports += addImports
+        }
+        val missing = foreign.filter { name -> HxImports.pathOf(name)?.let { it.startsWith("funkin.") || !it.contains('.') } ?: true }
+        val unavailable = (droppedClasses + missing + renamedTypes.filterKeys { imp -> imp in imports }.values.map { it.first }).distinct().filter { present(it, protectedText) }
+        protectedText = PsychDeadCode.typesToDynamic(protectedText, unavailable)
+        val pruned = PsychDeadCode.prune(protectedText, unavailable.filter { present(it, protectedText) }.toSet())
+        protectedText = pruned.text
+        pruned.removed.forEach { (name, count) ->
+            if (name in pruned.tainted) return@forEach
+            notes += "${at(lineOf(source, Regex("(?<![\\w.])${Regex.escape(name)}\\b(?!;)"), skipImports = true))}$name is V-Slice only and Psych 1.0 has no such class, so the $count statement(s) using it were left out."
+        }
+        if (pruned.tainted.isNotEmpty()) notes += "Code that used values made from V-Slice-only classes was left out too: ${pruned.tainted.joinToString()}."
         out.setLength(0)
         out.append(protectedText)
 

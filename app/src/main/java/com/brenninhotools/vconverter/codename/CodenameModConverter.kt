@@ -280,66 +280,65 @@ class CodenameModConverter(
         }
     }
 
-    private class Job(val path: String, val stem: String, val target: CodenameScriptTarget, val className: String, val sprites: Set<String> = emptySet())
+    private class Job(val path: String, val stem: String, val target: CodenameScriptTarget, val sprites: Set<String> = emptySet())
 
     private fun convertScripts(info: ModInfo, stages: Map<String, CodenameStage>, definitions: Map<String, EventDefinition>) {
-        val prefix = ScriptConverter.pascal(ScriptConverter.slug(info.title.ifBlank { "Mod" }))
         val jobs = mutableListOf<Job>()
         scan.songs.forEach { song ->
             song.scripts.forEach { path ->
                 val stem = path.substringAfterLast('/').substringBeforeLast('.')
-                jobs += Job(path, stem, CodenameScriptTarget(CodenameScope.SONG, song.id), prefix + ScriptConverter.pascal(song.id) + ScriptConverter.pascal(stem))
+                jobs += Job(path, stem, CodenameScriptTarget(CodenameScope.SONG, song.id))
             }
         }
         scan.stageScripts.forEach { (id, path) ->
-            jobs += Job(path, id, CodenameScriptTarget(CodenameScope.STAGE, id), prefix + ScriptConverter.pascal(id) + "Stage", stages[id]?.spriteNames?.toSet() ?: emptySet())
+            jobs += Job(path, id, CodenameScriptTarget(CodenameScope.STAGE, id), stages[id]?.spriteNames?.toSet() ?: emptySet())
         }
         stages.forEach { (id, stage) ->
             stage.extensions.forEach { ext ->
                 val path = scan.libraryScripts[ext] ?: scan.libraryScripts.entries.firstOrNull { it.key.equals(ext, ignoreCase = true) }?.value
                 if (path == null) report.warn("Stage $id loads $ext.hx, which is not in the mod.")
-                else jobs += Job(path, ext.substringAfterLast('/'), CodenameScriptTarget(CodenameScope.STAGE, id), prefix + ScriptConverter.pascal(id) + ScriptConverter.pascal(ext.substringAfterLast('/')), stage.spriteNames.toSet())
+                else jobs += Job(path, ext.substringAfterLast('/'), CodenameScriptTarget(CodenameScope.STAGE, id), stage.spriteNames.toSet())
             }
         }
         scan.characterScripts.forEach { (id, path) ->
-            jobs += Job(path, id, CodenameScriptTarget(CodenameScope.CHARACTER, id), prefix + ScriptConverter.pascal(id) + "Character")
+            jobs += Job(path, id, CodenameScriptTarget(CodenameScope.CHARACTER, id))
         }
         scan.eventScripts.forEach { (name, path) ->
-            jobs += Job(path, name, CodenameScriptTarget(CodenameScope.EVENT, name), prefix + CodenameEvents.eventId(name) + "Handler")
+            jobs += Job(path, name, CodenameScriptTarget(CodenameScope.EVENT, name))
         }
         scan.noteScripts.forEach { (name, path) ->
-            jobs += Job(path, name, CodenameScriptTarget(CodenameScope.NOTE_TYPE, name), prefix + ScriptConverter.pascal(name) + "NoteType")
+            jobs += Job(path, name, CodenameScriptTarget(CodenameScope.NOTE_TYPE, name))
         }
         scan.globalScripts.forEach { path ->
             val stem = path.substringAfterLast('/').substringBeforeLast('.')
-            jobs += Job(path, stem, CodenameScriptTarget(CodenameScope.GLOBAL), ScriptConverter.keepName(stem))
+            jobs += Job(path, stem, CodenameScriptTarget(CodenameScope.GLOBAL))
         }
 
-        val usedNames = HashSet<String>()
+        val planner = CodenameScriptPlanner(info.title)
         val usedEvents = (keptEvents.keys + definitions.keys).toSortedSet(String.CASE_INSENSITIVE_ORDER)
         val eventDefs = usedEvents.map { CodenameEvents.definitionFor(it, definitions, 0) }
         val context = CodenameScriptContext(noteTypeNames = noteKindNames, events = eventDefs)
         val results = mutableListOf<Triple<Job, String, CodenameScriptResult>>()
+        val kept = mutableListOf<String>()
         jobs.forEach { job ->
             step("Script ${job.path.substringAfterLast('/')}")
-            var className = job.className
-            var n = 2
-            while (!usedNames.add(className)) className = job.className + n++
-            val moduleId = if (job.target.scope == CodenameScope.GLOBAL) job.stem else ScriptConverter.kebab(className)
             try {
-                val result = CodenameScriptConverter(className, moduleId, job.target, context.copy(stageSprites = job.sprites)).convert(files.readText(job.path))
-                val fileName = if (job.target.scope == CodenameScope.GLOBAL) ScriptConverter.keepFileName(job.stem) else className
-                results += Triple(job, "scripts/modules/$fileName.hxc", result)
-                moduleIds += moduleId
+                val text = files.readText(job.path)
+                val plan = planner.plan(job.target, job.stem, text)
+                val result = CodenameScriptConverter(plan.className, plan.host.id, job.target, context.copy(stageSprites = job.sprites), plan.host).convert(text)
+                results += Triple(job, plan.path, result)
+                plan.note?.let { kept += "${scan.relative(job.path)} → ${plan.className} (Module): $it" }
             } catch (e: Exception) {
                 report.warn("Script ${scan.relative(job.path)} was not converted: ${e.message}")
             }
         }
+        moduleIds += planner.refs
         results.forEach { (job, path, result) ->
             writer.writeText(path, result.source)
             written++
             if (result.issues.isNotEmpty()) report.section("Script · ${scan.relative(job.path)}", result.issues.map { if (it.line > 0) "line ${it.line}: ${it.message}" else it.message })
         }
+        if (kept.isNotEmpty()) report.section("Scripts kept as Modules", kept)
         val eventFiles = eventDefs.filter { def ->
             def.name !in CodenameEvents.nativeConversions && (def.name in CodenameEvents.implemented || definitions.containsKey(def.name)) &&
                 !(def.name == "Camera Zoom" && def.name !in keptEvents)

@@ -9,10 +9,12 @@ data class ScriptSource(val path: String, val text: String, val target: ScriptTa
 
 data class ScriptFile(val path: String, val content: String)
 
-data class ScriptBundle(val files: List<ScriptFile>, val report: Report, val converted: Int)
+data class ScriptBundle(val files: List<ScriptFile>, val report: Report, val converted: Int, val noteKinds: Map<String, String> = emptyMap())
 
 object ScriptConverter {
     const val OUTPUT_FOLDER = "scripts/modules"
+
+    private data class Plan(val source: ScriptSource, val target: ScriptTarget, val className: String, val host: ScriptHost, val ownEvent: String?)
 
     fun detectTarget(path: String): ScriptTarget {
         val parts = path.replace('\\', '/').split('/').filter { it.isNotEmpty() }
@@ -40,7 +42,7 @@ object ScriptConverter {
 
     private val takenNames = setOf(
         "Module", "ModuleHandler", "PlayState", "FlxG", "FlxSprite", "FlxText", "FlxTween", "FlxEase", "FlxTimer", "Conductor", "Paths",
-        "Preferences", "Highscore", "PlayerSettings", "PlayStatePlaylist", "FunkinSound", "StringMap", "SongEvent", "SongEventSchema",
+        "Preferences", "Highscore", "PlayerSettings", "PlayStatePlaylist", "FunkinSound", "StringMap", "SongEvent", "SongEventSchema", "Song", "Stage", "NoteKind",
         "Std", "Math", "String", "Array", "Reflect", "Type", "Assets", "Constants"
     )
 
@@ -125,112 +127,109 @@ $body
     fun noteTypeMap(names: Collection<String>): Map<String, String> =
         names.filter { it.isNotBlank() }.associateBy { PsychToVSliceChart.noteKindFor(it) }
 
-    fun eventForwarder(name: String, moduleId: String): String {
-        val id = LuaToHScript.hxString(eventId(name))
-        val title = LuaToHScript.hxString(name)
-        return """
-class ${eventClass(name)} extends SongEvent
-{
-  public function new()
-  {
-    super($id);
-  }
+    private fun callbacksIn(text: String): Set<String> =
+        Regex("function\\s+([A-Za-z_][A-Za-z0-9_]*)").findAll(text).map { it.groupValues[1] }.filter { it in PsychApi.callbacks }.toSet()
 
-  override public function handleEvent(data:Dynamic):Void
-  {
-    if (data == null) return;
-    var handler:Dynamic = ModuleHandler.getModule(${LuaToHScript.hxString(moduleId)});
-    if (handler == null) return;
-    var raw:Dynamic = data.value;
-    var value1:Dynamic = raw == null ? "" : Reflect.field(raw, "value1");
-    var value2:Dynamic = raw == null ? "" : Reflect.field(raw, "value2");
-    handler.scriptCall("callback", ["onEvent", [$title, value1 == null ? "" : value1, value2 == null ? "" : value2, data.time]]);
-  }
+    private fun fitsNoteKind(text: String): Boolean =
+        callbacksIn(text).all { it in ScriptBases.noteKindCallbacks } && !Regex("\\b(mustHitSection|gfSection)\\b").containsMatchIn(text)
 
-  override public function getTitle():String
-  {
-    return $title;
-  }
-
-  override public function getEventSchema():Dynamic
-  {
-    return new SongEventSchema([
-      {name: "value1", title: "Value 1", type: "string", defaultValue: ""},
-      {name: "value2", title: "Value 2", type: "string", defaultValue: ""}
-    ]);
-  }
-}
-""".trimStart('\n')
-    }
-
-    private fun withForwarder(module: String, name: String, moduleId: String): String {
-        val lines = module.lines()
-        val existing = lines.takeWhile { !it.startsWith("class ") }.filter { it.startsWith("import ") }.toMutableSet()
-        val body = lines.dropWhile { !it.startsWith("class ") }.joinToString("\n").trimEnd()
-        existing += listOf("import funkin.data.event.SongEventSchema;", "import funkin.modding.module.ModuleHandler;", "import funkin.play.event.SongEvent;")
-        return existing.sorted().joinToString("\n") + "\n\n" + eventForwarder(name, moduleId) + "\n" + body + "\n"
-    }
-
-    fun convert(modSlug: String, sources: List<ScriptSource>, noteTypes: Map<String, String>, chartEvents: Collection<String> = emptyList()): ScriptBundle {
+    fun convert(
+        modSlug: String,
+        sources: List<ScriptSource>,
+        noteTypes: Map<String, String>,
+        chartEvents: Collection<String> = emptyList(),
+        noteStyles: Map<String, String> = emptyMap()
+    ): ScriptBundle {
         val report = ReportBuilder()
         val files = mutableListOf<ScriptFile>()
         val usedNames = HashSet<String>()
+        val claimed = HashSet<String>()
+        val fallbacks = mutableListOf<String>()
         var converted = 0
         var hooks = 0
         val apiUsed = sortedSetOf<String>()
+        val prefix = pascal(modSlug)
+
+        fun unique(base: String): String {
+            var name = if (base in ScriptBases.baseGameClasses || base in takenNames) prefix + base else base
+            val root = name
+            var n = 2
+            while (!usedNames.add(name.lowercase())) name = root + n++
+            return name
+        }
 
         val planned = sources.map { source ->
             val target = source.target ?: detectTarget(source.path)
             val stem = source.path.substringAfterLast('/').substringBeforeLast('.')
             val ext = source.path.substringAfterLast('.', "").lowercase()
-            val prefix = pascal(modSlug)
-            val base = when (target.scope) {
-                ScriptScope.EVENT -> eventClass(target.key.ifBlank { stem }) + "Handler"
-                ScriptScope.GLOBAL -> keepName(stem)
-                ScriptScope.SONG -> prefix + pascal(target.key) + pascal(stem).removePrefix(pascal(target.key)).ifEmpty { "Script" }
-                ScriptScope.STAGE -> prefix + pascal(target.key) + "Stage"
-                ScriptScope.NOTE_TYPE -> prefix + pascal(target.key) + "NoteType"
+            val key = target.key
+            fun module(name: String, why: String?): Plan {
+                val className = unique(name)
+                if (why != null) fallbacks += "${source.path} → $className (Module): $why"
+                return Plan(source, target, className, ScriptHost(ScriptBase.MODULE, kebab(className)), null)
             }
-            var className = base
-            var n = 2
-            while (!usedNames.add(className.lowercase())) className = base + n++
-            val moduleId = if (target.scope == ScriptScope.GLOBAL && className == base) stem else kebab(className)
-            Triple(source, target, className to moduleId)
+            fun extra(): String = pascal(stem).removePrefix(pascal(key)).ifEmpty { pascal(ext) }
+            when (target.scope) {
+                ScriptScope.GLOBAL -> {
+                    val className = unique(keepName(stem))
+                    Plan(source, target, className, ScriptHost(ScriptBase.MODULE, if (className == keepName(stem)) stem else kebab(className)), null)
+                }
+                ScriptScope.SONG -> when {
+                    ScriptBases.isBaseGameId(ScriptBase.SONG, key) -> module(pascal(key) + extra() + "Module", "the base game already has a Song script for \"$key\".")
+                    !claimed.add("song:$key") -> module(pascal(key) + extra() + "Module", "song \"$key\" already has a Song script; V-Slice allows one per song.")
+                    else -> Plan(source, target, unique(ScriptBases.classFor(ScriptBase.SONG, key, ::pascal)), ScriptHost(ScriptBase.SONG, key), null)
+                }
+                ScriptScope.STAGE -> when {
+                    ScriptBases.isBaseGameId(ScriptBase.STAGE, key) -> module(pascal(key) + extra() + "Module", "the base game already has a Stage script for \"$key\".")
+                    !claimed.add("stage:$key") -> module(pascal(key) + extra() + "Module", "stage \"$key\" already has a Stage script; V-Slice allows one per stage.")
+                    else -> Plan(source, target, unique(ScriptBases.classFor(ScriptBase.STAGE, key, ::pascal)), ScriptHost(ScriptBase.STAGE, key), null)
+                }
+                ScriptScope.NOTE_TYPE -> {
+                    val kind = PsychToVSliceChart.noteKindFor(key)
+                    when {
+                        ScriptBases.isBaseGameId(ScriptBase.NOTE_KIND, kind) -> module(pascal(key) + "NoteTypeModule", "\"$kind\" is a base game note kind.")
+                        !fitsNoteKind(source.text) -> module(pascal(key) + "NoteTypeModule", "it uses callbacks a NoteKind never receives (only update, note and create/destroy events reach it).")
+                        !claimed.add("notekind:$kind") -> module(pascal(key) + extra() + "NoteTypeModule", "note kind \"$kind\" already has a NoteKind script.")
+                        else -> Plan(source, target, unique(ScriptBases.classFor(ScriptBase.NOTE_KIND, key, ::pascal)), ScriptHost(ScriptBase.NOTE_KIND, kind, key, noteStyles[kind]), null)
+                    }
+                }
+                ScriptScope.EVENT -> {
+                    val id = eventId(key)
+                    if (key.isBlank() || !claimed.add("event:$id")) module(eventClass(key.ifBlank { stem }) + "Module", if (key.isBlank()) null else "event \"$id\" already has a SongEvent script.")
+                    else Plan(source, target, unique(eventClass(key)), ScriptHost(ScriptBase.SONG_EVENT, id, key), id)
+                }
+            }
         }
-        val siblings = planned.map { it.third.second }
-        val eventNames = (builtinEvents() + chartEvents + planned.filter { it.second.scope == ScriptScope.EVENT }.map { it.second.key })
+        val siblings = planned.map { it.host.ref }
+        val eventNames = (builtinEvents() + chartEvents + planned.filter { it.target.scope == ScriptScope.EVENT }.map { it.target.key })
             .filter { it.isNotBlank() }.associateBy { eventId(it) }
         val noteTypeArray = noteTypes.entries.joinToString(", ", "[", "]") { (kind, name) ->
             "[${LuaToHScript.hxString(kind)}, ${LuaToHScript.hxString(name)}]"
         }
+        val noteKinds = LinkedHashMap<String, String>()
 
-        planned.forEach { (source, target, names) ->
-            val (className, moduleId) = names
+        planned.forEach { plan ->
+            val (source, target, className, host, ownEvent) = plan
             val ext = source.path.substringAfterLast('.', "").lowercase()
-            val isEvent = target.scope == ScriptScope.EVENT && target.key.isNotBlank()
-            val ownEvent = if (isEvent) eventId(target.key) else null
             val generated = try {
                 if (ext == "lua") {
-                    LuaToHScript(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent, source.skipLines).convert(source.text)
+                    LuaToHScript(className, host.id, target, siblings, noteTypeArray, eventNames, ownEvent, source.skipLines, host).convert(source.text)
                 } else {
-                    PsychHScriptWrapper(className, moduleId, target, siblings, noteTypeArray, eventNames, ownEvent).convert(source.text)
+                    PsychHScriptWrapper(className, host.id, target, siblings, noteTypeArray, eventNames, ownEvent, host = host).convert(source.text)
                 }
             } catch (e: Exception) {
                 report.warn("${source.path}: could not be converted (${e.message}).")
                 return@forEach
             }
-            val label = "${source.path} · ${target.scope.label}${if (target.key.isNotEmpty()) " \"${target.key}\"" else ""}" +
-                if (target.scope == ScriptScope.EVENT && target.key.isNotBlank()) " → scripts/events/${eventClass(target.key)}.hxc (id \"${eventId(target.key)}\")" else ""
             if (generated.source.isEmpty()) {
                 report.warn("${source.path}: ${generated.issues.firstOrNull()?.message ?: "could not be converted"}")
                 return@forEach
             }
-            if (isEvent) {
-                files += ScriptFile("scripts/events/${eventClass(target.key)}.hxc", HxImports.complete(withForwarder(generated.source, target.key, moduleId)))
-            } else {
-                val fileName = if (target.scope == ScriptScope.GLOBAL) keepFileName(source.path.substringAfterLast('/').substringBeforeLast('.')) else className
-                files += ScriptFile("$OUTPUT_FOLDER/$fileName.hxc", HxImports.complete(generated.source))
-            }
+            val fileName = if (target.scope == ScriptScope.GLOBAL) keepFileName(source.path.substringAfterLast('/').substringBeforeLast('.')) else className
+            val path = "${host.base.folder}/$fileName.hxc"
+            files += ScriptFile(path, HxImports.complete(generated.source))
+            if (host.base == ScriptBase.NOTE_KIND) noteKinds[host.id] = className
+            val label = "${source.path} · ${target.scope.label}${if (target.key.isNotEmpty()) " \"${target.key}\"" else ""} → $path (${host.base.className} \"${host.id}\")"
             converted++
             hooks += generated.callbacks.size
             apiUsed += generated.apiCalls
@@ -239,6 +238,7 @@ class ${eventClass(name)} extends SongEvent
             if (generated.issues.size > 40) lines += "…and ${generated.issues.size - 40} more notes"
             report.section(label, lines)
         }
+        if (fallbacks.isNotEmpty()) report.section("Scripts kept as Modules", fallbacks)
 
         report.stat("Scripts", converted)
         report.stat("Callbacks", hooks)
@@ -250,13 +250,13 @@ class ${eventClass(name)} extends SongEvent
         report.section(
             "How it runs",
             listOf(
-                "Each script became a V-Slice Module that only runs in its song, stage, event or note type.",
-                "The Psych functions a script uses are implemented inside its own module with V-Slice and Flixel code; no extra runtime is needed.",
-                "Psych events get V-Slice ids (\"Flash Camera\" → \"FlashCamera\") in charts and scripts alike; your scripts still see the original names in onEvent.",
-                "custom_events scripts go to scripts/events/<Name>Event.hxc: a SongEvent (Chart Editor entry) plus a Module with the converted code."
+                "Each script became the V-Slice class made for its job: data/<song>/ scripts are Songs (scripts/songs), stages/ scripts are Stages (scripts/stages), custom_notetypes are NoteKinds (scripts/notekinds), custom_events are SongEvents (scripts/events) and global scripts are Modules (scripts/modules).",
+                "A script only becomes a Module when its class can't carry it (a second script for the same song or stage, a note type that needs more than note events, or an id the base game already scripts); that Module only runs in its song, stage, event or note type.",
+                "The Psych functions a script uses are implemented inside its own class with V-Slice and Flixel code; no extra runtime is needed.",
+                "Psych events get V-Slice ids (\"Flash Camera\" → \"FlashCamera\") in charts and scripts alike; your scripts still see the original names in onEvent."
             )
         )
-        return ScriptBundle(files, report.build(), converted)
+        return ScriptBundle(files, report.build(), converted, noteKinds)
     }
 
     private fun resource(name: String): String =
