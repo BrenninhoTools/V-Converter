@@ -209,14 +209,18 @@ enum class Engine(val label: String, val title: String, val detail: String, val 
     PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Funkin.Left),
     CODENAME("CODENAME", "Codename Engine", "XML · HScript", Funkin.Orange),
     VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Funkin.Down),
-    NMV("NMV", "NightmareVision", "HScript · JSON", Funkin.Purple);
+    NMV("NMV", "NightmareVision", "HScript · JSON", Funkin.Purple),
+    FPSPLUS("FPS PLUS", "FPS Plus", "Polymod · .hxc", Funkin.Right);
 
     val key: String get() = when (this) {
         PSYCH -> "psych"
         CODENAME -> "codename"
         VSLICE -> "vslice"
         NMV -> "nmv"
+        FPSPLUS -> "fpsplus"
     }
+
+    val canBeSource: Boolean get() = this != FPSPLUS
 }
 
 enum class Direction(val from: Engine, val to: Engine) {
@@ -230,7 +234,11 @@ enum class Direction(val from: Engine, val to: Engine) {
     NMV_TO_CODENAME(Engine.NMV, Engine.CODENAME),
     PSYCH_TO_NMV(Engine.PSYCH, Engine.NMV),
     VSLICE_TO_NMV(Engine.VSLICE, Engine.NMV),
-    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV);
+    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV),
+    PSYCH_TO_FPSPLUS(Engine.PSYCH, Engine.FPSPLUS),
+    VSLICE_TO_FPSPLUS(Engine.VSLICE, Engine.FPSPLUS),
+    CODENAME_TO_FPSPLUS(Engine.CODENAME, Engine.FPSPLUS),
+    NMV_TO_FPSPLUS(Engine.NMV, Engine.FPSPLUS);
 
     val label: String get() = "${from.title} to ${to.title}"
     val canSwap: Boolean get() = entries.any { it.from == to && it.to == from }
@@ -247,6 +255,7 @@ enum class Direction(val from: Engine, val to: Engine) {
             Engine.VSLICE -> VSLICE_TO_PSYCH
             Engine.CODENAME -> CODENAME_TO_VSLICE
             Engine.NMV -> NMV_TO_PSYCH
+            Engine.FPSPLUS -> PSYCH_TO_FPSPLUS
         }
 
         fun targets(engine: Engine): List<Engine> = entries.filter { it.from == engine }.map { it.to }
@@ -788,7 +797,7 @@ private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 EngineCard("From", from, Modifier.weight(1f)) {
-                    val engines = Engine.entries
+                    val engines = Engine.entries.filter { it.canBeSource }
                     onChange(Direction.from(engines[(engines.indexOf(from) + 1) % engines.size]))
                 }
                 EngineCard("To", to, Modifier.weight(1f)) { onChange(direction.nextTarget()) }
@@ -815,7 +824,7 @@ private fun EngineBridge(direction: Direction, onChange: (Direction) -> Unit) {
                 )
             }
         }
-        SourcePicker("SOURCE", direction.from, Engine.entries) { onChange(if (it == direction.from) direction else Direction.from(it)) }
+        SourcePicker("SOURCE", direction.from, Engine.entries.filter { it.canBeSource }) { onChange(if (it == direction.from) direction else Direction.from(it)) }
         SourcePicker("TARGET", direction.to, Direction.targets(direction.from)) { onChange(direction.retarget(it)) }
     }
 }

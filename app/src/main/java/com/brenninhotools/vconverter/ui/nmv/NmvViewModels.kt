@@ -204,3 +204,28 @@ class VSliceToNmvModViewModel(application: Application) : com.brenninhotools.vco
 }
 
 class NmvFileViewModel(application: Application, converter: com.brenninhotools.vconverter.convert.FileConverter) : com.brenninhotools.vconverter.ui.reverse.ReverseViewModel(application, converter)
+
+class NmvToFpsModViewModel(application: Application) : NmvModViewModel(application) {
+    override val target: NmvTarget = NmvTarget.FPSPLUS
+}
+
+class PsychToFpsModViewModel(application: Application) : com.brenninhotools.vconverter.ui.mod.ModViewModel(application) {
+    override val targetSuffix: String = "fpsplus"
+
+    override fun runConversion(files: ModFiles, scan: com.brenninhotools.vconverter.mod.ModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        com.brenninhotools.vconverter.fpsplus.ToFpsMod.fromPsych(files, scan, writer, info, progress)
+}
+
+class CodenameToFpsModViewModel(application: Application) : com.brenninhotools.vconverter.ui.codename.CodenameModViewModel(application) {
+    override val targetSuffix: String = "fpsplus"
+
+    override fun runConversion(files: ModFiles, scan: com.brenninhotools.vconverter.codename.CodenameModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        com.brenninhotools.vconverter.fpsplus.ToFpsMod.fromCodename(files, scan, writer, info, progress)
+}
+
+class VSliceToFpsModViewModel(application: Application) : com.brenninhotools.vconverter.ui.reverse.ReverseModViewModel(application) {
+    override val targetSuffix: String = "fpsplus"
+
+    override fun runConversion(files: ModFiles, scan: com.brenninhotools.vconverter.reverse.VSliceModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        com.brenninhotools.vconverter.fpsplus.ToFpsMod.fromVSlice(files, scan, writer, info, progress)
+}

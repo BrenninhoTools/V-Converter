@@ -91,7 +91,7 @@ private fun Sidebar(state: AppState) {
                 Text("for Windows", style = MaterialTheme.typography.labelSmall, color = Palette.Muted)
             }
         }
-        EnginePicker("FROM", state.direction.from, Engine.entries, Engine.entries) { state.selectSource(it) }
+        EnginePicker("FROM", state.direction.from, Engine.entries.filter { it.canBeSource }, Engine.entries.filter { it.canBeSource }) { state.selectSource(it) }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val canSwap = state.direction.swapped() != null
             Box(
@@ -427,6 +427,7 @@ private fun ModScreen(state: AppState) {
                     Engine.CODENAME -> "Written to data/config/modpack.ini. The icon becomes icon.png."
                     Engine.VSLICE -> "Written to _polymod_meta.json. The icon becomes _polymod_icon.png."
                     Engine.NMV -> "Written to meta.json. The icon becomes images/pack.png."
+                    Engine.FPSPLUS -> "Written to meta.json with the uid and api_version FPS Plus needs. The icon becomes icon.png."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.Muted

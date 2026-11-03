@@ -120,6 +120,31 @@ class NmvTargetConverter(private val inner: FileConverter) : FileConverter() {
     }
 }
 
+class FpsTargetConverter(private val inner: FileConverter) : FileConverter() {
+    override val noun: String get() = inner.noun
+    override val engine: String get() = inner.engine
+
+    override fun downloadName(): String = inner.downloadName().substringBeforeLast('.').removeSuffix("-psych") + "-fpsplus.zip"
+
+    override fun read(file: ImportedFile): String = inner.read(file)
+
+    override fun accept(file: ImportedFile): Boolean = inner.accept(file)
+
+    override fun classify(file: ImportedFile, text: String): PickedText = inner.classify(file, text)
+
+    override fun canConvert(items: List<PickedText>): Boolean = inner.canConvert(items)
+
+    override fun build(items: List<PickedText>): ConvertedOutput {
+        val out = inner.build(items)
+        val collect = CollectWriter()
+        val fps = com.brenninhotools.vconverter.fpsplus.PsychToFpsWriter(collect, wholeMod = false)
+        out.files.forEach { it.writeTo(fps) }
+        val report = fps.finish()
+        val preview = collect.files.firstOrNull { it.bytes == null && it.name.endsWith(".hxc") }?.content ?: collect.files.firstOrNull { it.bytes == null }?.content ?: out.preview
+        return ConvertedOutput(collect.files, out.report + report, preview)
+    }
+}
+
 class PsychPassConverter(private val tab: NmvTab) : FileConverter() {
     override val noun: String = when (tab) {
         NmvTab.CHARTS -> "chart"
@@ -242,6 +267,10 @@ object NmvConverters {
             "psych" to "nmv" -> NmvTargetConverter(PsychPassConverter(tab))
             "vslice" to "nmv" -> NmvTargetConverter(vsliceToPsych())
             "codename" to "nmv" -> NmvTargetConverter(codenameToPsych())
+            "psych" to "fpsplus" -> FpsTargetConverter(PsychPassConverter(tab))
+            "nmv" to "fpsplus" -> FpsTargetConverter(NmvSourceConverter(PsychPassConverter(tab)))
+            "vslice" to "fpsplus" -> FpsTargetConverter(vsliceToPsych())
+            "codename" to "fpsplus" -> FpsTargetConverter(codenameToPsych())
             else -> throw IllegalArgumentException("No converter from $from to $to")
         }
     }

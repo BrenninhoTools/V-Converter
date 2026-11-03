@@ -32,6 +32,7 @@ import com.brenninhotools.vconverter.nmv.NmvModScanner
 import com.brenninhotools.vconverter.nmv.NmvTarget
 import com.brenninhotools.vconverter.nmv.NmvToMod
 import com.brenninhotools.vconverter.nmv.ToNmvMod
+import com.brenninhotools.vconverter.fpsplus.ToFpsMod
 import com.brenninhotools.vconverter.convert.FileConverter
 import com.brenninhotools.vconverter.convert.PickedText
 import com.brenninhotools.vconverter.convert.PsychCharactersConverter
@@ -72,14 +73,18 @@ enum class Engine(val label: String, val title: String, val detail: String, val 
     PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Palette.Left),
     CODENAME("CODENAME", "Codename Engine", "XML · HScript", Palette.Orange),
     VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Palette.Down),
-    NMV("NMV", "NightmareVision", "HScript · JSON", Palette.Purple);
+    NMV("NMV", "NightmareVision", "HScript · JSON", Palette.Purple),
+    FPSPLUS("FPS PLUS", "FPS Plus", "Polymod · .hxc", Palette.Right);
 
     val key: String get() = when (this) {
         PSYCH -> "psych"
         CODENAME -> "codename"
         VSLICE -> "vslice"
         NMV -> "nmv"
+        FPSPLUS -> "fpsplus"
     }
+
+    val canBeSource: Boolean get() = this != FPSPLUS
 }
 
 enum class Direction(val from: Engine, val to: Engine) {
@@ -93,7 +98,11 @@ enum class Direction(val from: Engine, val to: Engine) {
     NMV_TO_CODENAME(Engine.NMV, Engine.CODENAME),
     PSYCH_TO_NMV(Engine.PSYCH, Engine.NMV),
     VSLICE_TO_NMV(Engine.VSLICE, Engine.NMV),
-    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV);
+    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV),
+    PSYCH_TO_FPSPLUS(Engine.PSYCH, Engine.FPSPLUS),
+    VSLICE_TO_FPSPLUS(Engine.VSLICE, Engine.FPSPLUS),
+    CODENAME_TO_FPSPLUS(Engine.CODENAME, Engine.FPSPLUS),
+    NMV_TO_FPSPLUS(Engine.NMV, Engine.FPSPLUS);
 
     val label: String get() = "${from.title} to ${to.title}"
 
@@ -206,6 +215,7 @@ object Workspace {
             Tab.WEEKS -> "data/weeks/*.json and images/menus/story/characters/*.json."
             Tab.SCRIPTS -> ".hx scripts. Archives keep the folders, so songs/<song>/, data/scripts/, data/stages/, data/events/ and data/notetypes/ keep their scope."
         }
+        Engine.FPSPLUS -> ""
     }
 
     fun writeZip(target: File, prefix: String, body: (ModWriter) -> Unit) {
@@ -269,7 +279,8 @@ class LoadedMod(
                     ModConverter.readPack(files, scan),
                     files, archive
                 ) { writer, info, progress ->
-                    if (direction.to == Engine.NMV) ToNmvMod.fromPsych(files, scan, writer, info, progress)
+                    if (direction.to == Engine.FPSPLUS) ToFpsMod.fromPsych(files, scan, writer, info, progress)
+                    else if (direction.to == Engine.NMV) ToNmvMod.fromPsych(files, scan, writer, info, progress)
                     else if (direction.to == Engine.CODENAME) PsychToCodenameMod(files, scan, writer, progress).convert(info)
                     else ModConverter(files, scan, writer, progress).convert(info)
                 }
@@ -284,7 +295,8 @@ class LoadedMod(
                     CodenameModConverter.readModpack(files, scan),
                     files, archive
                 ) { writer, info, progress ->
-                    if (direction.to == Engine.NMV) ToNmvMod.fromCodename(files, scan, writer, info, progress)
+                    if (direction.to == Engine.FPSPLUS) ToFpsMod.fromCodename(files, scan, writer, info, progress)
+                    else if (direction.to == Engine.NMV) ToNmvMod.fromCodename(files, scan, writer, info, progress)
                     else if (direction.to == Engine.PSYCH) CodenameToPsychMod(files, scan, writer, progress).convert(info)
                     else CodenameModConverter(files, scan, writer, progress).convert(info)
                 }
@@ -299,7 +311,8 @@ class LoadedMod(
                     VSliceModScanner.readInfo(files, scan),
                     files, archive
                 ) { writer, info, progress ->
-                    if (direction.to == Engine.NMV) ToNmvMod.fromVSlice(files, scan, writer, info, progress)
+                    if (direction.to == Engine.FPSPLUS) ToFpsMod.fromVSlice(files, scan, writer, info, progress)
+                    else if (direction.to == Engine.NMV) ToNmvMod.fromVSlice(files, scan, writer, info, progress)
                     else VSliceModConverter(files, scan, writer, progress).convert(info)
                 }
             }
@@ -316,10 +329,12 @@ class LoadedMod(
                     NmvToMod(files, scan, writer, progress).convert(info, when (direction.to) {
                         Engine.VSLICE -> NmvTarget.VSLICE
                         Engine.CODENAME -> NmvTarget.CODENAME
+                        Engine.FPSPLUS -> NmvTarget.FPSPLUS
                         else -> NmvTarget.PSYCH
                     })
                 }
             }
+            Engine.FPSPLUS -> throw IllegalArgumentException("FPS Plus mods can only be a conversion target.")
         }
     }
 }
@@ -341,6 +356,7 @@ class ModTabState(val direction: Direction) {
         Engine.CODENAME -> "codename"
         Engine.VSLICE -> "vslice"
         Engine.NMV -> "nmv"
+        Engine.FPSPLUS -> "fpsplus"
     }
 
     fun accept(loaded: LoadedMod, source: File) {

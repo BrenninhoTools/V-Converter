@@ -26,6 +26,10 @@ class NmvModels(
     val fromPsych: PsychToNmvModViewModel,
     val fromVSlice: VSliceToNmvModViewModel,
     val fromCodename: CodenameToNmvModViewModel,
+    val nmvToFps: NmvToFpsModViewModel,
+    val psychToFps: PsychToFpsModViewModel,
+    val vsliceToFps: VSliceToFpsModViewModel,
+    val codenameToFps: CodenameToFpsModViewModel,
     val files: Map<Pair<Direction, Tab>, NmvFileViewModel>
 ) {
     fun mod(direction: Direction): BaseConverterViewModel = when (direction) {
@@ -34,6 +38,10 @@ class NmvModels(
         Direction.PSYCH_TO_NMV -> fromPsych
         Direction.VSLICE_TO_NMV -> fromVSlice
         Direction.CODENAME_TO_NMV -> fromCodename
+        Direction.NMV_TO_FPSPLUS -> nmvToFps
+        Direction.PSYCH_TO_FPSPLUS -> psychToFps
+        Direction.VSLICE_TO_FPSPLUS -> vsliceToFps
+        Direction.CODENAME_TO_FPSPLUS -> codenameToFps
         else -> toPsych
     }
 
@@ -42,7 +50,8 @@ class NmvModels(
 
 val nmvDirections = listOf(
     Direction.NMV_TO_PSYCH, Direction.NMV_TO_VSLICE, Direction.NMV_TO_CODENAME,
-    Direction.PSYCH_TO_NMV, Direction.VSLICE_TO_NMV, Direction.CODENAME_TO_NMV
+    Direction.PSYCH_TO_NMV, Direction.VSLICE_TO_NMV, Direction.CODENAME_TO_NMV,
+    Direction.PSYCH_TO_FPSPLUS, Direction.VSLICE_TO_FPSPLUS, Direction.CODENAME_TO_FPSPLUS, Direction.NMV_TO_FPSPLUS
 )
 
 private fun nmvTab(tab: Tab): NmvTab = when (tab) {
@@ -72,12 +81,24 @@ fun rememberNmvModels(): NmvModels {
         viewModel<PsychToNmvModViewModel>(),
         viewModel<VSliceToNmvModViewModel>(),
         viewModel<CodenameToNmvModViewModel>(),
+        viewModel<NmvToFpsModViewModel>(),
+        viewModel<PsychToFpsModViewModel>(),
+        viewModel<VSliceToFpsModViewModel>(),
+        viewModel<CodenameToFpsModViewModel>(),
         files
     )
 }
 
 fun nmvDescription(direction: Direction, tab: Tab): String {
     val target = direction.to.title
+    if (direction.to == Engine.FPSPLUS) return when (tab) {
+        Tab.MOD -> "A full ${direction.from.title} mod into an FPS Plus mod: charts, .hxc characters and stages, weeks, Freeplay and scripts."
+        Tab.CHARTS -> "${direction.from.title} charts into fpsplus_1 charts with events.json and meta.json."
+        Tab.CHARACTERS -> "${direction.from.title} characters into CharacterInfoBase classes (.hxc)."
+        Tab.STAGES -> "${direction.from.title} stages into BaseStage classes (.hxc) with their scripts."
+        Tab.WEEKS -> "${direction.from.title} weeks into FPS Plus weeks and story menu characters."
+        Tab.SCRIPTS -> "${direction.from.title} scripts (Lua too) into FPS Plus Script classes (.hxc)."
+    }
     return if (direction.from == Engine.NMV) when (tab) {
         Tab.MOD -> "A full NightmareVision mod into a $target mod: charts, HScript, characters, stages, weeks and audio."
         Tab.CHARTS -> "songs/<song>/charts (nmv2) into $target charts."
@@ -103,6 +124,7 @@ private fun hint(direction: Direction, tab: Tab): String = when (direction.from)
         Tab.WEEKS -> "Pick data/weeks/*.json and images/menus/story/characters/*.json."
         else -> "Pick .hx scripts. Archives keep the folders, so songs/<song>/, data/scripts/, data/stages/, data/events/ and data/notetypes/ keep their scope."
     }
+    Engine.FPSPLUS -> ""
     Engine.PSYCH -> when (tab) {
         Tab.CHARTS -> "Pick data/<song>/<song>-<difficulty>.json and events.json."
         Tab.CHARACTERS -> "Pick characters/*.json (and their .lua/.hx scripts)."
@@ -143,6 +165,23 @@ fun NmvTabScreen(models: NmvModels, direction: Direction, tab: Tab, folderName: 
                 infoNote = "Written to meta.json (read from data/config/modpack.ini). icon.png becomes images/pack.png.",
                 convertNote = "Download the converted mod as a .zip (unzip it into NightmareVision's content folder), or write it straight into an empty mod folder."
             )
+            Direction.PSYCH_TO_FPSPLUS -> ModScreen(
+                models.psychToFps, folderName, save,
+                intro = "Convert a whole Psych Engine mod to FPS Plus: charts, characters and stages as .hxc classes, weeks, Freeplay, Lua and HScript scripts, events, note types, icons, images and audio.",
+                infoNote = "Written to meta.json with the uid and api_version FPS Plus needs. pack.png becomes icon.png.",
+                convertNote = "Download the converted mod as a .zip (unzip it into FPS Plus's mods folder), or write it straight into an empty mod folder."
+            )
+            Direction.CODENAME_TO_FPSPLUS -> CodenameModScreen(
+                models.codenameToFps, folderName, save,
+                intro = "Convert a whole Codename Engine mod to FPS Plus: songs, characters and stages as .hxc classes, weeks, scripts, events, images and audio.",
+                infoNote = "Written to meta.json (read from data/config/modpack.ini) with the uid and api_version FPS Plus needs.",
+                convertNote = "Download the converted mod as a .zip (unzip it into FPS Plus's mods folder), or write it straight into an empty mod folder."
+            )
+            Direction.VSLICE_TO_FPSPLUS -> ReverseModScreen(
+                models.vsliceToFps, folderName, save,
+                intro = "Convert a whole V-Slice mod to FPS Plus: songs, characters and stages as .hxc classes, levels as weeks, scripts, images and audio.",
+                convertNote = "Download the converted mod as a .zip (unzip it into FPS Plus's mods folder), or write it straight into an empty mod folder."
+            )
             Direction.VSLICE_TO_NMV -> ReverseModScreen(
                 models.fromVSlice, folderName, save,
                 intro = "Convert a whole V-Slice mod to NightmareVision: songs (variations become their own songs), characters, stages, levels, .hxc scripts, images and audio.",
@@ -151,6 +190,7 @@ fun NmvTabScreen(models: NmvModels, direction: Direction, tab: Tab, folderName: 
             else -> {
                 val target = direction.to.title
                 val note = when (direction.to) {
+                    Engine.FPSPLUS -> "Written to meta.json with the uid and api_version FPS Plus needs."
                     Engine.VSLICE -> "Written to _polymod_meta.json (read from meta.json)."
                     Engine.CODENAME -> "Written to data/config/modpack.ini (read from meta.json)."
                     else -> "Written to pack.json (read from meta.json). The meta.json icon becomes pack.png."

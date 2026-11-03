@@ -110,7 +110,9 @@ class LuaToNmv(skipLines: Set<Int> = emptySet()) : LuaTranspiler(skipLines) {
             if (!defined && !spawn) return@forEach
             adapters.append("\nfunction ${bridge.nmv}(${bridge.params})\n{\n")
             if (spawn) adapters.append("  psychApplyNoteSets(note);\n")
-            if (defined) adapters.append("  return ${emitName("g_$lua")}(${bridge.args});\n") else adapters.append("  return null;\n")
+            val arity = methodNames["g_$lua"] ?: Int.MAX_VALUE
+            val args = bridge.args.split(", ").filter { it.isNotEmpty() }.take(arity).joinToString(", ")
+            if (defined) adapters.append("  return ${emitName("g_$lua")}($args);\n") else adapters.append("  return null;\n")
             adapters.append("}\n")
         }
         val callbackStubs = StringBuilder()

@@ -16,7 +16,7 @@ import com.brenninhotools.vconverter.mod.ModWriter
 import com.brenninhotools.vconverter.reverse.VSliceModConverter
 import com.brenninhotools.vconverter.reverse.VSliceModScan
 
-enum class NmvTarget { PSYCH, VSLICE, CODENAME }
+enum class NmvTarget { PSYCH, VSLICE, CODENAME, FPSPLUS }
 
 class NmvToMod(
     private val files: ModFiles,
@@ -25,11 +25,13 @@ class NmvToMod(
     private val onProgress: (ModProgress) -> Unit = {}
 ) {
     fun convert(info: ModInfo, target: NmvTarget): ModConversionResult {
+        if (target == NmvTarget.FPSPLUS) return com.brenninhotools.vconverter.fpsplus.ToFpsMod.fromNmv(files, scan, writer, info, onProgress)
         val view = NmvAsPsychFiles(files, scan)
         val result = when (target) {
             NmvTarget.PSYCH -> toPsych(view, info)
             NmvTarget.VSLICE -> ModConverter(view, ModScanner.scan(view), writer, onProgress).convert(info)
             NmvTarget.CODENAME -> PsychToCodenameMod(view, ModScanner.scan(view), writer, onProgress).convert(info)
+            NmvTarget.FPSPLUS -> throw IllegalStateException()
         }
         val notes = ReportBuilder()
         notes.section(

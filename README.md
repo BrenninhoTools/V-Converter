@@ -4,7 +4,7 @@
 
 # V-Converter
 
-**Convert Friday Night Funkin' mods between Psych Engine, V-Slice, Codename Engine and NightmareVision.**
+**Convert Friday Night Funkin' mods between Psych Engine, V-Slice, Codename Engine and NightmareVision, and into FPS Plus.**
 
 [![Build](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml)
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
@@ -21,14 +21,14 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, and between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions.
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions, and from any of them to [FPS Plus](https://github.com/ThatRozebudDude/FPS-Plus-Public).
 
 ## Contents
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
-- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision)
+- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision) · [FPS Plus](#fps-plus)
 - [Multieditor](#multieditor) · [PlayTest](#playtest) · [Online server](#online-server)
 - [Building](#building)
 
@@ -66,8 +66,9 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | Psych → Codename | Lua / HScript → Codename HScript |
 | Psych / V-Slice / Codename → NightmareVision | Lua / HScript → NightmareVision HScript |
 | NightmareVision → Psych / V-Slice / Codename | NightmareVision HScript → Psych HScript, then the usual conversion |
+| Psych / V-Slice / Codename / NightmareVision → FPS Plus | Lua / HScript → FPS Plus `Script` classes (`.hxc`) |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename**, **V-Slice** or **NMV**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename**, **V-Slice** or **NMV**; **FPS Plus** is a target only) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -365,6 +366,23 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `pack.json` + `pack.png` | `meta.json` + `images/pack.png` |
 | Lua | NightmareVision HScript: `onCreate` runs as `onLoad`, `goodNoteHit`/`noteMiss`/`onSpawnNote`/`onEventPushed` are bridged from NightmareVision's note and event objects, and every Psych function the script uses (sprites, text, tweens, timers, sounds, cameras, properties, groups, saves, shaders, keys…) is written into the script as a small helper. Lua sprites live in `game.variables`, so `getProperty` finds them from any script; `setPropertyFromGroup('unspawnNotes', …)` is applied when the note spawns |
 | Psych HScript | `onCreate` → `onLoad`, `ClientPrefs.data.*` → `ClientPrefs.*`, `Conductor.crochet` → `crotchet`, Psych imports mapped to `funkin.*` or dropped when NightmareVision already provides the class |
+
+---
+
+## FPS Plus
+
+[FPS Plus](https://github.com/ThatRozebudDude/FPS-Plus-Public) builds characters, stages and scripts as Polymod classes. Every tab converts **Psych / V-Slice / Codename / NightmareVision → FPS Plus**; V-Slice, Codename and NightmareVision content goes through the Psych converters first.
+
+| Psych | FPS Plus |
+| --- | --- |
+| `data/<song>/<song>-<diff>.json` | `data/songs/<song>/chart-<diff>.json` (`fpsplus_1`: notes with time, direction, length in steps, tag and side, BPM changes), `events.json` and `meta.json`. Section focus becomes `camFocusBf`/`camFocusDad`/`camFocusGf`, `Hey!`, `Play Animation`, `Set GF Speed`, `Add Camera Zoom`, `Change Character`, `Change Scroll Speed`, `Play Sound`, `Screen Shake` and `Camera Follow Pos` become FPS Plus events, and `Alt Animation`/`Hey!`/`No Animation` notes use FPS Plus's note types |
+| Custom events and note types | `data/events/PsychEvents.hxc` (each event calls `onEvent` in the converted scripts) and `data/notetypes/PsychNotes.hxc` (`Hurt Note` costs health) |
+| `characters/<id>.json` | `data/characters/<Id>.hxc` extending `CharacterInfoBase`: sprite, icon, health color, camera offset, animations with offsets (divided by the scale, which FPS Plus applies), scale and hold time; base game characters use FPS Plus's own classes |
+| `stages/<id>.json` (+ `.lua`/`.hx`) | `data/stages/<Id>.hxc` extending `BaseStage`: zoom, pixel UI, camera offsets, Psych 1.0 objects on the background, middle or foreground layer, characters placed where Psych puts them, and the stage script merged into the class; base game stages use FPS Plus's own |
+| `weeks/*.json`, `images/menucharacters`, `images/storymenu` | `data/weeks/*.json`, `images/menu/story/characters` (idle and confirm animations renamed) and `images/menu/story/weeks`; songs are added to Freeplay with `merge/data/freeplay/songList-bf.json` |
+| `images/icons/icon-<name>.png` | `images/ui/healthIcons/<name>.png` with the 3 frames FPS Plus uses (neutral, losing, winning) |
+| Lua and HScript | `Script` classes in `data/scripts`, listed in the song's `scripts.json` (song and character scripts) or in `append/data/scripts/globalScripts.txt`. Psych callbacks run from the class's `create`, `update`, `beat`, `step`, `noteHit`, `noteMiss`… and every Psych function the script uses is written into the class with `ReflectUtil` instead of `Reflect` |
+| `pack.json` + `pack.png` | `meta.json` (with `uid` and `api_version`) + `icon.png` |
 
 ---
 

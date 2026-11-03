@@ -54,6 +54,20 @@ object Platform {
     fun resourceBytes(name: String): ByteArray? =
         Platform::class.java.getResourceAsStream("/" + name.trimStart('/'))?.use { it.readBytes() }
 
+    fun inflate(data: ByteArray): ByteArray {
+        val inflater = java.util.zip.Inflater()
+        inflater.setInput(data)
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        while (!inflater.finished()) {
+            val n = inflater.inflate(buffer)
+            if (n == 0 && (inflater.needsInput() || inflater.needsDictionary())) break
+            out.write(buffer, 0, n)
+        }
+        inflater.end()
+        return out.toByteArray()
+    }
+
     fun errorName(error: Throwable): String = error.javaClass.simpleName
 
     fun stackTrace(error: Throwable): String = error.stackTraceToString()

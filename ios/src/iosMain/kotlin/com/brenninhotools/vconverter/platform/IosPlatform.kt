@@ -65,6 +65,8 @@ object Platform {
 
     fun randomId(): String = NSUUID().UUIDString.lowercase()
 
+    fun inflate(data: ByteArray): ByteArray = Inflate.inflate(data, 2, data.size - 2)
+
     fun background(block: () -> Unit) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(), 0u)) { block() }
     }
