@@ -4,7 +4,7 @@
 
 # V-Converter
 
-**Convert Friday Night Funkin' mods between Psych Engine, V-Slice and Codename Engine.**
+**Convert Friday Night Funkin' mods between Psych Engine, V-Slice, Codename Engine and NightmareVision.**
 
 [![Build](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml)
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
@@ -21,14 +21,14 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, and between Psych and Codename in both directions.
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, and between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions.
 
 ## Contents
 
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
-- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename)
+- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision)
 - [Multieditor](#multieditor) · [PlayTest](#playtest) · [Online server](#online-server)
 - [Building](#building)
 
@@ -64,8 +64,10 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | Codename → V-Slice | Codename HScript → `.hxc` |
 | Codename → Psych | Codename HScript → Psych HScript |
 | Psych → Codename | Lua / HScript → Codename HScript |
+| Psych / V-Slice / Codename → NightmareVision | Lua / HScript → NightmareVision HScript |
+| NightmareVision → Psych / V-Slice / Codename | NightmareVision HScript → Psych HScript, then the usual conversion |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename** or **V-Slice**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename**, **V-Slice** or **NMV**) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -345,6 +347,24 @@ Round trips (Psych → V-Slice → Psych) keep notes, sections, events, stage po
 | `weeks/*.json` + `images/menucharacters/*.json` | `data/weeks/weeks/*.xml` (song folders with display names), `data/weeks/weeks.txt`, `data/weeks/characters/*.xml`, `data/config/freeplaySonglist.txt` |
 | Lua and HScript | Codename HScript: Psych callbacks are bridged from Codename's (`goodNoteHitPre` → `onPlayerHit` with `return Function_Stop` cancelling), Lua sprites become shared `public var`s, `getProperty`/`setProperty`/tweens/timers/cameras/text/shaders/sounds/saves come with small Psych helper functions, `runHaxeCode` blocks are converted inline, `mustHitSection` reads the chart's camera events. Song scripts go to `songs/<song>/scripts/`, global ones to `songs/`, custom events to `data/events/`, note types to `data/notes/` |
 | Mod | `data/config/modpack.ini` from `pack.json`, audio moved to `songs/<song>/song/`, `pack.png` → `icon.png`, assets copied |
+
+---
+
+## NightmareVision
+
+[NightmareVision](https://github.com/NMVTeam/NightmareVision) is a Psych Engine fork that runs HScript only. Every tab converts **NightmareVision → Psych / V-Slice / Codename** and **Psych / V-Slice / Codename → NightmareVision**. NightmareVision content is read as Psych content first (and written from Psych content), so the V-Slice and Codename directions use the same converters as Psych.
+
+| Psych | NightmareVision |
+| --- | --- |
+| `data/<song>/<song>-<diff>.json` (`psych_v1` or legacy) | `songs/<song>/charts/<diff>.json` with `format: "nmv2"`, `keys` and `lanes`, plus `songs/<song>/meta.json`; `events.json` moves to `charts/`. nmv2 lanes are absolute (lane 0 is the player), so `psych_v1` notes keep their numbers; notes on extra lanes or keys are dropped when going to Psych |
+| `songs/<song>/Inst.ogg`, `Voices-Player`/`Voices-Opponent` | `songs/<song>/audio/Inst.ogg`, `Voices-player`/`Voices-opp` |
+| `characters/<id>.json` (+ `.lua`/`.hx`) | `data/characters/<id>.json` (+ `.hx`); `healthbar_colour` and the NightmareVision-only fields are handled |
+| `stages/<id>.json` (+ `.lua`/`.hx`) | `data/stages/<id>/data.json` with `stageObjects`, `zIndex` layering and `dad`/`gf`/`bfZIndex`, and `data/stages/<id>/script.hx` |
+| `weeks/*.json`, `images/menucharacters`, `images/storymenu`, `images/menubackgrounds` | `data/weeks/*.json`, `images/menus/story/characters`, `weeks`, `bgs` |
+| `scripts/`, `custom_events/`, `custom_notetypes/`, `data/<song>/` scripts | `data/scripts/`, `data/events/`, `data/notetypes/`, `songs/<song>/` |
+| `pack.json` + `pack.png` | `meta.json` + `images/pack.png` |
+| Lua | NightmareVision HScript: `onCreate` runs as `onLoad`, `goodNoteHit`/`noteMiss`/`onSpawnNote`/`onEventPushed` are bridged from NightmareVision's note and event objects, and every Psych function the script uses (sprites, text, tweens, timers, sounds, cameras, properties, groups, saves, shaders, keys…) is written into the script as a small helper. Lua sprites live in `game.variables`, so `getProperty` finds them from any script; `setPropertyFromGroup('unspawnNotes', …)` is applied when the note spawns |
+| Psych HScript | `onCreate` → `onLoad`, `ClientPrefs.data.*` → `ClientPrefs.*`, `Conductor.crochet` → `crotchet`, Psych imports mapped to `funkin.*` or dropped when NightmareVision already provides the class |
 
 ---
 

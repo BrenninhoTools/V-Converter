@@ -12,6 +12,7 @@ import com.brenninhotools.vconverter.io.Importer
 import com.brenninhotools.vconverter.io.TreeModFiles
 import com.brenninhotools.vconverter.io.TreeModWriter
 import com.brenninhotools.vconverter.mod.ModFiles
+import com.brenninhotools.vconverter.mod.ModConversionResult
 import com.brenninhotools.vconverter.mod.ModInfo
 import com.brenninhotools.vconverter.mod.ModProgress
 import com.brenninhotools.vconverter.reverse.VSliceModConverter
@@ -29,7 +30,12 @@ import kotlinx.coroutines.withContext
 
 data class LoadedVSliceMod(val sourceName: String, val files: ModFiles, val scan: VSliceModScan)
 
-class ReverseModViewModel(application: Application) : BaseConverterViewModel(application) {
+open class ReverseModViewModel(application: Application) : BaseConverterViewModel(application) {
+    protected open val targetSuffix: String = "psych"
+
+    protected open fun runConversion(files: ModFiles, scan: VSliceModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
+        VSliceModConverter(files, scan, writer, progress).convert(info)
+
     var mod by mutableStateOf<LoadedVSliceMod?>(null)
         private set
     var title by mutableStateOf("")
@@ -102,7 +108,7 @@ class ReverseModViewModel(application: Application) : BaseConverterViewModel(app
 
     override val canDownload: Boolean get() = mod != null
 
-    override fun downloadName(): String = ZipModWriter.folderName(title).replace(' ', '-') + "-psych.zip"
+    override fun downloadName(): String = ZipModWriter.folderName(title).replace(' ', '-') + "-$targetSuffix.zip"
 
     override fun zipPrefix(): String = ZipModWriter.folderName(title)
 
@@ -110,7 +116,7 @@ class ReverseModViewModel(application: Application) : BaseConverterViewModel(app
         val loaded = mod ?: throw IllegalStateException("Open a mod first.")
         result = null
         try {
-            val conversion = VSliceModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info())
+            val conversion = runConversion(loaded.files, loaded.scan, writer, info()) { _progress.value = it }
             result = conversion.report
         } finally {
             _progress.value = null
@@ -128,7 +134,7 @@ class ReverseModViewModel(application: Application) : BaseConverterViewModel(app
                 download = null
                 val conversion = withContext(Dispatchers.IO) {
                     val writer = TreeModWriter(context, modFolder)
-                    VSliceModConverter(loaded.files, loaded.scan, writer) { _progress.value = it }.convert(info)
+                    runConversion(loaded.files, loaded.scan, writer, info) { _progress.value = it }
                 }
                 result = conversion.report
                 status = StatusMessage.Success("Done! Wrote ${conversion.filesWritten} files into ${DocumentIO.folderName(context, modFolder)}.")

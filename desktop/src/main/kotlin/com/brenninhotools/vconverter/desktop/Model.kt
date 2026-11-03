@@ -25,6 +25,12 @@ import com.brenninhotools.vconverter.convert.CodenameToPsychStagesConverter
 import com.brenninhotools.vconverter.convert.CodenameToPsychWeeksConverter
 import com.brenninhotools.vconverter.convert.CodenameWeeksConverter
 import com.brenninhotools.vconverter.convert.ConvertedOutput
+import com.brenninhotools.vconverter.convert.NmvConverters
+import com.brenninhotools.vconverter.convert.NmvTab
+import com.brenninhotools.vconverter.nmv.NmvModScanner
+import com.brenninhotools.vconverter.nmv.NmvTarget
+import com.brenninhotools.vconverter.nmv.NmvToMod
+import com.brenninhotools.vconverter.nmv.ToNmvMod
 import com.brenninhotools.vconverter.convert.FileConverter
 import com.brenninhotools.vconverter.convert.PickedText
 import com.brenninhotools.vconverter.convert.PsychCharactersConverter
@@ -66,7 +72,15 @@ import java.io.FileOutputStream
 enum class Engine(val label: String, val title: String, val detail: String, val color: Color) {
     PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Palette.Left),
     CODENAME("CODENAME", "Codename Engine", "XML · HScript", Palette.Orange),
-    VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Palette.Down)
+    VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Palette.Down),
+    NMV("NMV", "NightmareVision", "HScript · JSON", Palette.Purple);
+
+    val key: String get() = when (this) {
+        PSYCH -> "psych"
+        CODENAME -> "codename"
+        VSLICE -> "vslice"
+        NMV -> "nmv"
+    }
 }
 
 enum class Direction(val from: Engine, val to: Engine) {
@@ -74,7 +88,13 @@ enum class Direction(val from: Engine, val to: Engine) {
     VSLICE_TO_PSYCH(Engine.VSLICE, Engine.PSYCH),
     CODENAME_TO_VSLICE(Engine.CODENAME, Engine.VSLICE),
     CODENAME_TO_PSYCH(Engine.CODENAME, Engine.PSYCH),
-    PSYCH_TO_CODENAME(Engine.PSYCH, Engine.CODENAME);
+    PSYCH_TO_CODENAME(Engine.PSYCH, Engine.CODENAME),
+    NMV_TO_PSYCH(Engine.NMV, Engine.PSYCH),
+    NMV_TO_VSLICE(Engine.NMV, Engine.VSLICE),
+    NMV_TO_CODENAME(Engine.NMV, Engine.CODENAME),
+    PSYCH_TO_NMV(Engine.PSYCH, Engine.NMV),
+    VSLICE_TO_NMV(Engine.VSLICE, Engine.NMV),
+    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV);
 
     val label: String get() = "${from.title} to ${to.title}"
 
@@ -145,6 +165,13 @@ object Workspace {
             Tab.WEEKS -> PsychToCodenameWeeksConverter()
             else -> PsychToCodenameScriptsConverter()
         }
+        else -> NmvConverters.create(direction.from.key, direction.to.key, when (tab) {
+            Tab.CHARTS -> NmvTab.CHARTS
+            Tab.CHARACTERS -> NmvTab.CHARACTERS
+            Tab.STAGES -> NmvTab.STAGES
+            Tab.WEEKS -> NmvTab.WEEKS
+            else -> NmvTab.SCRIPTS
+        })
     }
 
     fun hint(direction: Direction, tab: Tab): String = when (direction.from) {
@@ -171,6 +198,14 @@ object Workspace {
             Tab.STAGES -> "data/stages/*.json."
             Tab.WEEKS -> "data/levels/*.json plus the songs' -metadata.json files."
             Tab.SCRIPTS -> ".hxc scripts."
+        }
+        Engine.NMV -> when (tab) {
+            Tab.MOD -> "Pick the mod folder inside NightmareVision's content directory, or a .zip / .rar / .7z with the mod."
+            Tab.CHARTS -> "songs/<song>/charts/<difficulty>.json and events.json (keep the songs/<song>/charts folders)."
+            Tab.CHARACTERS -> "data/characters/*.json."
+            Tab.STAGES -> "data/stages/<stage>/data.json and script.hx."
+            Tab.WEEKS -> "data/weeks/*.json and images/menus/story/characters/*.json."
+            Tab.SCRIPTS -> ".hx scripts. Archives keep the folders, so songs/<song>/, data/scripts/, data/stages/, data/events/ and data/notetypes/ keep their scope."
         }
     }
 
@@ -235,7 +270,8 @@ class LoadedMod(
                     ModConverter.readPack(files, scan),
                     files, archive
                 ) { writer, info, progress ->
-                    if (direction.to == Engine.CODENAME) PsychToCodenameMod(files, scan, writer, progress).convert(info)
+                    if (direction.to == Engine.NMV) ToNmvMod.fromPsych(files, scan, writer, info, progress)
+                    else if (direction.to == Engine.CODENAME) PsychToCodenameMod(files, scan, writer, progress).convert(info)
                     else ModConverter(files, scan, writer, progress).convert(info)
                 }
             }
@@ -249,7 +285,8 @@ class LoadedMod(
                     CodenameModConverter.readModpack(files, scan),
                     files, archive
                 ) { writer, info, progress ->
-                    if (direction.to == Engine.PSYCH) CodenameToPsychMod(files, scan, writer, progress).convert(info)
+                    if (direction.to == Engine.NMV) ToNmvMod.fromCodename(files, scan, writer, info, progress)
+                    else if (direction.to == Engine.PSYCH) CodenameToPsychMod(files, scan, writer, progress).convert(info)
                     else CodenameModConverter(files, scan, writer, progress).convert(info)
                 }
             }
@@ -262,7 +299,27 @@ class LoadedMod(
                     scan.songs.map { it.id },
                     VSliceModScanner.readInfo(files, scan),
                     files, archive
-                ) { writer, info, progress -> VSliceModConverter(files, scan, writer, progress).convert(info) }
+                ) { writer, info, progress ->
+                    if (direction.to == Engine.NMV) ToNmvMod.fromVSlice(files, scan, writer, info, progress)
+                    else VSliceModConverter(files, scan, writer, progress).convert(info)
+                }
+            }
+            Engine.NMV -> {
+                val scan = NmvModScanner.scan(files)
+                require(!scan.isEmpty) { "No NightmareVision mod content was found in $name. Expected meta.json or folders like songs/<song>/charts, data/characters, data/stages or data/weeks." }
+                LoadedMod(
+                    name, scan.root,
+                    listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Weeks" to scan.weeks.size, "Scripts" to scan.scripts, "Assets" to scan.assets),
+                    scan.songs,
+                    NmvModScanner.readInfo(files, scan),
+                    files, archive
+                ) { writer, info, progress ->
+                    NmvToMod(files, scan, writer, progress).convert(info, when (direction.to) {
+                        Engine.VSLICE -> NmvTarget.VSLICE
+                        Engine.CODENAME -> NmvTarget.CODENAME
+                        else -> NmvTarget.PSYCH
+                    })
+                }
             }
         }
     }
@@ -284,6 +341,7 @@ class ModTabState(val direction: Direction) {
         Engine.PSYCH -> "psych"
         Engine.CODENAME -> "codename"
         Engine.VSLICE -> "vslice"
+        Engine.NMV -> "nmv"
     }
 
     fun accept(loaded: LoadedMod, source: File) {

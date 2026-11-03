@@ -35,7 +35,13 @@ import com.brenninhotools.vconverter.ui.theme.Funkin
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ReverseModScreen(viewModel: ReverseModViewModel, modFolderName: String?, onConvert: () -> Unit) {
+fun ReverseModScreen(
+    viewModel: ReverseModViewModel,
+    modFolderName: String?,
+    onConvert: () -> Unit,
+    intro: String = "Convert a whole V-Slice mod back to Psych Engine: songs (variations become their own songs), characters, stages, levels, .hxc scripts, images and audio.",
+    convertNote: String = "Download the converted mod as a .zip (unzip it into Psych Engine's mods folder), or write it straight into an empty mod folder."
+) {
     val accent = Funkin.Pink
     val busy = viewModel.busy
     val progress by viewModel.progress.collectAsState()
@@ -50,7 +56,7 @@ fun ReverseModScreen(viewModel: ReverseModViewModel, modFolderName: String?, onC
         FunkinCard {
             SectionTitle("V-Slice mod", accent, 1)
             Text(
-                "Convert a whole V-Slice mod back to Psych Engine: songs (variations become their own songs), characters, stages, levels, .hxc scripts, images and audio.",
+                intro,
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )
@@ -128,7 +134,7 @@ fun ReverseModScreen(viewModel: ReverseModViewModel, modFolderName: String?, onC
         FunkinCard(accent = if (viewModel.result != null) accent else null) {
             SectionTitle("Convert", accent, 3)
             Text(
-                "Download the converted mod as a .zip (unzip it into Psych Engine's mods folder), or write it straight into an empty mod folder.",
+                convertNote,
                 style = MaterialTheme.typography.bodySmall,
                 color = Funkin.Muted
             )

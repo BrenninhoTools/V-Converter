@@ -459,6 +459,7 @@ private fun ModScreen(state: AppState) {
                     Engine.PSYCH -> "Written to pack.json. The icon becomes pack.png."
                     Engine.CODENAME -> "Written to data/config/modpack.ini. The icon becomes icon.png."
                     Engine.VSLICE -> "Written to _polymod_meta.json. The icon becomes _polymod_icon.png."
+                    Engine.NMV -> "Written to meta.json. The icon becomes images/pack.png."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.Muted

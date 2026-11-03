@@ -201,13 +201,22 @@ enum class Tab(
             WEEKS -> "Psych weeks into week XMLs, weeks.txt and menu characters."
             SCRIPTS -> "Lua and HScript into Codename HScript with Psych helpers."
         }
+        else -> com.brenninhotools.vconverter.ui.nmv.nmvDescription(direction, this)
     }
 }
 
 enum class Engine(val label: String, val title: String, val detail: String, val color: Color) {
     PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Funkin.Left),
     CODENAME("CODENAME", "Codename Engine", "XML · HScript", Funkin.Orange),
-    VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Funkin.Down)
+    VSLICE("V-SLICE", "V-Slice", "Polymod · .hxc", Funkin.Down),
+    NMV("NMV", "NightmareVision", "HScript · JSON", Funkin.Purple);
+
+    val key: String get() = when (this) {
+        PSYCH -> "psych"
+        CODENAME -> "codename"
+        VSLICE -> "vslice"
+        NMV -> "nmv"
+    }
 }
 
 enum class Direction(val from: Engine, val to: Engine) {
@@ -215,7 +224,13 @@ enum class Direction(val from: Engine, val to: Engine) {
     VSLICE_TO_PSYCH(Engine.VSLICE, Engine.PSYCH),
     CODENAME_TO_VSLICE(Engine.CODENAME, Engine.VSLICE),
     CODENAME_TO_PSYCH(Engine.CODENAME, Engine.PSYCH),
-    PSYCH_TO_CODENAME(Engine.PSYCH, Engine.CODENAME);
+    PSYCH_TO_CODENAME(Engine.PSYCH, Engine.CODENAME),
+    NMV_TO_PSYCH(Engine.NMV, Engine.PSYCH),
+    NMV_TO_VSLICE(Engine.NMV, Engine.VSLICE),
+    NMV_TO_CODENAME(Engine.NMV, Engine.CODENAME),
+    PSYCH_TO_NMV(Engine.PSYCH, Engine.NMV),
+    VSLICE_TO_NMV(Engine.VSLICE, Engine.NMV),
+    CODENAME_TO_NMV(Engine.CODENAME, Engine.NMV);
 
     val label: String get() = "${from.title} to ${to.title}"
     val canSwap: Boolean get() = entries.any { it.from == to && it.to == from }
@@ -231,6 +246,7 @@ enum class Direction(val from: Engine, val to: Engine) {
             Engine.PSYCH -> PSYCH_TO_VSLICE
             Engine.VSLICE -> VSLICE_TO_PSYCH
             Engine.CODENAME -> CODENAME_TO_VSLICE
+            Engine.NMV -> NMV_TO_PSYCH
         }
 
         fun targets(engine: Engine): List<Engine> = entries.filter { it.from == engine }.map { it.to }
@@ -293,6 +309,7 @@ fun MainScreen() {
     val p2cStages: PsychToCodenameStagesViewModel = viewModel()
     val p2cWeeks: PsychToCodenameWeeksViewModel = viewModel()
     val p2cScripts: PsychToCodenameScriptsViewModel = viewModel()
+    val nmv = com.brenninhotools.vconverter.ui.nmv.rememberNmvModels()
     var direction by rememberSaveable { mutableStateOf(Direction.PSYCH_TO_VSLICE) }
 
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }
@@ -308,7 +325,8 @@ fun MainScreen() {
         Section.PLAYTEST -> playTab
     }
 
-    fun converterFor(target: AppTab): BaseConverterViewModel = if (direction == Direction.VSLICE_TO_PSYCH && target is Tab) when (target) {
+    fun converterFor(target: AppTab): BaseConverterViewModel = if (direction in com.brenninhotools.vconverter.ui.nmv.nmvDirections && target is Tab) nmv.forTab(direction, target)
+    else if (direction == Direction.VSLICE_TO_PSYCH && target is Tab) when (target) {
         Tab.MOD -> revMod
         Tab.CHARTS -> revCharts
         Tab.CHARACTERS -> revCharacters
@@ -463,7 +481,9 @@ fun MainScreen() {
                     }
                     TabHero(current, currentDirection)
                     Spacer(Modifier.size(16.dp))
-                    if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
+                    if (currentDirection in com.brenninhotools.vconverter.ui.nmv.nmvDirections && current is Tab) {
+                        com.brenninhotools.vconverter.ui.nmv.NmvTabScreen(nmv, currentDirection, current, folderName, save)
+                    } else if (currentDirection == Direction.CODENAME_TO_VSLICE && current is Tab) when (current) {
                         Tab.MOD -> CodenameModScreen(cnMod, folderName, save)
                         Tab.CHARTS -> ChartsScreen(cnCharts, folderName, save)
                         Tab.CHARACTERS -> ReverseScreen(cnCharacters, Funkin.Left, "Characters", "Add Codename characters", "Pick data/characters/*.xml with their spritesheet .xml (images/characters/…) for exact positions. Add <name>-dead.xml to merge the game over animations.", R.drawable.ic_tab_character, folderName, save, buttonText = "Convert to V-Slice")
