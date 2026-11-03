@@ -41,9 +41,10 @@ jobs:
         with:
           cache-read-only: false
           gradle-home-cache-cleanup: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleRelease -Pvconverter.modules=app
 
       - name: Name the APK
         run: |
@@ -75,10 +76,11 @@ jobs:
         with:
           cache-read-only: false
           gradle-home-cache-cleanup: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Build installer
         shell: bash
-        run: ./gradlew :desktop:packageExe
+        run: ./gradlew :desktop:packageExe -Pvconverter.modules=desktop
 
       - name: Name the installer
         shell: bash
@@ -111,9 +113,10 @@ jobs:
         with:
           cache-read-only: false
           gradle-home-cache-cleanup: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Build package and portable app
-        run: ./gradlew :desktop:packageDeb :desktop:createDistributable
+        run: ./gradlew :desktop:packageDeb :desktop:createDistributable -Pvconverter.modules=desktop
 
       - name: Name the builds
         run: |
@@ -148,9 +151,10 @@ jobs:
         with:
           cache-read-only: false
           gradle-home-cache-cleanup: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Build disk image and app
-        run: ./gradlew :desktop:packageDmg :desktop:createDistributable
+        run: ./gradlew :desktop:packageDmg :desktop:createDistributable -Pvconverter.modules=desktop
 
       - name: Name the builds
         run: |
@@ -185,6 +189,7 @@ jobs:
         with:
           cache-read-only: false
           gradle-home-cache-cleanup: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Cache Kotlin/Native
         uses: actions/cache@v4
@@ -194,7 +199,7 @@ jobs:
           restore-keys: konan-${{ runner.os }}-
 
       - name: Build the Kotlin framework
-        run: ./gradlew :ios:linkDebugFrameworkIosArm64 --no-configuration-cache --build-cache "-Dorg.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=768m"
+        run: ./gradlew :ios:linkDebugFrameworkIosArm64 -Pvconverter.modules=ios --no-configuration-cache --build-cache "-Dorg.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=768m"
 
       - name: Generate the Xcode project
         run: |

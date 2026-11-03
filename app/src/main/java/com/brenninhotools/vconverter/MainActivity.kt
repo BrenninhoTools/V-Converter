@@ -1,6 +1,8 @@
 package com.brenninhotools.vconverter
 
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -29,6 +31,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        requestLocalNetwork()
+    }
+
+    override fun onStop() {
+        com.brenninhotools.vconverter.ui.editor.AndroidSongPlayer.pauseAll()
+        super.onStop()
+    }
+
+    fun requestLocalNetwork() {
+        val url = Online.serverUrl
+        if (Build.VERSION.SDK_INT < 37 || localNetworkAsked == url) return
+        if (!isLocalAddress(url)) return
+        if (checkSelfPermission(LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED) return
+        localNetworkAsked = url
+        requestPermissions(arrayOf(LOCAL_NETWORK), 37)
+    }
+
+    private fun isLocalAddress(url: String): Boolean {
+        val host = runCatching { java.net.URI(url.trim()).host }.getOrNull()?.lowercase() ?: return false
+        if (host == "localhost" || host.endsWith(".local") || host.endsWith(".lan")) return true
+        val parts = host.split('.').mapNotNull { it.toIntOrNull() }
+        if (parts.size != 4) return false
+        return parts[0] == 10 || parts[0] == 127 || (parts[0] == 192 && parts[1] == 168) || (parts[0] == 172 && parts[1] in 16..31) || (parts[0] == 169 && parts[1] == 254)
+    }
+
     private fun setupOnline() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         Online.platform = "android"
@@ -53,5 +82,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         var crashHandlerInstalled = false
+        var localNetworkAsked: String? = null
+        const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 }

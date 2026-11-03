@@ -24,6 +24,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "V-Converter"
-include(":app")
-include(":desktop")
-if (System.getProperty("os.name").startsWith("Mac")) include(":ios")
+val modules = providers.gradleProperty("vconverter.modules").orNull?.split(',')?.map { it.trim() }?.toSet()
+fun wanted(name: String) = modules == null || name in modules
+if (wanted("app")) include(":app")
+if (wanted("desktop")) include(":desktop")
+if (wanted("ios") && System.getProperty("os.name").startsWith("Mac")) include(":ios")

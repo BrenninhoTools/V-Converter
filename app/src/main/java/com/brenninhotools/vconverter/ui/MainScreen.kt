@@ -566,7 +566,11 @@ fun MainScreen() {
         if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
     }
     }
-    if (optionsOpen) OptionsDialog(settings) { optionsOpen = false }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? com.brenninhotools.vconverter.MainActivity
+    if (optionsOpen) OptionsDialog(settings) {
+        optionsOpen = false
+        activity?.requestLocalNetwork()
+    }
     MenuMusic(settings.menuMusic, settings.musicVolume, suppressed = genSong.editor.playing)
     UiSounds(settings.uiSounds)
 }

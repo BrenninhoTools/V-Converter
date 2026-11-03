@@ -13,12 +13,12 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.brenninhotools.vconverter"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.brenninhotools.vconverter"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 4
         versionName = "0.0.2"
 

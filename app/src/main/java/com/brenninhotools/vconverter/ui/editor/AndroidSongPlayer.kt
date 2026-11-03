@@ -24,6 +24,10 @@ class AndroidSongPlayer private constructor(
     private var anchorClock = 0L
     private var lastReported = -1
 
+    init {
+        active += this
+    }
+
     override val duration: Double = players.maxOfOrNull { it.duration.toDouble() } ?: 0.0
     override val isPlaying: Boolean get() = playing && players.isNotEmpty()
 
@@ -71,6 +75,7 @@ class AndroidSongPlayer private constructor(
     }
 
     override fun release() {
+        active -= this
         playing = false
         players.forEach { runCatching { it.release() } }
         pool.release()
@@ -78,6 +83,12 @@ class AndroidSongPlayer private constructor(
     }
 
     companion object {
+        private val active = java.util.Collections.newSetFromMap(java.util.WeakHashMap<AndroidSongPlayer, Boolean>())
+
+        fun pauseAll() {
+            active.toList().forEach { if (it.isPlaying) it.pause() }
+        }
+
         fun create(context: Context, audio: List<EditorAudio>): AndroidSongPlayer {
             val folder = File(context.cacheDir, "editor-audio/${System.nanoTime()}").apply { mkdirs() }
             val players = audio.mapIndexedNotNull { index, track ->
