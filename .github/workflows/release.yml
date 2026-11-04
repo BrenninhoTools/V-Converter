@@ -38,6 +38,18 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      - name: Install the Android 17 SDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          if ! "$SDKMANAGER" --install "platforms;android-37" > /dev/null; then
+            PLATFORM=$("$SDKMANAGER" --list 2>/dev/null | grep -o "platforms;android-37[^ ]*" | head -n 1)
+            test -n "$PLATFORM"
+            "$SDKMANAGER" --install "$PLATFORM" > /dev/null
+            ln -sfn "$ANDROID_HOME/platforms/${PLATFORM#platforms;}" "$ANDROID_HOME/platforms/android-37"
+          fi
+          ls "$ANDROID_HOME/platforms"
+
       - name: Build release APK
         run: ./gradlew :app:assembleRelease -Pvconverter.modules=app
 
