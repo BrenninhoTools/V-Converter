@@ -15,7 +15,13 @@ import com.brenninhotools.vconverter.io.ExtractedArchive
 import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.Importer
 import com.brenninhotools.vconverter.io.OutputFile
+import com.brenninhotools.vconverter.mod.ModCancel
+import com.brenninhotools.vconverter.mod.ModCancelledException
+import com.brenninhotools.vconverter.mod.ModConversionResult
+import com.brenninhotools.vconverter.mod.ModProgress
+import com.brenninhotools.vconverter.mod.ModRun
 import com.brenninhotools.vconverter.mod.ModWriter
+import com.brenninhotools.vconverter.mod.ParallelModWriter
 import com.brenninhotools.vconverter.mod.ZipModWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,7 +92,7 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
                 download = file
                 status = null
             } catch (e: Exception) {
-                status = StatusMessage.Error(e.message ?: "Could not create the zip.")
+                status = failureMessage(e, "Could not create the zip.")
             }
         }
     }
@@ -112,6 +118,42 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
             }
         }
     }
+
+    private var modCancel: ModCancel? = null
+    var cancelling by mutableStateOf(false)
+        private set
+    var cancellable by mutableStateOf(false)
+        private set
+
+    fun cancelConversion() {
+        modCancel?.let {
+            it.cancel()
+            cancelling = true
+        }
+    }
+
+    protected fun runMod(
+        base: ModWriter,
+        parallel: Boolean,
+        progress: (ModProgress) -> Unit,
+        convert: (ModWriter, (ModProgress) -> Unit) -> ModConversionResult
+    ): ModConversionResult {
+        val cancel = ModCancel()
+        modCancel = cancel
+        cancelling = false
+        cancellable = true
+        try {
+            val wrap: (ModWriter) -> ModWriter = if (parallel) ({ writer -> ParallelModWriter(writer) }) else ({ writer -> writer })
+            return ModRun(progress, cancel).execute(base, wrap, convert)
+        } finally {
+            if (modCancel === cancel) modCancel = null
+            cancelling = false
+            cancellable = false
+        }
+    }
+
+    protected fun failureMessage(e: Exception, fallback: String): StatusMessage =
+        if (e is ModCancelledException) StatusMessage.Info("Conversion cancelled. Nothing else was written.") else StatusMessage.Error(e.message ?: fallback)
 
     protected fun runTask(block: suspend () -> Unit) {
         if (busy) return

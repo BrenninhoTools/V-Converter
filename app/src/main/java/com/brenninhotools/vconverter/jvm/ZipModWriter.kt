@@ -3,6 +3,7 @@ package com.brenninhotools.vconverter.mod
 import java.io.Closeable
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -24,6 +25,7 @@ class ZipModWriter(output: OutputStream, prefix: String = "") : ModWriter, Close
     private inline fun entry(path: String, body: () -> Unit) {
         val name = prefix + path.replace('\\', '/').trimStart('/')
         if (!written.add(name.lowercase())) return
+        zip.setLevel(if (name.substringAfterLast('.', "").lowercase() in packed) Deflater.NO_COMPRESSION else Deflater.DEFAULT_COMPRESSION)
         zip.putNextEntry(ZipEntry(name))
         body()
         zip.closeEntry()
@@ -34,6 +36,8 @@ class ZipModWriter(output: OutputStream, prefix: String = "") : ModWriter, Close
     }
 
     companion object {
+        private val packed = setOf("png", "jpg", "jpeg", "gif", "webp", "ogg", "mp3", "m4a", "flac", "mp4", "webm", "zip", "ttf", "otf")
+
         fun folderName(title: String): String =
             title.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "").trim().trim('.').ifEmpty { "V-Slice Mod" }
     }

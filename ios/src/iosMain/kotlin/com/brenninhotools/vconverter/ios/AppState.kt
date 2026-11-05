@@ -3,6 +3,8 @@ package com.brenninhotools.vconverter.ios
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.brenninhotools.vconverter.mod.ModCancel
+import com.brenninhotools.vconverter.mod.ModCancelledException
 import com.brenninhotools.vconverter.mod.ModConversionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -126,12 +128,15 @@ class AppState(private val scope: CoroutineScope) {
         state.busy = true
         state.report = null
         state.status = null
+        val cancel = ModCancel()
+        state.cancel = cancel
+        state.cancelling = false
         scope.launch {
             try {
                 val result: ModConversionResult = withContext(Dispatchers.IO) {
                     var converted: ModConversionResult? = null
-                    if (zip) Workspace.writeZip(target, state.folderName) { writer -> converted = loaded.run(writer, info) { state.progress = it } }
-                    else Workspace.writeFolder(target) { writer -> converted = loaded.run(writer, info) { state.progress = it } }
+                    if (zip) Workspace.writeZip(target, state.folderName) { writer -> converted = loaded.run(writer, info, cancel) { state.progress = it } }
+                    else Workspace.writeFolder(target) { writer -> converted = loaded.run(writer, info, cancel) { state.progress = it } }
                     converted ?: throw IllegalStateException("The conversion did not run.")
                 }
                 state.report = result.report
@@ -140,9 +145,11 @@ class AppState(private val scope: CoroutineScope) {
                 if (zip) Dialogs.export(target)
             } catch (e: Exception) {
                 if (zip) target.delete()
-                state.status = Status.Error(e.message ?: "The conversion stopped.")
+                state.status = if (e is ModCancelledException) Status.Info(if (zip) "Conversion cancelled. The zip was removed." else "Conversion cancelled. Files written before cancelling were kept in ${target.absolutePath}.") else Status.Error(e.message ?: "The conversion stopped.")
             } finally {
                 state.progress = null
+                state.cancel = null
+                state.cancelling = false
                 state.busy = false
             }
         }

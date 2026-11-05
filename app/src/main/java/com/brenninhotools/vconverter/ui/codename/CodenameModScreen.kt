@@ -6,21 +6,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.brenninhotools.vconverter.R
+import com.brenninhotools.vconverter.overlay.ModScannerPanel
+import com.brenninhotools.vconverter.overlay.ScannerColors
 import com.brenninhotools.vconverter.core.Report
 import com.brenninhotools.vconverter.core.ReportStat
 import com.brenninhotools.vconverter.ui.components.SaveActions
@@ -147,41 +141,12 @@ fun CodenameModScreen(
                 saveLabel = if (modFolderName != null) "Convert into $modFolderName" else "Convert into a mod folder"
             )
             progress?.let { current ->
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (current.total > 0) {
-                        LinearProgressIndicator(
-                            progress = { current.done.toFloat() / current.total },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = accent,
-                            trackColor = Funkin.SurfaceHigh
-                        )
-                    } else {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = accent,
-                            trackColor = Funkin.SurfaceHigh
-                        )
-                    }
-                    Row {
-                        Text(
-                            current.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Funkin.Muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (current.total > 0) {
-                            Text("${current.done}/${current.total}", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
-                        }
-                    }
-                }
+                ModScannerPanel(
+                    progress = current,
+                    colors = ScannerColors(accent, Funkin.Background, Funkin.SurfaceHigh, Funkin.Text, Funkin.Muted),
+                    onCancel = if (viewModel.cancellable) viewModel::cancelConversion else null,
+                    cancelling = viewModel.cancelling
+                )
             }
             StatusBanner(viewModel.status, viewModel::dismissStatus)
             viewModel.result?.let { ReportView(it, accent) }

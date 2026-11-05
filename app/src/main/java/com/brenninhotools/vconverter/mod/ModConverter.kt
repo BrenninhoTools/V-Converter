@@ -40,7 +40,18 @@ data class ModInfo(
     val version: String = "1.0.0"
 )
 
-data class ModProgress(val done: Int, val total: Int, val label: String)
+data class ModProgress(
+    val done: Int,
+    val total: Int,
+    val label: String,
+    val phase: String = "",
+    val written: Int = 0,
+    val skipped: Int = 0,
+    val counts: Map<ModCategory, Int> = emptyMap(),
+    val elapsedMs: Long = 0,
+    val etaMs: Long? = null,
+    val recent: List<String> = emptyList()
+)
 
 data class ModConversionResult(val filesWritten: Int, val report: Report)
 

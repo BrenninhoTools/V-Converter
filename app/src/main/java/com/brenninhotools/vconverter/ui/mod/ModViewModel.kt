@@ -115,7 +115,7 @@ open class ModViewModel(application: Application) : BaseConverterViewModel(appli
         val loaded = mod ?: throw IllegalStateException("Open a mod first.")
         result = null
         try {
-            val conversion = runConversion(loaded.files, loaded.scan, writer, info(), { _progress.value = it })
+            val conversion = runMod(writer, false, { _progress.value = it }) { w, p -> runConversion(loaded.files, loaded.scan, w, info(), p) }
             result = conversion.report
         } finally {
             _progress.value = null
@@ -133,12 +133,12 @@ open class ModViewModel(application: Application) : BaseConverterViewModel(appli
                 download = null
                 val conversion = withContext(Dispatchers.IO) {
                     val writer = TreeModWriter(context, modFolder)
-                    runConversion(loaded.files, loaded.scan, writer, info, { _progress.value = it })
+                    runMod(writer, true, { _progress.value = it }) { w, p -> runConversion(loaded.files, loaded.scan, w, info, p) }
                 }
                 result = conversion.report
                 status = StatusMessage.Success("Done! Wrote ${conversion.filesWritten} files into ${DocumentIO.folderName(context, modFolder)}.")
             } catch (e: Exception) {
-                status = StatusMessage.Error(e.message ?: "The conversion stopped.")
+                status = failureMessage(e, "The conversion stopped.")
             } finally {
                 _progress.value = null
             }

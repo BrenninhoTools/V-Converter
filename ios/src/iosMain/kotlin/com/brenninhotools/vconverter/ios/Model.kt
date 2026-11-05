@@ -58,7 +58,9 @@ import com.brenninhotools.vconverter.io.ImportedFile
 import com.brenninhotools.vconverter.io.OutputFile
 import com.brenninhotools.vconverter.mod.DirectoryModFiles
 import com.brenninhotools.vconverter.mod.DirectoryModWriter
+import com.brenninhotools.vconverter.mod.ModCancel
 import com.brenninhotools.vconverter.mod.ModConversionResult
+import com.brenninhotools.vconverter.mod.ModRun
 import com.brenninhotools.vconverter.mod.ModConverter
 import com.brenninhotools.vconverter.mod.ModFiles
 import com.brenninhotools.vconverter.mod.ModInfo
@@ -241,7 +243,8 @@ class LoadedMod(
     private val archive: ExtractedArchive?,
     private val runner: (ModWriter, ModInfo, (ModProgress) -> Unit) -> ModConversionResult
 ) {
-    fun run(writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit) = runner(writer, info, progress)
+    fun run(writer: ModWriter, info: ModInfo, cancel: ModCancel, progress: (ModProgress) -> Unit): ModConversionResult =
+        ModRun(progress, cancel).execute(writer) { target, report -> runner(target, info, report) }
 
     fun release() {
         archive?.delete()
@@ -348,6 +351,15 @@ class ModTabState(val direction: Direction) {
     var status by mutableStateOf<Status?>(null)
     var report by mutableStateOf<Report?>(null)
     var busy by mutableStateOf(false)
+    var cancel by mutableStateOf<ModCancel?>(null)
+    var cancelling by mutableStateOf(false)
+
+    fun cancelConversion() {
+        cancel?.let {
+            it.cancel()
+            cancelling = true
+        }
+    }
 
     val folderName: String get() = ZipModWriter.folderName(title.ifBlank { "Converted Mod" })
 

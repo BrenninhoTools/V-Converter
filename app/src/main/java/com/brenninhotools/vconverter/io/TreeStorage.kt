@@ -34,18 +34,26 @@ class TreeModFiles(context: Context, private val treeUri: Uri, onFound: (Int) ->
 
     init {
         val rootId = DocumentsContract.getTreeDocumentId(treeUri)
-        val pending = ArrayDeque<Pair<String, String>>()
-        pending += rootId to ""
-        while (pending.isNotEmpty()) {
-            val (id, prefix) = pending.removeFirst()
-            resolver.children(treeUri, id).forEach { child ->
-                if (child.isDirectory) {
-                    pending += child.id to "$prefix${child.name}/"
-                } else {
-                    entries["$prefix${child.name}"] = child.id to child.size
-                    if (entries.size % 50 == 0) onFound(entries.size)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        try {
+            var level = listOf(rootId to "")
+            while (level.isNotEmpty()) {
+                val listed = level.map { (id, prefix) -> pool.submit<List<Child>> { resolver.children(treeUri, id) } to prefix }
+                val next = ArrayList<Pair<String, String>>()
+                listed.forEach { (future, prefix) ->
+                    future.get().forEach { child ->
+                        if (child.isDirectory) {
+                            next += child.id to "$prefix${child.name}/"
+                        } else {
+                            entries["$prefix${child.name}"] = child.id to child.size
+                            if (entries.size % 50 == 0) onFound(entries.size)
+                        }
+                    }
                 }
+                level = next
             }
+        } finally {
+            pool.shutdown()
         }
     }
 
@@ -75,7 +83,7 @@ class TreeModWriter(context: Context, private val treeUri: Uri) : ModWriter {
     }
 
     private fun output(path: String) =
-        resolver.openOutputStream(fileUri(path), "wt") ?: throw IOException("Could not write $path")
+        resolver.openOutputStream(synchronized(this) { fileUri(path) }, "wt") ?: throw IOException("Could not write $path")
 
     private fun listing(directoryId: String): MutableMap<String, Child> =
         listings.getOrPut(directoryId) {

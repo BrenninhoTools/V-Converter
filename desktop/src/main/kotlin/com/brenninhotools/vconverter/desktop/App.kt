@@ -65,6 +65,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.brenninhotools.vconverter.core.CharacterSlot
 import com.brenninhotools.vconverter.core.Report
+import com.brenninhotools.vconverter.overlay.ModScannerPanel
+import com.brenninhotools.vconverter.overlay.ScannerColors
 
 private val logo = Resources.image("icon.png")
 
@@ -303,26 +305,6 @@ internal fun StatusBanner(status: Status?) {
     }
 }
 
-@Composable
-private fun Progress(done: Int, total: Int, label: String, accent: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (total > 0) {
-            LinearProgressIndicator(
-                progress = { done.toFloat() / total },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
-                color = accent,
-                trackColor = Palette.SurfaceHigh
-            )
-        } else {
-            LinearProgressIndicator(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)), color = accent, trackColor = Palette.SurfaceHigh)
-        }
-        Row {
-            Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            if (total > 0) Text("$done/$total", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        }
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ReportView(report: Report, accent: Color) {
@@ -445,7 +427,14 @@ private fun ModScreen(state: AppState) {
             Primary("Install into mods folder…", accent, mod.mod != null && !busy) { state.convertMod(zip = false) }
             Secondary("Save as .zip…", mod.mod != null && !busy) { state.convertMod(zip = true) }
         }
-        mod.progress?.let { Progress(it.done, it.total, it.label, accent) }
+        mod.progress?.let {
+            ModScannerPanel(
+                progress = it,
+                colors = ScannerColors(accent, Palette.Background, Palette.SurfaceHigh, Palette.Text, Palette.Muted),
+                onCancel = if (mod.cancel != null) mod::cancelConversion else null,
+                cancelling = mod.cancelling
+            )
+        }
         StatusBanner(mod.status)
         val written = state.lastOutput
         if (mod.report != null && written != null && written.exists()) {
