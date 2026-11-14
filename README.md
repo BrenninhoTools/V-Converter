@@ -441,6 +441,20 @@ or with Docker (`docker build -t v-converter-server server` and `docker run -p 3
 
 Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.
 
+
+## 🌍 Official Community Translations
+
+### 🇨🇳 Simplified Chinese (简体中文)
+
+The Simplified Chinese localization is officially recognized by the V-Converter project and maintained by **YLuzew**.
+
+- 🇨🇳 [Chinese Repository](https://github.com/YLuzew/V-Converter)
+- 📖 [Chinese Translation Information](CHINESE.md)
+- 🐛 [Report Translation Issues](https://github.com/YLuzew/V-Converter/issues)
+
+Special thanks to YLuzew for bringing V-Converter to the Chinese-speaking community!
+
+
 ## Building
 
 Android (debug and release APKs):
