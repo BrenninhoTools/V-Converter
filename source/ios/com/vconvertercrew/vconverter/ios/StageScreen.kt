@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.ios
 
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.*
 import com.vconvertercrew.vconverter.editorview.*
 import com.vconvertercrew.vconverter.platform.File
