@@ -22,6 +22,7 @@ import com.vconvertercrew.vconverter.mod.ModProgress
 import com.vconvertercrew.vconverter.mod.ModRun
 import com.vconvertercrew.vconverter.mod.ModWriter
 import com.vconvertercrew.vconverter.mod.ParallelModWriter
+import com.vconvertercrew.vconverter.vslice.VSlicePreview
 import com.vconvertercrew.vconverter.mod.ZipModWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -70,6 +71,12 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
 
     protected open fun zipPrefix(): String = ""
 
+    var vsliceTarget: Boolean = false
+
+    open val vsliceOutput: Boolean get() = vsliceTarget
+
+    protected open val wholeMod: Boolean get() = false
+
     protected open fun writeDownload(writer: ModWriter) {
         val result = output ?: throw IllegalStateException("Convert something first.")
         result.files.forEach { it.writeTo(writer) }
@@ -84,7 +91,7 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
                 val file = withContext(Dispatchers.IO) {
                     Downloads.write(context, name, picked) { stream ->
                         ZipModWriter(stream, zipPrefix()).use { zip ->
-                            writeDownload(zip)
+                            VSlicePreview.write(zip, vsliceOutput && !wholeMod) { writeDownload(it) }
                             zip.entries
                         }
                     }
@@ -111,7 +118,7 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
         val result = output ?: return
         runTask {
             try {
-                val written = withContext(Dispatchers.IO) { DocumentIO.writeFiles(context, modFolder, result.files) }
+                val written = withContext(Dispatchers.IO) { DocumentIO.writeFiles(context, modFolder, result.files, vsliceOutput) }
                 status = StatusMessage.Success("Saved ${written.size} file(s):\n" + written.joinToString("\n") { "• $it" })
             } catch (e: Exception) {
                 status = StatusMessage.Error(e.message ?: "Could not save the files.")
@@ -144,7 +151,7 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
         cancellable = true
         try {
             val wrap: (ModWriter) -> ModWriter = if (parallel) ({ writer -> ParallelModWriter(writer) }) else ({ writer -> writer })
-            return ModRun(progress, cancel).execute(base, wrap, convert)
+            return ModRun(progress, cancel).execute(base, wrap) { writer, report -> VSlicePreview.convert(writer, vsliceOutput) { target -> convert(target, report) } }
         } finally {
             if (modCancel === cancel) modCancel = null
             cancelling = false

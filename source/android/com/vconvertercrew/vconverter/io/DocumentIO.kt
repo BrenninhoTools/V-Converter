@@ -38,14 +38,24 @@ object DocumentIO {
         runCatching { context.contentResolver.takePersistableUriPermission(treeUri, flags) }
     }
 
-    fun writeFiles(context: Context, treeUri: Uri, files: List<OutputFile>): List<String> {
+    fun writeFiles(context: Context, treeUri: Uri, files: List<OutputFile>, vslice: Boolean = false): List<String> {
         if (DocumentFile.fromTreeUri(context, treeUri)?.canWrite() != true) {
             throw IOException("The mod folder is read-only or missing. Pick it again to grant access.")
         }
-        val writer = TreeModWriter(context, treeUri)
-        return files.map { file ->
-            file.writeTo(writer)
-            file.relativePath
+        val tree = TreeModWriter(context, treeUri)
+        val written = ArrayList<String>()
+        val recorder = object : com.vconvertercrew.vconverter.mod.ModWriter {
+            override fun writeText(path: String, text: String) {
+                tree.writeText(path, text)
+                written += path
+            }
+
+            override fun copy(path: String, source: () -> com.vconvertercrew.vconverter.platform.InputStream) {
+                tree.copy(path, source)
+                written += path
+            }
         }
+        com.vconvertercrew.vconverter.vslice.VSlicePreview.write(recorder, vslice) { writer -> files.forEach { it.writeTo(writer) } }
+        return written
     }
 }

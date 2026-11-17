@@ -319,6 +319,12 @@ fun MainScreen() {
     val p2cWeeks: PsychToCodenameWeeksViewModel = viewModel()
     val p2cScripts: PsychToCodenameScriptsViewModel = viewModel()
     val nmv = com.vconvertercrew.vconverter.ui.nmv.rememberNmvModels()
+    remember {
+        listOf(charts, characters, stages, weeks, mod, scripts, cnMod, cnCharts, cnCharacters, cnStages, cnWeeks, cnScripts, genMod, genScript)
+            .forEach { it.vsliceTarget = true }
+        Tab.entries.forEach { tab -> runCatching { nmv.forTab(Direction.NMV_TO_VSLICE, tab).vsliceTarget = true } }
+        true
+    }
     var direction by rememberSaveable { mutableStateOf(Direction.PSYCH_TO_VSLICE) }
 
     var section by rememberSaveable { mutableStateOf(Section.CONVERTER) }

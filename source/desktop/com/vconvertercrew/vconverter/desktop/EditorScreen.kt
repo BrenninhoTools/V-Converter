@@ -215,8 +215,8 @@ class DesktopEditor(private val scope: CoroutineScope) {
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    if (zip) Workspace.writeZip(target, "") { writer -> result.files.forEach { it.writeTo(writer) } }
-                    else Workspace.writeFolder(target) { writer -> result.files.forEach { it.writeTo(writer) } }
+                    if (zip) Workspace.writeZip(target, "", this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
+                    else Workspace.writeFolder(target, this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
                 }
                 status = Status.Success("Saved ${result.files.size} file(s) to ${target.absolutePath}")
                 onSaved(target)

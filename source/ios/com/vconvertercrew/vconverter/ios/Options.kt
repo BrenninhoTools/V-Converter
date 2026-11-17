@@ -78,7 +78,17 @@ object AppSettings {
         runCatching { prefs?.putBoolean("errorReports", value) }
     }
 
+    var vslicePreview by mutableStateOf(prefs?.getBoolean("vslicePreview", false) ?: false)
+        private set
+
+    fun updateVSlicePreview(value: Boolean) {
+        vslicePreview = value
+        com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = value
+        runCatching { prefs?.putBoolean("vslicePreview", value) }
+    }
+
     fun applyOnline() {
+        com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         com.vconvertercrew.vconverter.online.Online.platform = "ios"
         com.vconvertercrew.vconverter.online.Online.appVersion = APP_VERSION
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
@@ -115,6 +125,7 @@ fun OptionsButton() {
                 OptionToggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", AppSettings.fpsCounter, AppSettings::updateFpsCounter)
                 OptionToggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", AppSettings.uiSounds, AppSettings::updateUiSounds)
                 OptionToggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", AppSettings.menuMusic, AppSettings::updateMenuMusic)
+                OptionToggle("V-Slice: ${com.vconvertercrew.vconverter.vslice.VSlicePreview.LABEL}", "V-Slice output uses the Public PlayTest layout: gameplay/songs, gameplay/characters, gameplay/stages and ui/story-mode. Off keeps the 0.7 layout (data/, images/, songs/).", AppSettings.vslicePreview, AppSettings::updateVSlicePreview)
                 com.vconvertercrew.vconverter.editorview.TextValueField("Online server address", AppSettings.serverUrl, Modifier.widthIn(min = 260.dp)) { AppSettings.updateServerUrl(it) }
                 OptionToggle("Send Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", AppSettings.errorReports, AppSettings::updateErrorReports)
                 if (AppSettings.menuMusic) {

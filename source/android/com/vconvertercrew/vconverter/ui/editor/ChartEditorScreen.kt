@@ -67,6 +67,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
     var audio by mutableStateOf<List<EditorAudio>>(emptyList())
         private set
     var target by mutableStateOf(ExportTarget.VSLICE)
+    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
     var source by mutableStateOf("New song")
         private set
     var newName by mutableStateOf("")

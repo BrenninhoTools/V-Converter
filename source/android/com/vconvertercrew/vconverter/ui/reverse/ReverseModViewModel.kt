@@ -31,6 +31,8 @@ import kotlinx.coroutines.withContext
 data class LoadedVSliceMod(val sourceName: String, val files: ModFiles, val scan: VSliceModScan)
 
 open class ReverseModViewModel(application: Application) : BaseConverterViewModel(application) {
+    override val wholeMod: Boolean get() = true
+
     protected open val targetSuffix: String = "psych"
 
     protected open fun runConversion(files: ModFiles, scan: VSliceModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =
@@ -86,13 +88,14 @@ open class ReverseModViewModel(application: Application) : BaseConverterViewMode
         }
     }
 
-    private suspend fun accept(name: String, files: ModFiles, extracted: ExtractedArchive?) {
+    private suspend fun accept(name: String, raw: ModFiles, extracted: ExtractedArchive?) {
+        val files = com.vconvertercrew.vconverter.vslice.VSlicePreview.asStable(raw)
         val scan = withContext(Dispatchers.Default) { VSliceModScanner.scan(files) }
         releaseArchive()
         if (scan.isEmpty) {
             extracted?.delete()
             mod = null
-            status = StatusMessage.Error("No V-Slice mod content was found in $name. Expected _polymod_meta.json or folders like data/songs, data/characters, data/stages, data/levels or scripts.")
+            status = StatusMessage.Error("No V-Slice mod content was found in $name. Expected _polymod_meta.json or folders like data/songs, data/characters, data/stages, data/levels or scripts (or gameplay/songs, gameplay/characters, gameplay/stages and ui/story-mode/levels in Public PlayTest mods).")
             return
         }
         archive = extracted

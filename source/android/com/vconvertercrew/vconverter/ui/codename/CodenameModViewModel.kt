@@ -31,6 +31,8 @@ import kotlinx.coroutines.withContext
 data class LoadedCodenameMod(val sourceName: String, val files: ModFiles, val scan: CodenameModScan)
 
 open class CodenameModViewModel(application: Application) : BaseConverterViewModel(application) {
+    override val wholeMod: Boolean get() = true
+
     protected open val targetSuffix: String = "vslice"
 
     protected open fun runConversion(files: ModFiles, scan: CodenameModScan, writer: ModWriter, info: ModInfo, progress: (ModProgress) -> Unit): ModConversionResult =

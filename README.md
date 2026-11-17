@@ -28,7 +28,7 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 - [Download](#download)
 - [Supported conversions](#supported-conversions)
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
-- [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision) · [FPS Plus](#fps-plus)
+- [Psych → V-Slice](#psych--v-slice) · [V-Slice Preview (Public PlayTest)](#v-slice-preview-public-playtest) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision) · [FPS Plus](#fps-plus)
 - [Multieditor](#multieditor) · [PlayTest](#playtest) · [Online server](#online-server)
 - [Project layout](#project-layout) · [Audio (V-MiniAudio)](#audio-v-miniaudio) · [Building](#building)
 
@@ -287,6 +287,30 @@ Animate atlas sprites (`makeFlxAnimateSprite`, `loadAnimateAtlas`, `addAnimation
 The report lists, line by line, anything a script uses that has no V-Slice equivalent (custom substates, `addLuaScript`/`addHScript`, `saveFile`/`deleteFile`, dialogue, metatables, `unspawnNotes` tricks, callbacks such as `onNextDialogue` or `eventEarlyTrigger` that never run in V-Slice) so those parts can be finished by hand.
 
 ---
+
+## V-Slice Preview (Public PlayTest)
+
+The base game's `preview/public-playtest` builds (game version 0.8.x) moved every piece of content next to its data. Turn on **V-Slice: Preview (Public PlayTest)** in the options (the gear) and every V-Slice output (whole mods, the file tabs, the Generator and the editors' V-Slice exports) is written in that layout:
+
+| 0.7 layout | Public PlayTest layout |
+|---|---|
+| `data/songs/<song>/` charts and metadata, `songs/<song>/` audio, `scripts/songs/*.hxc` | `gameplay/songs/<song>/` (charts, metadata, `Inst`/`Voices` and the song script together) |
+| `data/characters/<id>.json` + `images/characters/<sprite>` + `images/icons/icon-<id>.png` | `gameplay/characters/<id>/` (`<id>.json`, the spritesheet or atlas and `icon-<id>.png`) |
+| `images/freeplay/icons/<id>pixel.png` | `ui/freeplay/characters/<id>.png` |
+| `data/stages/<id>.json` + prop images | `gameplay/stages/<id>/` (`<id>.json`, the props and the stage script) |
+| `data/levels/<id>.json`, `images/storymenu/titles/<id>.png`, `images/storymenu/props/` | `ui/story-mode/levels/<id>.json` and `<id>.png`, `ui/story-mode/props/` |
+| `data/dialogue/{boxes,conversations,speakers}/<id>.json` | `gameplay/dialogue/<type>/<id>/<id>.json` with its portraits |
+| `data/ui/freeplay/albums/<id>.json` | `ui/freeplay/albums/<id>.json` with the album art |
+| `data/players/`, `data/notestyles/`, `data/ui/freeplay/styles/`, `data/stickerpacks/` | `gameplay/playable-characters/<id>/`, `gameplay/notestyles/<id>/`, `ui/freeplay/styles/<id>/`, `ui/loading/stickers/stickerpacks/` |
+| `scripts/notekinds/`, `scripts/levels/`, `scripts/characters/`, `scripts/stages/` | `gameplay/notekinds/`, `ui/story-mode/levels/`, next to their character or stage |
+| `_merge/data/…` | `_merge/gameplay/…` / `_merge/ui/…` |
+
+- `assetPath`, `titleAsset`, `albumArtAsset` and `albumTitleAsset` are rewritten to the new paths.
+- `_polymod_meta.json` gets `api_version` 0.8.7.
+- Images that a script also loads by their old path keep a copy there.
+- Everything else (other images, sounds, music, modules, events) keeps its 0.7 path, which the PlayTest build still resolves through its compatibility layer (`funkin/modding/compat`).
+
+Public PlayTest mods also work as a **source**: when a V-Slice mod has `gameplay/songs`, `gameplay/characters`, `gameplay/stages` or `ui/story-mode/levels`, V-Converter reads it as a regular V-Slice mod, so V-Slice → Psych, Codename, NightmareVision and FPS Plus all accept it.
 
 ## V-Slice → Psych
 

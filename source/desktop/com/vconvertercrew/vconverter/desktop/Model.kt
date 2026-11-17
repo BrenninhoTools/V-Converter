@@ -72,6 +72,7 @@ import com.vconvertercrew.vconverter.reverse.VSliceModConverter
 import com.vconvertercrew.vconverter.reverse.VSliceModScanner
 import java.io.File
 import java.io.FileOutputStream
+import com.vconvertercrew.vconverter.vslice.VSlicePreview
 
 enum class Engine(val label: String, val title: String, val detail: String, val color: Color) {
     PSYCH("PSYCH", "Psych Engine", "Lua · HScript · JSON", Palette.Left),
@@ -222,16 +223,16 @@ object Workspace {
         Engine.FPSPLUS -> ""
     }
 
-    fun writeZip(target: File, prefix: String, body: (ModWriter) -> Unit) {
+    fun writeZip(target: File, prefix: String, vslice: Boolean = false, body: (ModWriter) -> Unit) {
         target.parentFile?.mkdirs()
         FileOutputStream(target).use { stream ->
-            ZipModWriter(stream, prefix).use { zip -> body(zip) }
+            ZipModWriter(stream, prefix).use { zip -> VSlicePreview.write(zip, vslice, body) }
         }
     }
 
-    fun writeFolder(target: File, body: (ModWriter) -> Unit) {
+    fun writeFolder(target: File, vslice: Boolean = false, body: (ModWriter) -> Unit) {
         target.mkdirs()
-        body(DirectoryModWriter(target))
+        VSlicePreview.write(DirectoryModWriter(target), vslice, body)
     }
 }
 
@@ -245,9 +246,10 @@ class LoadedMod(
     private val archive: ExtractedArchive?,
     private val runner: (ModWriter, ModInfo, (ModProgress) -> Unit) -> ModConversionResult
 ) {
+    var vsliceOutput: Boolean = false
     fun run(writer: ModWriter, info: ModInfo, cancel: ModCancel, parallel: Boolean, progress: (ModProgress) -> Unit): ModConversionResult {
         val wrap: (ModWriter) -> ModWriter = if (parallel) ({ target -> ParallelModWriter(target) }) else ({ target -> target })
-        return ModRun(progress, cancel).execute(writer, wrap) { target, report -> runner(target, info, report) }
+        return ModRun(progress, cancel).execute(writer, wrap) { target, report -> VSlicePreview.convert(target, vsliceOutput) { output -> runner(output, info, report) } }
     }
 
     fun release() {
@@ -268,7 +270,7 @@ class LoadedMod(
             }
             val name = source.name
             try {
-                return build(name, files, archive, direction)
+                return build(name, files, archive, direction).also { it.vsliceOutput = direction.to == Engine.VSLICE }
             } catch (e: Exception) {
                 archive?.delete()
                 throw e
@@ -309,8 +311,9 @@ class LoadedMod(
                 }
             }
             Engine.VSLICE -> {
+                val files = VSlicePreview.asStable(files)
                 val scan = VSliceModScanner.scan(files)
-                require(!scan.isEmpty) { "No V-Slice mod content was found in $name. Expected _polymod_meta.json or folders like data/songs, data/characters, data/stages or data/levels." }
+                require(!scan.isEmpty) { "No V-Slice mod content was found in $name. Expected _polymod_meta.json or folders like data/songs, data/characters, data/stages or data/levels (gameplay/songs, gameplay/characters, gameplay/stages or ui/story-mode/levels in Public PlayTest mods)." }
                 LoadedMod(
                     name, scan.root,
                     listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Levels" to scan.levels.size, "Scripts" to scan.scripts.size, "Assets" to scan.assets.size),

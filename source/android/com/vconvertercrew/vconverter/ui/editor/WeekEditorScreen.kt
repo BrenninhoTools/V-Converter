@@ -57,6 +57,7 @@ class WeekEditorViewModel(application: Application) : BaseConverterViewModel(app
     val editor = WeekEditorState(WeekDocument("new-week", "New Week"))
     val live = com.vconvertercrew.vconverter.editorview.LiveSession(com.vconvertercrew.vconverter.editorview.WeekLiveAdapter(editor) { asset -> decode(asset) }) { block -> android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
+    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
         private set
     var source by mutableStateOf("New week")
         private set

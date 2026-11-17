@@ -195,8 +195,9 @@ class AppState(private val scope: CoroutineScope) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        if (zip) Workspace.writeZip(target, "") { writer -> output.files.forEach { it.writeTo(writer) } }
-                        else Workspace.writeFolder(target) { writer -> output.files.forEach { it.writeTo(writer) } }
+                        val vslice = direction.to == Engine.VSLICE
+                        if (zip) Workspace.writeZip(target, "", vslice) { writer -> output.files.forEach { it.writeTo(writer) } }
+                        else Workspace.writeFolder(target, vslice) { writer -> output.files.forEach { it.writeTo(writer) } }
                     }
                     state.status = Status.Success("Saved ${output.files.size} file(s) to ${target.absolutePath}")
 if (zip) Dialogs.export(target)

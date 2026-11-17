@@ -91,7 +91,17 @@ class AppSettings(context: Context) {
         prefs.edit().putBoolean(KEY_REPORTS, value).apply()
     }
 
+    var vslicePreview by mutableStateOf(prefs.getBoolean(KEY_VSLICE_PREVIEW, false))
+        private set
+
+    fun updateVSlicePreview(value: Boolean) {
+        vslicePreview = value
+        com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = value
+        prefs.edit().putBoolean(KEY_VSLICE_PREVIEW, value).apply()
+    }
+
     init {
+        com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
     }
@@ -109,6 +119,7 @@ class AppSettings(context: Context) {
         const val KEY_VOLUME = "music_volume"
         const val KEY_SERVER = "server_url"
         const val KEY_REPORTS = "error_reports"
+        const val KEY_VSLICE_PREVIEW = "vslice_preview"
     }
 }
 
@@ -175,6 +186,13 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                 onChange = settings::updateMenuMusic,
                 accent = Funkin.Down,
                 hint = "Plays freakyMenu while you work. It pauses while the Chart Editor plays a song."
+            )
+            ToggleRow(
+                label = "V-Slice: ${com.vconvertercrew.vconverter.vslice.VSlicePreview.LABEL}",
+                checked = settings.vslicePreview,
+                onChange = settings::updateVSlicePreview,
+                accent = Funkin.Down,
+                hint = "V-Slice output uses the Public PlayTest layout: gameplay/songs, gameplay/characters, gameplay/stages and ui/story-mode. Off keeps the 0.7 layout (data/, images/, songs/)."
             )
             if (settings.menuMusic) {
                 Text("Music volume: ${(settings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)

@@ -32,6 +32,8 @@ import kotlinx.coroutines.withContext
 data class LoadedNmvMod(val sourceName: String, val files: ModFiles, val scan: NmvScan)
 
 abstract class NmvModViewModel(application: Application) : BaseConverterViewModel(application) {
+    override val wholeMod: Boolean get() = true
+
     abstract val target: NmvTarget
 
     private val targetSuffix: String get() = target.name.lowercase()
