@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vconvertercrew.vconverter.editor.AtlasFrame
 import com.vconvertercrew.vconverter.editor.SpriteAtlas
+import androidx.compose.ui.layout.onSizeChanged
+import com.vconvertercrew.vtouch.vMenuNavigation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -288,6 +290,7 @@ fun FunkinOptionsMenu(
         if (editing == null) runCatching { focus.requestFocus() }
     }
 
+    val area = remember { floatArrayOf(1280f, 720f) }
     Box(
         modifier
             .fillMaxSize()
@@ -307,43 +310,30 @@ fun FunkinOptionsMenu(
                 }
                 true
             }
-            .pointerInput(count, pages.size) {
-                detectTapGestures { tap ->
-                    if (editing != null) return@detectTapGestures
+            .onSizeChanged {
+                area[0] = it.width.toFloat()
+                area[1] = it.height.toFloat()
+            }
+            .vMenuNavigation(
+                key = count to pages.size,
+                step = { 120f * 1.3f * menuScale(area[0], area[1]) },
+                onMove = { move(it) },
+                onTap = { tap ->
                     if (backRect[0].contains(tap)) {
                         back()
-                        return@detectTapGestures
-                    }
-                    val hit = rects[0].indexOfFirst { it.contains(tap) }
-                    if (hit < 0) return@detectTapGestures
-                    if (hit == selected) accept() else {
-                        selected = hit
-                        UiSound.click()
-                    }
-                }
-            }
-            .pointerInput(count) {
-                detectVerticalDragGestures(onDragEnd = { dragged = 0f }) { change, amount ->
-                    change.consume()
-                    dragged += amount
-                    val stepSize = 120f * 1.3f * menuScale(size.width.toFloat(), size.height.toFloat())
-                    while (abs(dragged) > stepSize) {
-                        move(if (dragged > 0) -1 else 1)
-                        dragged -= if (dragged > 0) stepSize else -stepSize
-                    }
-                }
-            }
-            .pointerInput(count) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.type == PointerEventType.Scroll && editing == null) {
-                            val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                            if (delta > 0.2f) move(1) else if (delta < -0.2f) move(-1)
+                    } else {
+                        val hit = rects[0].indexOfFirst { it.contains(tap) }
+                        if (hit >= 0) {
+                            if (hit == selected) accept() else {
+                                selected = hit
+                                UiSound.click()
+                            }
                         }
                     }
-                }
-            }
+                },
+                onBack = { back() },
+                enabled = { editing == null }
+            )
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width

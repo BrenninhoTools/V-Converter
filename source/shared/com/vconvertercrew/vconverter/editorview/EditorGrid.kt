@@ -6,6 +6,13 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.vconvertercrew.vtouch.VContextItem
+import com.vconvertercrew.vtouch.VContextMenu
+import com.vconvertercrew.vtouch.vPinchPan
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -100,18 +107,37 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
 
     fun pxPerMs() = basePxPerMs * state.zoom
 
+    var menuAt by remember { mutableStateOf<Offset?>(null) }
+
     Box(
         modifier
             .onSizeChanged {
                 state.gridHeightPx = it.height.toFloat()
                 state.basePxPerMs = basePxPerMs
             }
+            .vPinchPan(
+                state,
+                onZoom = { factor, _ -> state.zoom = (state.zoom * factor).coerceIn(0.25f, 6f) },
+                onPan = { pan ->
+                    if (state.playing) state.togglePlay()
+                    state.scrollBy((-pan.y / pxPerMs()).toDouble())
+                }
+            )
             .pointerInput(state) {
-                detectTapGestures { offset ->
+                fun cell(offset: Offset): Pair<Double, Int> {
                     val playheadY = size.height * STRUMLINE
                     val time = state.position + (offset.y - playheadY) / pxPerMs()
                     val laneWidth = (size.width - eventLaneWidth) / 8f
                     val column = if (offset.x >= size.width - eventLaneWidth) -1 else (offset.x / laneWidth).toInt().coerceIn(0, 7)
+                    return time to column
+                }
+                detectTapGestures(
+                    onLongPress = { offset ->
+                        val (time, column) = cell(offset)
+                        if (time >= 0 && state.selectAt(time, column)) menuAt = offset
+                    }
+                ) { offset ->
+                    val (time, column) = cell(offset)
                     if (time >= 0) state.tap(time, column)
                 }
             }
@@ -263,6 +289,16 @@ fun EditorGrid(state: ChartEditorState, modifier: Modifier = Modifier, skin: Not
             }
             drawLine(EditorColors.playhead, Offset(0f, playheadY), Offset(size.width, playheadY), strokeWidth = 2.dp.toPx())
         }
+        VContextMenu(
+            menuAt,
+            listOfNotNull(
+                VContextItem("Delete") { state.deleteSelection() },
+                if (state.selectedNote != null) VContextItem("Shorter Hold") { state.changeHold(-1) } else null,
+                if (state.selectedNote != null) VContextItem("Longer Hold") { state.changeHold(1) } else null,
+                VContextItem("Clear Selection") { state.clearSelection() }
+            ),
+            onDismiss = { menuAt = null }
+        )
     }
 }
 

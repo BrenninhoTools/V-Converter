@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.vconvertercrew.vtouch.vPinchPan
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -53,6 +54,14 @@ fun StagePreview(state: StageEditorState, modifier: Modifier = Modifier) {
 
     Box(
         modifier
+            .vPinchPan(
+                state,
+                onZoom = { factor, _ -> state.zoom = (state.zoom * factor).coerceIn(0.05f, 4f) },
+                onPan = { pan ->
+                    state.camX -= pan.x / state.zoom
+                    state.camY -= pan.y / state.zoom
+                }
+            )
             .pointerInput(state) {
                 detectTapGestures { offset -> state.tap(offset.x, offset.y, size.width.toFloat(), size.height.toFloat()) }
             }

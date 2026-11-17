@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import com.vconvertercrew.vtouch.vPinchPan
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -86,6 +87,14 @@ fun CharacterPreview(state: CharacterEditorState, modifier: Modifier = Modifier,
 
     Box(
         modifier
+            .vPinchPan(
+                state,
+                onZoom = { factor, _ -> state.zoom = (state.zoom * factor).coerceIn(0.05f, 8f) },
+                onPan = { pan ->
+                    state.panX += pan.x
+                    state.panY += pan.y
+                }
+            )
             .pointerInput(state) {
                 detectDragGestures(
                     onDragStart = { if (state.dragMode != DragMode.VIEW) state.beginLiveEdit() },

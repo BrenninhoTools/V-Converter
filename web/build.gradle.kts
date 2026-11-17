@@ -22,7 +22,7 @@ kotlin {
 
     sourceSets {
         val wasmJsMain by getting {
-            kotlin.setSrcDirs(listOf(File(source, "shared"), File(source, "portable"), File(source, "web")))
+            kotlin.setSrcDirs(listOf(File(source, "v-converterui"), File(source, "v-touch"), File(source, "shared"), File(source, "portable"), File(source, "web")))
             resources.setSrcDirs(listOf(project.file("static"), rootProject.file("assets")))
             dependencies {
                 implementation(compose.runtime)

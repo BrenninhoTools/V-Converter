@@ -1,5 +1,9 @@
 package com.vconvertercrew.vconverter.desktop
 
+import com.vconvertercrew.vconverterui.VButton as Primary
+import com.vconvertercrew.vconverterui.VOutlineButton as Secondary
+import com.vconvertercrew.vconverterui.VCard as Card
+import com.vconvertercrew.vconverterui.VSectionTitle as SectionTitle
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -171,7 +175,7 @@ fun PlayTestScreen(state: AppState) {
                     play,
                     Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp)),
                     skin,
-                    touchLanes = false
+                    touchLanes = true
                 )
                 Text(
                     "Arrow keys or D F J K hit the notes, Space or Enter plays and pauses, B toggles botplay, Escape stops.",

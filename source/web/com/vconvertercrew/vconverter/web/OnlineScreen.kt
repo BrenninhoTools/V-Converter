@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.web
 
+import com.vconvertercrew.vconverterui.VCard as Card
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable

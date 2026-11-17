@@ -496,6 +496,8 @@ All the code lives in `source/`; the Gradle modules in `app/`, `desktop/`, `ios/
 | Folder | What it holds | Used by |
 |---|---|---|
 | `source/shared` | Converters, parsers, editors' logic and the Compose screens shared by every platform (`chartview`, `editorview`, `playview`, `onlineview`, `overlay`) | Android, desktop, iOS, web |
+| `source/v-converterui` | **V-ConverterUI**, the component library every app uses: theme and colors (`VColors`, `VConverterUITheme`), buttons, cards, chips, badges, text fields, status banners and the conversion report | Android, desktop, iOS, web |
+| `source/v-touch` | **V-Touch**, the touch framework: PlayTest hitbox and virtual pad (`VTouchControls`), pinch and two-finger pan in the editors (`vPinchPan`), long-press menus (`VContextMenu`) and menu navigation with swipe to go back (`vMenuNavigation`) | Android, desktop, iOS, web |
 | `source/portable` | Pure Kotlin platform code for the targets without a JVM: streams, ZIP reading and writing, mod folders and archives | iOS, web |
 | `source/jvm` | JVM-only code: ZIP/7z extraction, the JVM platform layer, the WebSocket client and the V-MiniAudio JNI binding | Android, desktop |
 | `source/android` | Android UI (`ui/`), `MainActivity`, Storage Access Framework code, `AndroidManifest.xml` and `res/` | Android |

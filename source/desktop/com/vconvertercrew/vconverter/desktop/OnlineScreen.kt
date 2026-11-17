@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.desktop
 
+import com.vconvertercrew.vconverterui.VCard as Card
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

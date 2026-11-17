@@ -78,7 +78,7 @@ kotlin {
         jvmTarget.set(JvmTarget.JVM_17)
     }
     sourceSets.named("main") {
-        kotlin.setSrcDirs(listOf(File(source, "shared"), File(source, "jvm"), File(source, "desktop")))
+        kotlin.setSrcDirs(listOf(File(source, "v-converterui"), File(source, "v-touch"), File(source, "shared"), File(source, "jvm"), File(source, "desktop")))
         resources.setSrcDirs(listOf(rootProject.file("assets"), nativeResources))
         resources.exclude("icons/desktop/**", "**/README.txt")
     }

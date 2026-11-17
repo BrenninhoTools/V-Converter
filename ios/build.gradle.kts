@@ -24,7 +24,7 @@ kotlin {
 
     sourceSets {
         iosMain {
-            kotlin.setSrcDirs(listOf(File(source, "shared"), File(source, "portable"), File(source, "ios")))
+            kotlin.setSrcDirs(listOf(File(source, "v-converterui"), File(source, "v-touch"), File(source, "shared"), File(source, "portable"), File(source, "ios")))
             dependencies {
                 implementation(compose.runtime)
                 implementation(compose.foundation)

@@ -98,12 +98,17 @@ object AppSettings {
         runCatching { prefs?.putBoolean("vslicePreview", value) }
     }
 
+    fun saveString(key: String, value: String) {
+        runCatching { prefs?.put(key, value) }
+    }
+
     fun applyOnline() {
         com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         com.vconvertercrew.vconverter.online.Online.platform = "ios"
         com.vconvertercrew.vconverter.online.Online.appVersion = APP_VERSION
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
+        com.vconvertercrew.vconverter.overlay.TouchOptions.load(com.vconvertercrew.vtouch.VTouchMode.HITBOX) { key -> prefs?.get(key, "")?.takeIf { it.isNotEmpty() } }
         com.vconvertercrew.vconverter.overlay.DiscordAccount.setup(
             prefs?.get("discordProfile", "") ?: "",
             store = { value -> runCatching { prefs?.put("discordProfile", value) } },
@@ -225,6 +230,7 @@ fun OptionsOverlay() {
     )
     val options = listOf(
         MenuOption.Submenu("Preferences", "FPS counter, sounds, music, the V-Slice layout, the online server and error reports.") { preferences },
+        com.vconvertercrew.vconverter.overlay.TouchOptions.submenu(AppSettings::saveString),
         discordOption { links.openUri(it) }
     )
     FunkinOptionsMenu(

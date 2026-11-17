@@ -166,6 +166,19 @@ class ChartEditorState(initial: ChartDocument) {
         selectedNote = note
     }
 
+    fun selectAt(time: Double, column: Int): Boolean {
+        val tolerance = max(document.conductor.stepMs(time) * 4.0 / snap, 30.0) * 0.6
+        eventDraftTime = null
+        if (column < 0) {
+            selectedNote = null
+            selectedEvent = document.eventsNear(time, tolerance).minByOrNull { abs(it.time - time) }
+            return selectedEvent != null
+        }
+        selectedEvent = null
+        selectedNote = document.noteAt(difficulty, time, if (column >= 4) column - 4 else column + 4, tolerance)
+        return selectedNote != null
+    }
+
     fun clearSelection() {
         selectedNote = null
         selectedEvent = null

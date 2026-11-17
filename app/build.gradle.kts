@@ -55,7 +55,7 @@ android {
     sourceSets {
         getByName("main") {
             manifest.srcFile("../source/android/AndroidManifest.xml")
-            java.setSrcDirs(listOf("../source/shared", "../source/jvm", "../source/android"))
+            java.setSrcDirs(listOf("../source/v-converterui", "../source/v-touch", "../source/shared", "../source/jvm", "../source/android"))
             res.setSrcDirs(listOf("../source/android/res"))
             assets.setSrcDirs(listOf("../assets"))
             resources.setSrcDirs(emptyList<String>())

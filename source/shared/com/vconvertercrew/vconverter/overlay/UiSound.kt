@@ -11,6 +11,10 @@ object UiSound {
     var enabled: Boolean = true
     var player: (() -> Unit)? = null
 
+    init {
+        com.vconvertercrew.vconverterui.VSound.onClick = { click() }
+    }
+
     fun click() {
         if (enabled) runCatching { player?.invoke() }
     }

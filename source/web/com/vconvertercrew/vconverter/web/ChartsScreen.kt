@@ -1,5 +1,8 @@
 package com.vconvertercrew.vconverter.web
 
+import com.vconvertercrew.vconverterui.VCard as Card
+import com.vconvertercrew.vconverterui.VSectionTitle as SectionTitle
+import com.vconvertercrew.vconverterui.VBadge as Chip
 import com.vconvertercrew.vconverter.overlay.UiSound
 import com.vconvertercrew.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background

@@ -1,5 +1,14 @@
 package com.vconvertercrew.vconverter.desktop
 
+import com.vconvertercrew.vconverterui.VButton as Primary
+import com.vconvertercrew.vconverterui.VOutlineButton as Secondary
+import com.vconvertercrew.vconverterui.VCard as Card
+import com.vconvertercrew.vconverterui.VSectionTitle as SectionTitle
+import com.vconvertercrew.vconverterui.VBadge as Chip
+import com.vconvertercrew.vconverter.overlay.ReportView
+import com.vconvertercrew.vconverter.overlay.Field
+import com.vconvertercrew.vconverterui.VStatusBanner
+import com.vconvertercrew.vconverterui.VStatusKind
 import com.vconvertercrew.vconverter.overlay.UiSound
 import com.vconvertercrew.vconverter.overlay.soundClickable
 import androidx.compose.foundation.BorderStroke
@@ -243,50 +252,10 @@ private fun Hero(state: AppState) {
     }
 }
 
-@Composable
-internal fun Card(accent: Color? = null, content: @Composable () -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
-    Column(
-        Modifier.fillMaxWidth().clip(shape).background(Palette.Surface)
-            .border(1.5.dp, accent?.copy(alpha = 0.6f) ?: Palette.Outline, shape)
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) { content() }
-}
 
-@Composable
-internal fun SectionTitle(text: String, accent: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(width = 4.dp, height = 18.dp).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(8.dp))
-        Text(text.uppercase(), style = MaterialTheme.typography.titleMedium, color = Palette.Text)
-    }
-}
 
-@Composable
-internal fun Primary(text: String, accent: Color, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(
-        onClick = UiSound.wrap(onClick),
-        enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Palette.Ink, disabledContainerColor = Palette.SurfaceHigh, disabledContentColor = Palette.Muted)
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
-}
 
-@Composable
-internal fun Secondary(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    OutlinedButton(onClick = UiSound.wrap(onClick), enabled = enabled, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.5.dp, Palette.Outline)) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) Palette.Text else Palette.Muted)
-    }
-}
 
-@Composable
-internal fun Chip(text: String, color: Color) {
-    Box(
-        Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.16f)).border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(50))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    ) { Text(text, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1) }
-}
 
 @Composable
 internal fun StatusBanner(status: Status?) {
@@ -294,85 +263,17 @@ internal fun StatusBanner(status: Status?) {
         if (status is Status.Error) com.vconvertercrew.vconverter.online.ErrorReports.send("conversion", status.text)
     }
     status ?: return
-    val color = when (status) {
-        is Status.Info -> Palette.Down
-        is Status.Success -> Palette.Up
-        is Status.Error -> Palette.Right
-    }
-    SelectionContainer {
-        Text(
-            status.text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Palette.Text,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.14f))
-                .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(12.dp)
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun ReportView(report: Report, accent: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (report.stats.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                report.stats.forEach { stat ->
-                    Column(
-                        Modifier.widthIn(min = 110.dp).clip(RoundedCornerShape(12.dp)).background(Palette.SurfaceHigh).padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Text(stat.value, style = MaterialTheme.typography.titleMedium, color = accent)
-                        Text(stat.label, style = MaterialTheme.typography.labelSmall, color = Palette.Muted)
-                    }
-                }
-            }
+    VStatusBanner(
+        status.text,
+        when (status) {
+            is Status.Info -> VStatusKind.INFO
+            is Status.Success -> VStatusKind.SUCCESS
+            is Status.Error -> VStatusKind.ERROR
         }
-        if (report.warnings.isNotEmpty()) {
-            SelectionContainer {
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Warning.copy(alpha = 0.10f)).padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("WARNINGS (${report.warnings.size})", style = MaterialTheme.typography.labelMedium, color = Palette.Warning)
-                    report.warnings.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
-                }
-            }
-        }
-        report.sections.forEach { section ->
-            var open by remember(section) { mutableStateOf(false) }
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.SurfaceHigh)) {
-                Row(
-                    Modifier.fillMaxWidth().soundClickable { open = !open }.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(if (open) "▾" else "▸", color = accent)
-                    Spacer(Modifier.width(8.dp))
-                    Text(section.title, style = MaterialTheme.typography.bodyMedium, color = Palette.Text, modifier = Modifier.weight(1f))
-                    Text("${section.lines.size}", style = MaterialTheme.typography.labelSmall, color = Palette.Muted)
-                }
-                if (open) {
-                    SelectionContainer {
-                        Column(Modifier.padding(start = 30.dp, end = 12.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            section.lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.Muted) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun Field(value: String, onChange: (String) -> Unit, label: String, accent: Color, enabled: Boolean) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        enabled = enabled,
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().typingField(),
-        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, focusedLabelColor = accent, cursorColor = accent)
     )
 }
+
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

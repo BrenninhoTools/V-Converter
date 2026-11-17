@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.playview
 
+import com.vconvertercrew.vtouch.VTouchControls
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -57,27 +58,7 @@ fun PlayTestView(state: PlayTestState, modifier: Modifier = Modifier, skin: Note
     LaunchedEffect(state.phase) {
         while (state.phase == PlayPhase.PLAYING) withFrameNanos { state.tick(it) }
     }
-    Box(
-        modifier.pointerInput(touchLanes) {
-            if (!touchLanes) return@pointerInput
-            val lanes = HashMap<PointerId, Int>()
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    event.changes.forEach { change ->
-                        val lane = ((change.position.x / size.width.coerceAtLeast(1)) * 4).toInt().coerceIn(0, 3)
-                        if (change.pressed && !change.previousPressed) {
-                            lanes[change.id] = lane
-                            state.press(lane)
-                        } else if (!change.pressed && change.previousPressed) {
-                            lanes.remove(change.id)?.let { state.release(it) }
-                        }
-                        change.consume()
-                    }
-                }
-            }
-        }
-    ) {
+    Box(modifier) {
         Canvas(Modifier.matchParentSize()) {
             state.frames
             state.phase
@@ -89,6 +70,7 @@ fun PlayTestView(state: PlayTestState, modifier: Modifier = Modifier, skin: Note
                 drawHud(state, screen, skin, measurer)
             }
         }
+        if (touchLanes) VTouchControls(onPress = { state.press(it) }, onRelease = { state.release(it) }, modifier = Modifier.matchParentSize())
     }
 }
 

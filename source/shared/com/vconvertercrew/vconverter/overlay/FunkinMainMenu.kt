@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.onSizeChanged
+import com.vconvertercrew.vtouch.vMenuNavigation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -148,6 +150,7 @@ fun FunkinMainMenu(
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
+    val area = remember { floatArrayOf(1280f, 720f) }
     Box(
         modifier
             .fillMaxSize()
@@ -165,39 +168,27 @@ fun FunkinMainMenu(
                 }
                 true
             }
-            .pointerInput(entries.size) {
-                detectTapGestures { tap ->
-                    if (confirming != null) return@detectTapGestures
-                    val hit = rects[0].indexOfFirst { it.contains(tap) }
-                    if (hit < 0) return@detectTapGestures
-                    if (hit == selected) accept() else {
-                        selected = hit
-                        UiSound.click()
-                    }
-                }
+            .onSizeChanged {
+                area[0] = it.width.toFloat()
+                area[1] = it.height.toFloat()
             }
-            .pointerInput(entries.size) {
-                detectVerticalDragGestures(onDragEnd = { dragged = 0f }) { change, amount ->
-                    change.consume()
-                    dragged += amount
-                    val step = ITEM_SPACING * mainMenuScale(size.width.toFloat(), size.height.toFloat()) * 0.6f
-                    while (abs(dragged) > step) {
-                        shift(if (dragged > 0) -1 else 1)
-                        dragged -= if (dragged > 0) step else -step
-                    }
-                }
-            }
-            .pointerInput(entries.size) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.type == PointerEventType.Scroll) {
-                            val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                            if (delta > 0.2f) shift(1) else if (delta < -0.2f) shift(-1)
+            .vMenuNavigation(
+                key = entries.size,
+                step = { ITEM_SPACING * mainMenuScale(area[0], area[1]) * 0.6f },
+                onMove = { shift(it) },
+                onTap = { tap ->
+                    if (confirming == null) {
+                        val hit = rects[0].indexOfFirst { it.contains(tap) }
+                        if (hit >= 0) {
+                            if (hit == selected) accept() else {
+                                selected = hit
+                                UiSound.click()
+                            }
                         }
                     }
-                }
-            }
+                },
+                onBack = { onBack?.invoke() }
+            )
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width

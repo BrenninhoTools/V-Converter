@@ -104,7 +104,12 @@ class AppSettings(context: Context) {
         prefs.edit().putBoolean(KEY_VSLICE_PREVIEW, value).apply()
     }
 
+    fun saveString(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
     init {
+        com.vconvertercrew.vconverter.overlay.TouchOptions.load { prefs.getString(it, null) }
         com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
@@ -181,6 +186,7 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
         )
         val options = listOf(
             MenuOption.Submenu("Preferences", "FPS counter, touch cursor, sounds, music, the V-Slice layout, the online server and error reports.") { preferences },
+            com.vconvertercrew.vconverter.overlay.TouchOptions.submenu(settings::saveString),
             com.vconvertercrew.vconverter.overlay.discordOption { links.openUri(it) }
         )
         FunkinOptionsMenu(

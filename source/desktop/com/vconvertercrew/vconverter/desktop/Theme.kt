@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.desktop
 
+import com.vconvertercrew.vconverterui.VColors
+import com.vconvertercrew.vconverterui.VConverterUITheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -12,26 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.sp
 
-object Palette {
-    val Background = Color(0xFF0F0C18)
-    val Surface = Color(0xFF1A1528)
-    val SurfaceHigh = Color(0xFF241D38)
-    val Outline = Color(0xFF3A3052)
-    val Text = Color(0xFFF5F1FF)
-    val Muted = Color(0xFFA79CC4)
-    val Ink = Color(0xFF07050C)
-
-    val Left = Color(0xFFC24B99)
-    val Down = Color(0xFF00E5FF)
-    val Up = Color(0xFF3DDC4A)
-    val Right = Color(0xFFF9393F)
-    val Warning = Color(0xFFFFC24B)
-
-    val Pink = Color(0xFFFF2D95)
-    val Purple = Color(0xFF7B2FF7)
-    val Lavender = Color(0xFFB98CFF)
-    val Orange = Color(0xFFFF9A3C)
-}
+val Palette: VColors = VColors.Funkin
 
 object Resources {
     fun bytes(path: String): ByteArray? = Resources::class.java.classLoader.getResourceAsStream(path)?.use { it.readBytes() }
@@ -82,5 +65,5 @@ private val AppTypography = Typography(
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = Colors, typography = AppTypography, content = content)
+    VConverterUITheme(Palette, AppTypography, content)
 }

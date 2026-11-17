@@ -332,62 +332,9 @@ fun StatusBanner(status: StatusMessage?, onDismiss: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReportView(report: Report, accent: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (report.stats.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                report.stats.forEach { stat ->
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Funkin.SurfaceHigh)
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
-                    ) {
-                        Text(stat.value, style = MaterialTheme.typography.titleLarge, color = accent)
-                        Text(stat.label, style = MaterialTheme.typography.labelSmall, color = Funkin.Muted)
-                    }
-                }
-            }
-        }
-        if (report.warnings.isNotEmpty()) {
-            val shape = RoundedCornerShape(16.dp)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(Funkin.Warning.copy(alpha = 0.10f))
-                    .border(1.5.dp, Funkin.Warning.copy(alpha = 0.5f), shape)
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(R.drawable.ic_warning), contentDescription = null, tint = Funkin.Warning, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("HEADS UP", style = MaterialTheme.typography.labelMedium, color = Funkin.Warning)
-                }
-                report.warnings.forEach { warning ->
-                    Text("• $warning", style = MaterialTheme.typography.bodySmall, color = Funkin.Text)
-                }
-            }
-        }
-        report.sections.forEach { section ->
-            Collapsible(
-                title = section.title,
-                count = section.lines.size,
-                accent = accent,
-                startOpen = section.lines.size <= 3
-            ) {
-                section.lines.forEach { line ->
-                    Text("• $line", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
-                }
-            }
-        }
-    }
+    com.vconvertercrew.vconverter.overlay.ReportView(report, accent)
 }
 
 @Composable
