@@ -36,3 +36,6 @@ local.properties
 captures/
 *.apk
 *.aab
+.cxx/
+.externalNativeBuild/
+__pycache__/

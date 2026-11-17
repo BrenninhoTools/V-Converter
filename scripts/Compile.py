@@ -13,46 +13,65 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 BUILD_DIR = ROOT_DIR / "build"
 
+NATIVE_DIR = ROOT_DIR / "source" / "native"
+
 SUPPORTED_PLATFORMS = [
     "android",
     "windows",
     "linux",
     "macos",
     "ios",
-    "web",
     "desktop",
+    "native",
+    "test",
     "all"
 ]
 
+PLATFORM_MODULES = {
+    "android": "app",
+    "windows": "desktop",
+    "linux": "desktop",
+    "macos": "desktop",
+    "desktop": "desktop",
+    "ios": "ios",
+    "test": "app"
+}
+
 PLATFORM_TASKS = {
     "android": {
-        "debug": "assembleDebug",
-        "release": "assembleRelease"
+        "debug": ":app:assembleDebug",
+        "release": ":app:assembleRelease"
     },
     "windows": {
-        "debug": "packageDebugDistributionForCurrentOS",
-        "release": "packageReleaseDistributionForCurrentOS"
+        "debug": ":desktop:packageExe",
+        "release": ":desktop:packageReleaseExe"
     },
     "linux": {
-        "debug": "packageDebugDistributionForCurrentOS",
-        "release": "packageReleaseDistributionForCurrentOS"
+        "debug": ":desktop:packageDeb",
+        "release": ":desktop:packageReleaseDeb"
     },
     "macos": {
-        "debug": "packageDebugDistributionForCurrentOS",
-        "release": "packageReleaseDistributionForCurrentOS"
+        "debug": ":desktop:packageDmg",
+        "release": ":desktop:packageReleaseDmg"
     },
     "desktop": {
-        "debug": "run",
-        "release": "packageDistributionForCurrentOS"
+        "debug": ":desktop:run",
+        "release": ":desktop:createReleaseDistributable"
     },
     "ios": {
-        "debug": "linkDebugFrameworkIosArm64",
-        "release": "linkReleaseFrameworkIosArm64"
+        "debug": ":ios:linkDebugFrameworkIosArm64",
+        "release": ":ios:linkReleaseFrameworkIosArm64"
     },
-    "web": {
-        "debug": "jsBrowserDevelopmentWebpack",
-        "release": "jsBrowserProductionWebpack"
+    "test": {
+        "debug": ":app:testDebugUnitTest",
+        "release": ":app:testReleaseUnitTest"
     }
+}
+
+HOST_NAMES = {
+    "windows": "windows",
+    "linux": "linux",
+    "darwin": "macos"
 }
 
 
@@ -164,8 +183,13 @@ class BuildSystem:
             Logger.error(str(error))
             return False
 
-    def gradle_command(self, task):
+    def gradle_command(self, task, target=None):
         command = self.gradle + [task]
+
+        module = PLATFORM_MODULES.get(target)
+
+        if module:
+            command.append(f"-Pvconverter.modules={module}")
 
         if self.args.offline:
             command.append("--offline")
@@ -191,6 +215,9 @@ class BuildSystem:
         return self.execute(self.gradle_command("clean"))
 
     def get_task(self, target):
+        if target == "native":
+            return "native"
+
         if self.args.task:
             return self.args.task
 
@@ -207,28 +234,57 @@ class BuildSystem:
 
         task = self.get_task(target)
 
+        if task == "native":
+            return self.build_native()
+
         if not task:
             Logger.error(f"No Gradle task defined for {target}.")
             return False
 
         if target in ("windows", "linux", "macos"):
-            if target != self.system:
+            if target != HOST_NAMES.get(self.system):
                 Logger.error(
                     f"{target} packaging requires a compatible host."
                 )
                 return False
 
-        return self.execute(self.gradle_command(task))
+        if target == "ios" and self.system != "darwin":
+            Logger.error("iOS builds require macOS and Xcode.")
+            return False
+
+        return self.execute(self.gradle_command(task, target))
+
+    def build_native(self):
+        cmake = shutil.which("cmake")
+
+        if not cmake:
+            Logger.error("CMake was not found in PATH.")
+            return False
+
+        native_build = BUILD_DIR / "v-miniaudio"
+
+        steps = [
+            [cmake, "-S", str(NATIVE_DIR / "v-miniaudio"), "-B", str(native_build), "-DVMA_BUILD_TESTS=ON", "-DCMAKE_BUILD_TYPE=Release"],
+            [cmake, "--build", str(native_build), "--config", "Release", "--parallel"],
+            ["ctest", "--test-dir", str(native_build), "--output-on-failure", "-C", "Release"]
+        ]
+
+        for step in steps:
+            if not self.execute(step):
+                return False
+
+        return True
 
     def build_all(self):
-        targets = [
-            "android",
-            "windows",
-            "linux",
-            "macos",
-            "ios",
-            "web"
-        ]
+        host = HOST_NAMES.get(self.system)
+
+        targets = ["native", "android"]
+
+        if host:
+            targets.append(host)
+
+        if self.system == "darwin":
+            targets.append("ios")
 
         results = {}
 
@@ -259,7 +315,6 @@ class BuildSystem:
             ".rpm",
             ".jar",
             ".ipa",
-            ".framework",
             ".zip"
         }
 
@@ -267,8 +322,8 @@ class BuildSystem:
 
         for directory in [
             ROOT_DIR / "app" / "build" / "outputs",
-            ROOT_DIR / "build",
-            ROOT_DIR / "composeApp" / "build"
+            ROOT_DIR / "desktop" / "build" / "compose" / "binaries",
+            ROOT_DIR / "ios" / "build" / "bin"
         ]:
             if not directory.exists():
                 continue

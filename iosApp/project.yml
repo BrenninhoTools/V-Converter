@@ -1,6 +1,6 @@
 name: VConverter
 options:
-  bundleIdPrefix: com.brenninhotools
+  bundleIdPrefix: com.vconvertercrew
   deploymentTarget:
     iOS: "15.0"
   createIntermediateGroups: true
@@ -19,13 +19,10 @@ targets:
       - path: ../assets
         type: folder
         buildPhase: resources
-      - path: ../app/src/main/resources/vconverter
-        type: folder
-        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: V-Converter
-        PRODUCT_BUNDLE_IDENTIFIER: com.brenninhotools.vconverter
+        PRODUCT_BUNDLE_IDENTIFIER: com.vconvertercrew.vconverter
         INFOPLIST_FILE: Sources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"

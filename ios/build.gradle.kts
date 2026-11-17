@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.jetbrains.compose)
 }
 
-val shared = "../app/src/main/java"
+val source = rootProject.file("source")
 
 kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -13,24 +13,18 @@ kotlin {
             isStatic = true
         }
         target.compilations.getByName("main").cinterops.create("stbvorbis") {
-            defFile(project.file("src/nativeInterop/cinterop/stbvorbis.def"))
-            includeDirs(project.file("src/nativeInterop/cinterop"))
+            defFile(File(source, "native/cinterop/stbvorbis.def"))
+            includeDirs(File(source, "native/cinterop"))
+        }
+        target.compilations.getByName("main").cinterops.create("vminiaudio") {
+            defFile(File(source, "native/cinterop/vminiaudio.def"))
+            includeDirs(File(source, "native/v-miniaudio/include"), File(source, "native/v-miniaudio/src"))
         }
     }
 
     sourceSets {
         iosMain {
-            kotlin.srcDir(shared)
-            kotlin.exclude(
-                "com/brenninhotools/vconverter/ui/**",
-                "com/brenninhotools/vconverter/jvm/**",
-                "**/jvmonly/**",
-                "com/brenninhotools/vconverter/MainActivity.kt",
-                "com/brenninhotools/vconverter/io/DocumentIO.kt",
-                "com/brenninhotools/vconverter/io/Downloads.kt",
-                "com/brenninhotools/vconverter/io/Importer.kt",
-                "com/brenninhotools/vconverter/io/TreeStorage.kt"
-            )
+            kotlin.setSrcDirs(listOf(File(source, "shared"), File(source, "ios")))
             dependencies {
                 implementation(compose.runtime)
                 implementation(compose.foundation)

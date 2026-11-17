@@ -6,7 +6,7 @@
 
 **Convert Friday Night Funkin' mods between Psych Engine, V-Slice, Codename Engine and NightmareVision, and into FPS Plus.**
 
-[![Build](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml)
+[![Build](https://github.com/VConverterCrew/V-Converter/actions/workflows/build.yml/badge.svg)](https://github.com/VConverterCrew/V-Converter/actions/workflows/build.yml)
 ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
@@ -19,7 +19,7 @@
 </div>
 
 > [!NOTE]
-> **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/BrenninhoTools/V-Converter/issues) if something breaks.
+> **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/VConverterCrew/V-Converter/issues) if something breaks.
 
 A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions, and from any of them to [FPS Plus](https://github.com/ThatRozebudDude/FPS-Plus-Public).
 
@@ -30,13 +30,13 @@ A remake of the V-Slice converter as a native app written in Kotlin, for **Andro
 - [Generator](#generator) · [Chart Editor](#chart-editor) · [Character Editor](#character-editor) · [Stage Editor](#stage-editor) · [Week Editor](#week-editor)
 - [Psych → V-Slice](#psych--v-slice) · [V-Slice → Psych](#v-slice--psych) · [Codename → V-Slice](#codename--v-slice) · [Codename → Psych](#codename--psych) · [Psych → Codename](#psych--codename) · [NightmareVision](#nightmarevision) · [FPS Plus](#fps-plus)
 - [Multieditor](#multieditor) · [PlayTest](#playtest) · [Online server](#online-server)
-- [Building](#building)
+- [Project layout](#project-layout) · [Audio (V-MiniAudio)](#audio-v-miniaudio) · [Building](#building)
 
 ## Download
 
-Get the latest version from [Releases](https://github.com/BrenninhoTools/V-Converter/releases): `V Converter-Android.apk` for Android and `V Converter-Windows.exe` (installer) for Windows. Each release's changelog lives in [`docs/releases`](docs/releases). Releases are published by the [Release workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/release.yml), started by hand with the version to publish.
+Get the latest version from [Releases](https://github.com/VConverterCrew/V-Converter/releases): `V Converter-Android.apk` for Android and `V Converter-Windows.exe` (installer) for Windows. Each release's changelog lives in [`docs/releases`](docs/releases). Releases are published by the [Release workflow](https://github.com/VConverterCrew/V-Converter/actions/workflows/release.yml), started by hand with the version to publish.
 
-Every push to `main` is also built by [GitHub Actions](https://github.com/BrenninhoTools/V-Converter/actions/workflows/build.yml). Open the latest successful run and grab one of its artifacts:
+Every push to `main` is also built by [GitHub Actions](https://github.com/VConverterCrew/V-Converter/actions/workflows/build.yml). Open the latest successful run and grab one of its artifacts:
 
 | Artifact | Platform | What it is |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/Brenni
 | NightmareVision → Psych / V-Slice / Codename | NightmareVision HScript → Psych HScript, then the usual conversion |
 | Psych / V-Slice / Codename / NightmareVision → FPS Plus | Lua / HScript → FPS Plus `Script` classes (`.hxc`) |
 
-The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename**, **V-Slice** or **NMV**; **FPS Plus** is a target only) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `desktop/icon.png`; `icon.ico` and `icon.icns` for the Windows and macOS packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
+The Android app has two sections, switched at the top: **Converter** and **Generator** (new V-Slice content from scratch). In the Converter, pick the source engine (**Psych**, **Codename**, **V-Slice** or **NMV**; **FPS Plus** is a target only) and the target engine in the bridge at the top of each tab; tapping the **To** card or the swap button switches the target. On Windows, Linux and macOS the engines are picked in the sidebar, and files or mods can be dragged into the window. Both apps use the V-Converter icon (a microphone with the four arrows, in `assets/icons/icon.png`; `assets/icons/desktop/` has the `.ico`, `.icns` and `.png` used by the Windows, macOS and Linux packages) and the custom cursor from `assets/images/cursor/cursor.png` (on Android it shows with a mouse or trackpad, and where you touch the screen unless "Touch Cursor" is turned off in the options) show an `FPS:` counter in the top-right corner and play `assets/music/freakyMenu.ogg` as menu music (paused while the Chart Editor plays a song) and `assets/sounds/scrollMenu.ogg` when tabs and buttons are clicked; the counter, the sounds, the music and its volume are set in the options (the gear in the top-right corner).
 
 ## Generator
 
@@ -434,12 +434,12 @@ or with Docker (`docker build -t v-converter-server server` and `docker run -p 3
 | `TRUST_PROXY` | `false` | Trust `X-Forwarded-*` from a reverse proxy |
 | `MAX_UPLOAD_MB` | `100` | Largest mod upload |
 | `UPLOADS_PER_HOUR` / `REPORTS_PER_HOUR` / `ROOMS_PER_HOUR` | `10` / `60` / `30` | Per-address rate limits |
-| `GITHUB_REPO` / `GITHUB_TOKEN` | `BrenninhoTools/V-Converter` / (empty) | Where the latest release is read from |
+| `GITHUB_REPO` / `GITHUB_TOKEN` | `VConverterCrew/V-Converter` / (empty) | Where the latest release is read from |
 | `LATEST_VERSION` | (empty) | Version to report when GitHub can't be reached |
 | `ROOM_IDLE_MINUTES` / `MAX_PEERS_PER_ROOM` / `MAX_MESSAGE_MB` | `120` / `16` / `8` | Live editing rooms |
 | `ROOM_ASSETS_PER_HOUR` / `MAX_ROOM_ASSET_MB` / `MAX_ROOM_ASSETS_MB` | `600` / `40` / `200` | Files shared in rooms |
 
-Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/BrenninhoTools/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.
+Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/VConverterCrew/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.
 
 
 ## 🌍 Official Community Translations
@@ -455,15 +455,47 @@ The Simplified Chinese localization is officially recognized by the V-Converter 
 Special thanks to YLuzew for bringing V-Converter to the Chinese-speaking community!
 
 
+## Project layout
+
+All the code lives in `source/`; the Gradle modules in `app/`, `desktop/` and `ios/` only hold their build scripts.
+
+| Folder | What it holds | Used by |
+|---|---|---|
+| `source/shared` | Converters, parsers, editors' logic and the Compose screens shared by every platform (`chartview`, `editorview`, `playview`, `onlineview`, `overlay`) | Android, desktop, iOS |
+| `source/jvm` | JVM-only code: ZIP/7z extraction, the JVM platform layer, the WebSocket client and the V-MiniAudio JNI binding | Android, desktop |
+| `source/android` | Android UI (`ui/`), `MainActivity`, Storage Access Framework code, `AndroidManifest.xml` and `res/` | Android |
+| `source/desktop` | Windows, Linux and macOS app | desktop |
+| `source/ios` | iOS app and its platform layer | iOS |
+| `source/native` | [V-MiniAudio](https://github.com/VConverterCrew/V-MiniAudio), its JNI bridge (`bridge/`) and the iOS cinterop definitions (`cinterop/`) | all |
+| `source/test` | JVM unit tests (`./gradlew :app:testDebugUnitTest`) | — |
+| `assets` | `images/`, `sounds/`, `music/`, `fonts/`, `data/` (files the converters embed, like `PsychApiLibrary.hxc`) and `icons/` | all |
+| `iosApp` | Xcode project (generated with XcodeGen) and the iOS app icon | iOS |
+| `scripts/Compile.py` | Build helper: `python3 scripts/Compile.py --platform android\|windows\|linux\|macos\|ios\|desktop\|native\|test --build debug\|release` | — |
+
+The app id and package are `com.vconvertercrew.vconverter`. Builds from before the move to VConverterCrew used `com.brenninhotools.vconverter`, so Android installs the new version as a separate app: uninstall the old one.
+
+## Audio (V-MiniAudio)
+
+Song playback in the Chart Editor and PlayTest (and the menu music on desktop and iOS) is mixed by [V-MiniAudio](https://github.com/VConverterCrew/V-MiniAudio), a C11 audio framework from VConverterCrew, vendored in `source/native/v-miniaudio`:
+
+- Each track (instrumental, voices, player/opponent voices) is decoded by the platform (MediaCodec on Android, Java Sound with the Vorbis/MP3 providers on desktop, stb_vorbis and AVAudioFile on iOS) and handed to V-MiniAudio as 16-bit PCM.
+- V-MiniAudio resamples every track to the output rate, mixes them, applies volume, pan and pitch, and limits the result.
+- Android streams the mix to an `AudioTrack` and desktop to a `SourceDataLine`, both through JNI (`libvconverter_audio`). iOS links V-MiniAudio through cinterop and plays the mix with AVAudioPlayer.
+- Android builds the library with the NDK (CMake), and desktop builds it with CMake during `processResources` and bundles it in the app. If CMake or a C compiler is missing, the desktop app falls back to a Kotlin mixer with the same output. On Android, if a file can't be decoded, playback falls back to `MediaPlayer`.
+
+The vendored copy adds what the upstream version still lacks: `VAudio.h` reuses `VAudioTypes.h` (the two headers redefined the same types), `vma_audio_*` is implemented (PCM in any sample format, WAV files and memory, play/pause/seek/pitch/pan/loop, finished callbacks), `vma_render` mixes every playing audio for the host's output, the context is thread safe, and `VWaveform.c` is part of the build. `tests/test_audio.c` covers it (`python3 scripts/Compile.py --platform native`).
+
 ## Building
 
-Android (debug and release APKs):
+Android (debug and release APKs; needs the NDK and CMake from the Android SDK):
 
 ```
 ./gradlew assembleDebug assembleRelease
 ```
 
 Release APKs are signed with the keystore in `keystore/` (`v-converter.jks`, settings in `keystore/keystore.properties`), so every release build has the same signature and installs as an update over the previous one. Builds made before the keystore was added were signed with a debug key: uninstall that version once before installing a new release APK. The keystore is public in this repository, so anyone can sign an APK with it; only install the APKs from this repository's Actions runs.
+
+Desktop builds compile V-MiniAudio with CMake (Visual Studio on Windows, Xcode command line tools on macOS, GCC or Clang on Linux).
 
 Windows (installers and portable app, run on Windows with JDK 17):
 

@@ -12,11 +12,12 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.brenninhotools.vconverter"
+    namespace = "com.vconvertercrew.vconverter"
     compileSdk = 36
+    System.getenv("ANDROID_NDK_HOME")?.let { File(it).name }?.takeIf { it.firstOrNull()?.isDigit() == true }?.let { ndkVersion = it }
 
     defaultConfig {
-        applicationId = "com.brenninhotools.vconverter"
+        applicationId = "com.vconvertercrew.vconverter"
         minSdk = 26
         targetSdk = 37
         versionCode = 4
@@ -53,7 +54,26 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir("../assets")
+            manifest.srcFile("../source/android/AndroidManifest.xml")
+            java.setSrcDirs(listOf("../source/shared", "../source/jvm", "../source/android"))
+            res.setSrcDirs(listOf("../source/android/res"))
+            assets.setSrcDirs(listOf("../assets"))
+            resources.setSrcDirs(emptyList<String>())
+        }
+        getByName("test") {
+            java.setSrcDirs(listOf("../source/test"))
+            resources.setSrcDirs(listOf("../source/test/resources", "../assets"))
+        }
+    }
+
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!README.txt:!desktop"
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("../source/native/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 

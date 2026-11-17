@@ -1,0 +1,100 @@
+package com.vconvertercrew.vconverter.chart
+
+import com.vconvertercrew.vconverter.core.Report
+import com.vconvertercrew.vconverter.core.ReportBuilder
+import com.vconvertercrew.vconverter.core.fmt
+import com.vconvertercrew.vconverter.core.sortedMutableMap
+import com.vconvertercrew.vconverter.core.sortedMutableSet
+import com.vconvertercrew.vconverter.core.CaseInsensitiveOrder
+
+class ConversionReport {
+    val noteCounts = LinkedHashMap<String, Int>()
+    val duplicateNotes = LinkedHashMap<String, Int>()
+    val unsupportedEvents = sortedMutableMap<String, Int>(CaseInsensitiveOrder)
+    val noteKinds = sortedMutableSet<String>()
+    val warnings = mutableListOf<String>()
+    var cameraEvents = 0
+    var convertedEvents = 0
+    var keptPsychEvents = 0
+    var offsetApplied = 0.0
+    val variations = LinkedHashMap<String, List<String>>()
+
+    fun warn(message: String) {
+        if (message !in warnings) warnings += message
+    }
+
+    fun skipEvent(name: String) {
+        unsupportedEvents[name] = (unsupportedEvents[name] ?: 0) + 1
+    }
+
+    fun summary(): String = buildString {
+        appendLine("Notes")
+        noteCounts.forEach { (difficulty, count) ->
+            val dupes = duplicateNotes[difficulty] ?: 0
+            append("  • ").append(difficulty).append(": ").append(count)
+            if (dupes > 0) append(" (").append(dupes).append(" stacked duplicates removed)")
+            appendLine()
+        }
+        appendLine()
+        appendLine("Events")
+        appendLine("  • Camera focus events generated from sections: $cameraEvents")
+        appendLine("  • Psych events converted: $convertedEvents")
+        if (unsupportedEvents.isNotEmpty()) {
+            appendLine("  • Skipped (no V-Slice equivalent yet):")
+            unsupportedEvents.forEach { (name, count) -> appendLine("      - $name ×$count") }
+        }
+        if (noteKinds.isNotEmpty()) {
+            appendLine()
+            appendLine("Note kinds used")
+            appendLine("  ${noteKinds.joinToString(", ")}")
+            appendLine("  V-Slice only reacts to a note kind when a NoteKind script with that id exists in your mod.")
+        }
+        if (warnings.isNotEmpty()) {
+            appendLine()
+            appendLine("Warnings")
+            warnings.forEach { appendLine("  • $it") }
+        }
+    }.trimEnd()
+
+    fun toReport(): Report {
+        val builder = ReportBuilder()
+        noteCounts.forEach { (difficulty, count) -> builder.stat(difficulty.replaceFirstChar { it.titlecase() }, count) }
+        builder.stat("Events", cameraEvents + convertedEvents)
+        builder.section(
+            "Events",
+            listOf(
+                "$cameraEvents camera focus events generated from sections",
+                "$convertedEvents Psych events converted"
+            )
+        )
+        builder.section(
+            if (keptPsychEvents > 0) "Kept with their Psych names (scripts and generated SongEvents handle them)" else "Skipped events (no V-Slice equivalent yet)",
+            unsupportedEvents.map { (name, count) -> "$name ×$count" }
+        )
+        builder.section(
+            "Duplicates removed",
+            duplicateNotes.map { (difficulty, count) -> "$difficulty: $count stacked notes" }
+        )
+        if (variations.isNotEmpty()) {
+            builder.section("Variations", variations.map { (name, difficulties) -> "$name: ${difficulties.joinToString(", ")}" })
+        }
+        if (offsetApplied != 0.0) {
+            builder.section("Audio offset", listOf("The Psych chart offset (${formatMs(offsetApplied)}) was written to the metadata's instrumental offset."))
+        }
+        if (noteKinds.isNotEmpty()) {
+            builder.section(
+                "Note kinds",
+                listOf(
+                    noteKinds.joinToString(", "),
+                    "V-Slice only reacts to a note kind when a NoteKind script with that id exists in your mod."
+                )
+            )
+        }
+        warnings.forEach(builder::warn)
+        return builder.build()
+    }
+
+    companion object {
+        fun formatMs(value: Double): String = fmt("%.0f ms", value)
+    }
+}

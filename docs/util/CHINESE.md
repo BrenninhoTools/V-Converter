@@ -15,7 +15,7 @@ Translation Information
 Information| Details
 Language| Simplified Chinese (简体中文)
 Maintainer| "YLuzew" (https://github.com/YLuzew)
-Original Project| "BrenninhoTools/V-Converter" (https://github.com/BrenninhoTools/V-Converter)
+Original Project| "VConverterCrew/V-Converter" (https://github.com/VConverterCrew/V-Converter)
 Chinese Version| "YLuzew/V-Converter" (https://github.com/YLuzew/V-Converter)
 Recognition| Officially Recognized Community Translation
 Platforms| Android, Windows, Linux, macOS, iOS
@@ -64,7 +64,7 @@ V-Converter 原项目正式认可由 YLuzew 开发和维护的简体中文汉化
 项目| 说明
 语言| 简体中文
 维护者| "YLuzew" (https://github.com/YLuzew)
-原项目| "BrenninhoTools/V-Converter" (https://github.com/BrenninhoTools/V-Converter)
+原项目| "VConverterCrew/V-Converter" (https://github.com/VConverterCrew/V-Converter)
 汉化仓库| "YLuzew/V-Converter" (https://github.com/YLuzew/V-Converter)
 项目状态| 官方认可的社区汉化版本
 支持平台| Android、Windows、Linux、macOS、iOS
@@ -96,7 +96,7 @@ V-Converter 原项目正式认可由 YLuzew 开发和维护的简体中文汉化
 
 ---
 
-BrenninhoTools — V-Converter
+VConverterCrew — V-Converter
 
 Making V-Converter accessible to everyone, everywhere.
 

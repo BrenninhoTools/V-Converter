@@ -23,7 +23,7 @@ export function loadConfig(env = process.env) {
     roomAssetsPerHour: number(env.ROOM_ASSETS_PER_HOUR, 600),
     maxRoomAssetMb: number(env.MAX_ROOM_ASSET_MB, 40),
     maxRoomAssetsMb: number(env.MAX_ROOM_ASSETS_MB, 200),
-    githubRepo: env.GITHUB_REPO || 'BrenninhoTools/V-Converter',
+    githubRepo: env.GITHUB_REPO || 'VConverterCrew/V-Converter',
     githubToken: env.GITHUB_TOKEN || '',
     latestVersion: env.LATEST_VERSION || '',
     releaseCacheMinutes: number(env.RELEASE_CACHE_MINUTES, 10),

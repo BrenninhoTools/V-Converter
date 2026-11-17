@@ -1,0 +1,227 @@
+package com.vconvertercrew.vconverter.ui
+
+import android.app.Application
+import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.vconvertercrew.vconverter.core.Report
+import com.vconvertercrew.vconverter.io.DocumentIO
+import com.vconvertercrew.vconverter.io.DownloadedFile
+import com.vconvertercrew.vconverter.io.Downloads
+import com.vconvertercrew.vconverter.io.ExtractedArchive
+import com.vconvertercrew.vconverter.io.ImportedFile
+import com.vconvertercrew.vconverter.io.Importer
+import com.vconvertercrew.vconverter.io.OutputFile
+import com.vconvertercrew.vconverter.mod.ModCancel
+import com.vconvertercrew.vconverter.mod.ModCancelledException
+import com.vconvertercrew.vconverter.mod.ModConversionResult
+import com.vconvertercrew.vconverter.mod.ModProgress
+import com.vconvertercrew.vconverter.mod.ModRun
+import com.vconvertercrew.vconverter.mod.ModWriter
+import com.vconvertercrew.vconverter.mod.ParallelModWriter
+import com.vconvertercrew.vconverter.mod.ZipModWriter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+sealed interface StatusMessage {
+    val text: String
+
+    data class Info(override val text: String) : StatusMessage
+    data class Success(override val text: String) : StatusMessage
+    data class Error(override val text: String) : StatusMessage
+}
+
+typealias ConvertedOutput = com.vconvertercrew.vconverter.convert.ConvertedOutput
+
+abstract class BaseConverterViewModel(application: Application) : AndroidViewModel(application) {
+    var busy by mutableStateOf(false)
+        private set
+    private var statusState by mutableStateOf<StatusMessage?>(null)
+    var status: StatusMessage?
+        get() = statusState
+        protected set(value) {
+            statusState = value
+            if (value is StatusMessage.Error) com.vconvertercrew.vconverter.online.ErrorReports.send("conversion", value.text, context = mapOf("screen" to javaClass.simpleName))
+        }
+    var output by mutableStateOf<ConvertedOutput?>(null)
+        protected set
+
+    var download by mutableStateOf<DownloadedFile?>(null)
+        protected set
+
+    protected val context: Application get() = getApplication()
+
+    open val canDownload: Boolean get() = output != null
+
+    open fun downloadName(): String = "vconverter-${System.currentTimeMillis() / 1000}.zip"
+
+    fun dismissStatus() {
+        status = null
+    }
+
+    protected fun invalidate() {
+        output = null
+        download = null
+    }
+
+    protected open fun zipPrefix(): String = ""
+
+    protected open fun writeDownload(writer: ModWriter) {
+        val result = output ?: throw IllegalStateException("Convert something first.")
+        result.files.forEach { it.writeTo(writer) }
+    }
+
+    fun download(picked: Uri?) {
+        if (!canDownload) return
+        val name = downloadName()
+        runTask {
+            try {
+                download = null
+                val file = withContext(Dispatchers.IO) {
+                    Downloads.write(context, name, picked) { stream ->
+                        ZipModWriter(stream, zipPrefix()).use { zip ->
+                            writeDownload(zip)
+                            zip.entries
+                        }
+                    }
+                }
+                download = file
+                status = null
+            } catch (e: Exception) {
+                status = failureMessage(e, "Could not create the zip.")
+            }
+        }
+    }
+
+    fun shareDownload() {
+        val file = download ?: return
+        runCatching { Downloads.share(context, file) }
+            .onFailure { status = StatusMessage.Error("No app can share this file.") }
+    }
+
+    fun openDownloads() {
+        Downloads.openDownloads(context)
+    }
+
+    open fun save(modFolder: Uri) {
+        val result = output ?: return
+        runTask {
+            try {
+                val written = withContext(Dispatchers.IO) { DocumentIO.writeFiles(context, modFolder, result.files) }
+                status = StatusMessage.Success("Saved ${written.size} file(s):\n" + written.joinToString("\n") { "• $it" })
+            } catch (e: Exception) {
+                status = StatusMessage.Error(e.message ?: "Could not save the files.")
+            }
+        }
+    }
+
+    private var modCancel: ModCancel? = null
+    var cancelling by mutableStateOf(false)
+        private set
+    var cancellable by mutableStateOf(false)
+        private set
+
+    fun cancelConversion() {
+        modCancel?.let {
+            it.cancel()
+            cancelling = true
+        }
+    }
+
+    protected fun runMod(
+        base: ModWriter,
+        parallel: Boolean,
+        progress: (ModProgress) -> Unit,
+        convert: (ModWriter, (ModProgress) -> Unit) -> ModConversionResult
+    ): ModConversionResult {
+        val cancel = ModCancel()
+        modCancel = cancel
+        cancelling = false
+        cancellable = true
+        try {
+            val wrap: (ModWriter) -> ModWriter = if (parallel) ({ writer -> ParallelModWriter(writer) }) else ({ writer -> writer })
+            return ModRun(progress, cancel).execute(base, wrap, convert)
+        } finally {
+            if (modCancel === cancel) modCancel = null
+            cancelling = false
+            cancellable = false
+        }
+    }
+
+    protected fun failureMessage(e: Exception, fallback: String): StatusMessage =
+        if (e is ModCancelledException) StatusMessage.Info("Conversion cancelled. Nothing else was written.") else StatusMessage.Error(e.message ?: fallback)
+
+    protected fun runTask(block: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        viewModelScope.launch {
+            try {
+                block()
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    protected class Loaded<T>(val items: List<T>, val failures: List<String>, val skipped: Int, val archives: List<String>)
+
+    protected suspend fun <T> load(
+        uris: List<Uri>,
+        accept: (ImportedFile) -> Boolean,
+        read: (ImportedFile) -> T
+    ): Loaded<T> = withContext(Dispatchers.IO) {
+        val items = mutableListOf<T>()
+        val failures = mutableListOf<String>()
+        var skipped = 0
+        val archiveNames = mutableListOf<String>()
+        val extracted = mutableListOf<ExtractedArchive>()
+        try {
+            uris.forEach { uri ->
+                try {
+                    val (files, archives) = Importer.importFiles(context, listOf(uri))
+                    extracted += archives
+                    archiveNames += archives.map { "${it.name} (${it.kind.label})" }
+                    files.forEach { file ->
+                        if (file.fromArchive && !accept(file)) {
+                            skipped++
+                        } else {
+                            try {
+                                items += read(file)
+                            } catch (e: Exception) {
+                                if (file.fromArchive) skipped++ else failures += "${file.name}: ${e.message}"
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    failures += "${DocumentIO.displayName(context, uri)}: ${e.message}"
+                }
+            }
+        } finally {
+            extracted.forEach { it.delete() }
+        }
+        Loaded(items, failures, skipped, archiveNames)
+    }
+
+    protected fun loadStatus(loaded: Loaded<*>, noun: String) {
+        val text = buildString {
+            append("Loaded ${loaded.items.size} $noun")
+            if (loaded.archives.isNotEmpty()) append(" from ${loaded.archives.joinToString()}")
+            append('.')
+            if (loaded.skipped > 0) append(" ${loaded.skipped} other file(s) in the archive were ignored.")
+        }
+        status = when {
+            loaded.failures.isNotEmpty() -> StatusMessage.Error(text + "\nSome files could not be read:\n" + loaded.failures.joinToString("\n"))
+            loaded.items.isEmpty() -> StatusMessage.Error(text)
+            else -> StatusMessage.Info(text)
+        }
+    }
+
+    companion object {
+        fun sanitizeId(raw: String): String =
+            raw.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+    }
+}

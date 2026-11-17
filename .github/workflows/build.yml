@@ -122,6 +122,12 @@ jobs:
           gradle-home-cache-cleanup: true
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      - name: Test V-MiniAudio
+        run: |
+          cmake -S source/native/v-miniaudio -B build/v-miniaudio -DVMA_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build build/v-miniaudio --parallel
+          ctest --test-dir build/v-miniaudio --output-on-failure
+
       - name: Build package and portable app
         run: ./gradlew :desktop:packageDeb :desktop:createDistributable -Pvconverter.modules=desktop
 

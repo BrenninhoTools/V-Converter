@@ -1,0 +1,71 @@
+package = vminiaudio
+headers = vminiaudio/VAudio.h
+headerFilter = vconverter_none.h
+compilerOpts = -std=c11 -O2
+---
+#include "VAudio.c"
+#include "VAudioEngine.c"
+#include "VAudioPlayer.c"
+#include "VAudioSource.c"
+#include "VWaveform.c"
+
+static inline const char* vca_version(void) {
+    return vma_get_version();
+}
+
+static inline void* vca_init(int rate, int channels) {
+    VMAConfig config;
+    vma_config_init(&config);
+    config.sample_rate = (uint32_t)rate;
+    config.channels = (uint32_t)channels;
+    config.enable_logging = false;
+    VMAContext* context = NULL;
+    return vma_init(&context, &config) == VMA_SUCCESS ? context : NULL;
+}
+
+static inline void vca_shutdown(void* context) {
+    vma_shutdown((VMAContext*)context);
+}
+
+static inline void* vca_add_s16(void* context, const short* samples, int frames, int channels, int rate) {
+    VMAAudio* audio = NULL;
+    if (frames <= 0 || channels <= 0)
+        return NULL;
+    return vma_audio_create_pcm((VMAContext*)context, samples, (uint64_t)frames, (uint32_t)channels, (uint32_t)rate, VMA_SAMPLE_S16, &audio) == VMA_SUCCESS ? audio : NULL;
+}
+
+static inline int vca_play(void* audio) {
+    return (int)vma_audio_play((VMAAudio*)audio);
+}
+
+static inline int vca_pause(void* audio) {
+    return (int)vma_audio_pause((VMAAudio*)audio);
+}
+
+static inline int vca_seek(void* audio, double seconds) {
+    return (int)vma_audio_seek((VMAAudio*)audio, seconds);
+}
+
+static inline double vca_position(void* audio) {
+    return vma_audio_get_position((VMAAudio*)audio);
+}
+
+static inline double vca_duration(void* audio) {
+    return vma_audio_get_duration((VMAAudio*)audio);
+}
+
+static inline int vca_set_volume(void* audio, float volume) {
+    return (int)vma_audio_set_volume((VMAAudio*)audio, volume);
+}
+
+static inline int vca_set_pitch(void* audio, float pitch) {
+    return (int)vma_audio_set_pitch((VMAAudio*)audio, pitch);
+}
+
+static inline int vca_set_master_volume(void* context, float volume) {
+    return (int)vma_set_master_volume((VMAContext*)context, volume);
+}
+
+static inline int vca_render(void* context, float* output, int frames) {
+    return frames > 0 ? (int)vma_render((VMAContext*)context, output, (uint32_t)frames) : 0;
+}

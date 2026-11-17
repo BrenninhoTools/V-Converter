@@ -1,0 +1,22 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+include("${CMAKE_CURRENT_LIST_DIR}/VMiniAudioTargets.cmake")
+
+set(VMiniAudio_VERSION "@PROJECT_VERSION@")
+set(VMiniAudio_VERSION_MAJOR "@PROJECT_VERSION_MAJOR@")
+set(VMiniAudio_VERSION_MINOR "@PROJECT_VERSION_MINOR@")
+set(VMiniAudio_VERSION_PATCH "@PROJECT_VERSION_PATCH@")
+
+set(VMiniAudio_FOUND TRUE)
+
+set(VMiniAudio_INCLUDE_DIRS
+    "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@"
+)
+
+set(VMiniAudio_LIBRARIES
+    VMiniAudio::VMiniAudio
+)
+
+check_required_components(VMiniAudio)
