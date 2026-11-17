@@ -8,19 +8,28 @@ on:
       - "LICENSE"
       - ".gitignore"
       - "server/**"
+      - "docs/**"
       - ".github/workflows/server.yml"
+      - ".github/workflows/release.yml"
   pull_request:
     paths-ignore:
       - "**.md"
       - "LICENSE"
       - ".gitignore"
       - "server/**"
+      - "docs/**"
       - ".github/workflows/server.yml"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.vfs.watch=false
+  CCACHE_COMPRESS: "true"
+  CCACHE_MAXSIZE: 300M
 
 jobs:
   android:
@@ -39,9 +48,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
-          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          add-job-summary: on-failure
+
+      - name: Cache native objects
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-android-${{ hashFiles('source/native/**') }}
+          restore-keys: ccache-android-
+          max-size: 300M
 
       - name: Install the Android SDK platform
         run: |
@@ -51,7 +68,9 @@ jobs:
           fi
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease -Pvconverter.modules=app
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+        run: ./gradlew :app:assembleRelease -Pvconverter.modules=app --build-cache
 
       - name: Name the APK
         run: |
@@ -81,13 +100,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
-          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          add-job-summary: on-failure
 
       - name: Build installer
         shell: bash
-        run: ./gradlew :desktop:packageExe -Pvconverter.modules=desktop
+        run: ./gradlew :desktop:packageExe -Pvconverter.modules=desktop --build-cache
 
       - name: Name the installer
         shell: bash
@@ -118,18 +138,30 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
-          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          add-job-summary: on-failure
+
+      - name: Cache native objects
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-linux-${{ hashFiles('source/native/**') }}
+          restore-keys: ccache-linux-
+          max-size: 300M
 
       - name: Test V-MiniAudio
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
         run: |
           cmake -S source/native/v-miniaudio -B build/v-miniaudio -DVMA_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
           cmake --build build/v-miniaudio --parallel
           ctest --test-dir build/v-miniaudio --output-on-failure
 
       - name: Build package and portable app
-        run: ./gradlew :desktop:packageDeb :desktop:createDistributable -Pvconverter.modules=desktop
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+        run: ./gradlew :desktop:packageDeb :desktop:createDistributable -Pvconverter.modules=desktop --build-cache
 
       - name: Name the builds
         run: |
@@ -162,12 +194,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
-          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          add-job-summary: on-failure
+
+      - name: Cache native objects
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-macos-${{ hashFiles('source/native/**') }}
+          restore-keys: ccache-macos-
+          max-size: 300M
 
       - name: Build disk image and app
-        run: ./gradlew :desktop:packageDmg :desktop:createDistributable -Pvconverter.modules=desktop
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+        run: ./gradlew :desktop:packageDmg :desktop:createDistributable -Pvconverter.modules=desktop --build-cache
 
       - name: Name the builds
         run: |
@@ -200,25 +242,40 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
-          gradle-home-cache-cleanup: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          add-job-summary: on-failure
 
       - name: Cache Kotlin/Native
         uses: actions/cache@v4
         with:
-          path: ~/.konan
-          key: konan-${{ runner.os }}-debug-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-
+          path: |
+            ~/.konan/dependencies
+            ~/.konan/kotlin-native-prebuilt-*
+            ~/.konan/caches
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}-${{ hashFiles('source/native/cinterop/**') }}
+          restore-keys: |
+            konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}-
+            konan-${{ runner.os }}-
+
+      - name: Cache XcodeGen
+        id: xcodegen
+        uses: actions/cache@v4
+        with:
+          path: ~/.xcodegen
+          key: xcodegen-2.42.0
 
       - name: Build the Kotlin framework
         run: ./gradlew :ios:linkDebugFrameworkIosArm64 -Pvconverter.modules=ios --no-configuration-cache --build-cache "-Dorg.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=768m"
 
       - name: Generate the Xcode project
         run: |
-          curl -sSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip
-          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
-          cd iosApp && "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --quiet
+          if [ ! -x ~/.xcodegen/xcodegen/bin/xcodegen ]; then
+            curl -sSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip
+            mkdir -p ~/.xcodegen && unzip -q "$RUNNER_TEMP/xcodegen.zip" -d ~/.xcodegen
+          fi
+          cd iosApp && ~/.xcodegen/xcodegen/bin/xcodegen generate --quiet
 
       - name: Build the app
         run: |

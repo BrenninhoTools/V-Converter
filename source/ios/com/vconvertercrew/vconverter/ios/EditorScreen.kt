@@ -211,6 +211,7 @@ class IosEditor(private val scope: CoroutineScope) {
     }
 
     fun save(zip: Boolean, onSaved: (File) -> Unit) {
+        val vslice = target == ExportTarget.VSLICE
         val result = output ?: return
         if (busy) return
         Dialogs.pickTarget(zip, "Save the chart", "${editor.document.id}-${this.target.name.lowercase()}.zip", "Choose the mod folder to write into") { target ->
@@ -218,8 +219,8 @@ class IosEditor(private val scope: CoroutineScope) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        if (zip) Workspace.writeZip(target, "", this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
-                        else Workspace.writeFolder(target, this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
+                        if (zip) Workspace.writeZip(target, "", vslice) { writer -> result.files.forEach { it.writeTo(writer) } }
+                        else Workspace.writeFolder(target, vslice) { writer -> result.files.forEach { it.writeTo(writer) } }
                     }
                     status = Status.Success("Saved ${result.files.size} file(s) to ${target.absolutePath}")
                     if (zip) Dialogs.export(target)

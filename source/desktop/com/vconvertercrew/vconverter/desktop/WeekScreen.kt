@@ -192,14 +192,15 @@ class DesktopWeekEditor(private val scope: CoroutineScope) {
     }
 
     fun save(zip: Boolean, onSaved: (File) -> Unit) {
+        val vslice = target == ExportTarget.VSLICE
         val result = output ?: return
         val target = if (zip) Dialogs.saveFile("Save the week", "${editor.document.id}-${this.target.name.lowercase()}.zip") ?: return
         else Dialogs.chooseFolder("Choose the mod folder to write into") ?: return
         task {
             try {
                 withContext(Dispatchers.IO) {
-                    if (zip) Workspace.writeZip(target, "", this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
-                    else Workspace.writeFolder(target, this.target == ExportTarget.VSLICE) { writer -> result.files.forEach { it.writeTo(writer) } }
+                    if (zip) Workspace.writeZip(target, "", vslice) { writer -> result.files.forEach { it.writeTo(writer) } }
+                    else Workspace.writeFolder(target, vslice) { writer -> result.files.forEach { it.writeTo(writer) } }
                 }
                 status = Status.Success("Saved ${result.files.size} file(s) to ${target.absolutePath}")
                 onSaved(target)
