@@ -43,6 +43,7 @@ fun MainViewController(): UIViewController {
                 CompositionLocalProvider(LocalCompact provides (maxWidth < 760.dp)) {
                     App(state)
                 }
+                OptionsOverlay()
             }
             UiSounds()
             MenuMusic(suppressed = state.editor.editor.playing)

@@ -30,6 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.vconvertercrew.vconverter.overlay.FunkinOptionsMenu
+import com.vconvertercrew.vconverter.overlay.MenuArt
+import com.vconvertercrew.vconverter.overlay.MenuOption
 import com.vconvertercrew.vconverter.overlay.OverlayIcons
 import java.util.prefs.Preferences
 import kotlin.math.roundToInt
@@ -112,56 +115,38 @@ object AppSettings {
     }
 }
 
+object OptionsMenu {
+    var open by mutableStateOf(false)
+}
+
 @Composable
 fun OptionsButton() {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        Box(
-            Modifier.size(32.dp).clip(RoundedCornerShape(10.dp))
-                .background(if (open) Palette.SurfaceHigh else Palette.Surface)
-                .border(1.dp, Palette.Outline, RoundedCornerShape(10.dp))
-                .soundClickable { open = !open },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(OverlayIcons.Gear, contentDescription = "Options", tint = Palette.Text, modifier = Modifier.size(20.dp))
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            Column(Modifier.widthIn(min = 280.dp).padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("OPTIONS", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
-                OptionToggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", AppSettings.fpsCounter, AppSettings::updateFpsCounter)
-                OptionToggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", AppSettings.uiSounds, AppSettings::updateUiSounds)
-                OptionToggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", AppSettings.menuMusic, AppSettings::updateMenuMusic)
-                OptionToggle("V-Slice: ${com.vconvertercrew.vconverter.vslice.VSlicePreview.LABEL}", "V-Slice output uses the Public PlayTest layout: gameplay/songs, gameplay/characters, gameplay/stages and ui/story-mode. Off keeps the 0.7 layout (data/, images/, songs/).", AppSettings.vslicePreview, AppSettings::updateVSlicePreview)
-                com.vconvertercrew.vconverter.editorview.TextValueField("Online server address", AppSettings.serverUrl, Modifier.widthIn(min = 260.dp)) { AppSettings.updateServerUrl(it) }
-                OptionToggle("Send Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", AppSettings.errorReports, AppSettings::updateErrorReports)
-                if (AppSettings.menuMusic) {
-                    Text("Music volume: ${(AppSettings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-                    Slider(
-                        value = AppSettings.musicVolume,
-                        onValueChange = AppSettings::updateMusicVolume,
-                        colors = SliderDefaults.colors(thumbColor = Palette.Down, activeTrackColor = Palette.Down)
-                    )
-                }
-            }
-        }
+    Box(
+        Modifier.size(32.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (OptionsMenu.open) Palette.SurfaceHigh else Palette.Surface)
+            .border(1.dp, Palette.Outline, RoundedCornerShape(10.dp))
+            .soundClickable { OptionsMenu.open = true },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(OverlayIcons.Gear, contentDescription = "Options", tint = Palette.Text, modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
-private fun OptionToggle(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.clip(RoundedCornerShape(10.dp)).soundClickable { onChange(!checked) }.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, color = Palette.Text)
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Palette.Ink, checkedTrackColor = Palette.Down)
-        )
-    }
+fun OptionsOverlay() {
+    if (!OptionsMenu.open) return
+    val art = remember { MenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val options = listOf(
+        MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { AppSettings.fpsCounter }, AppSettings::updateFpsCounter),
+        MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", { AppSettings.uiSounds }, AppSettings::updateUiSounds),
+        MenuOption.Toggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", { AppSettings.menuMusic }, AppSettings::updateMenuMusic),
+        MenuOption.Stepper("Music Volume", "Left and right (or Enter) change the menu music volume.", { "${(AppSettings.musicVolume * 100).roundToInt()}%" }) { step ->
+            val next = ((AppSettings.musicVolume * 10).roundToInt() + step).let { if (it > 10) 0 else if (it < 0) 10 else it }
+            AppSettings.updateMusicVolume(next / 10f)
+        },
+        MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { AppSettings.vslicePreview }, AppSettings::updateVSlicePreview),
+        MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Press Enter on it to edit.", { AppSettings.serverUrl }, AppSettings::updateServerUrl, "https://my-server.example.com"),
+        MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { AppSettings.errorReports }, AppSettings::updateErrorReports)
+    )
+    FunkinOptionsMenu("Options", options, art, onClose = { OptionsMenu.open = false })
 }

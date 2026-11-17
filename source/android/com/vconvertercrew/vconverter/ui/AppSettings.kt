@@ -27,6 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.asImageBitmap
+import com.vconvertercrew.vconverter.overlay.FunkinOptionsMenu
+import com.vconvertercrew.vconverter.overlay.MenuOption
 import com.vconvertercrew.vconverter.R
 import com.vconvertercrew.vconverter.overlay.OverlayIcons
 import com.vconvertercrew.vconverter.ui.components.ChunkyButton
@@ -147,77 +151,33 @@ fun OptionsButton(onClick: () -> Unit) {
 
 @Composable
 fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        val shape = RoundedCornerShape(22.dp)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(Funkin.Surface)
-                .border(2.dp, Funkin.Outline, shape)
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            SectionTitle("Options", Funkin.Down)
-            ToggleRow(
-                label = "FPS Counter",
-                checked = settings.fpsCounter,
-                onChange = settings::updateFpsCounter,
-                accent = Funkin.Down,
-                hint = "Shows \"FPS:\" in the top-right corner."
-            )
-            ToggleRow(
-                label = "Touch Cursor",
-                checked = settings.touchCursor,
-                onChange = settings::updateTouchCursor,
-                accent = Funkin.Down,
-                hint = "Shows the cursor where you touch the screen."
-            )
-            ToggleRow(
-                label = "UI Sounds",
-                checked = settings.uiSounds,
-                onChange = settings::updateUiSounds,
-                accent = Funkin.Down,
-                hint = "Plays scrollMenu when you tap tabs and buttons."
-            )
-            ToggleRow(
-                label = "Menu Music",
-                checked = settings.menuMusic,
-                onChange = settings::updateMenuMusic,
-                accent = Funkin.Down,
-                hint = "Plays freakyMenu while you work. It pauses while the Chart Editor plays a song."
-            )
-            ToggleRow(
-                label = "V-Slice: ${com.vconvertercrew.vconverter.vslice.VSlicePreview.LABEL}",
-                checked = settings.vslicePreview,
-                onChange = settings::updateVSlicePreview,
-                accent = Funkin.Down,
-                hint = "V-Slice output uses the Public PlayTest layout: gameplay/songs, gameplay/characters, gameplay/stages and ui/story-mode. Off keeps the 0.7 layout (data/, images/, songs/)."
-            )
-            if (settings.menuMusic) {
-                Text("Music volume: ${(settings.musicVolume * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
-                Slider(
-                    value = settings.musicVolume,
-                    onValueChange = settings::updateMusicVolume,
-                    colors = SliderDefaults.colors(thumbColor = Funkin.Down, activeTrackColor = Funkin.Down)
-                )
-            }
-            com.vconvertercrew.vconverter.ui.components.FunkinTextField(
-                value = settings.serverUrl,
-                onValueChange = settings::updateServerUrl,
-                label = "Online server address",
-                accent = Funkin.Down,
-                placeholder = "https://my-server.example.com"
-            )
-            ToggleRow(
-                label = "Send Error Reports",
-                checked = settings.errorReports,
-                onChange = settings::updateErrorReports,
-                accent = Funkin.Down,
-                hint = "Sends conversion errors and crashes (message, app version and platform) to the online server."
-            )
-            Text("Options are saved on this device.", style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
-            ChunkyButton(text = "Done", accent = Funkin.Down, onClick = onDismiss, icon = R.drawable.ic_check)
-        }
+    val context = LocalContext.current
+    val art = remember {
+        val assets = context.assets
+        com.vconvertercrew.vconverter.overlay.MenuArt.load(
+            image = { path -> runCatching { assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull() },
+            text = { path -> runCatching { assets.open(path).use { it.readBytes().decodeToString() } }.getOrNull() }
+        )
+    }
+    var backPresses by remember { mutableStateOf(0) }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        androidx.activity.compose.BackHandler { backPresses++ }
+        val options = listOf(
+            MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { settings.fpsCounter }, settings::updateFpsCounter),
+            MenuOption.Toggle("Touch Cursor", "Shows the cursor where you touch the screen.", { settings.touchCursor }, settings::updateTouchCursor),
+            MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you tap tabs and buttons.", { settings.uiSounds }, settings::updateUiSounds),
+            MenuOption.Toggle("Menu Music", "Plays freakyMenu while you work. It pauses while the Chart Editor plays a song.", { settings.menuMusic }, settings::updateMenuMusic),
+            MenuOption.Stepper("Music Volume", "Left and right (or tapping it) change the menu music volume.", { "${(settings.musicVolume * 100).roundToInt()}%" }) { step ->
+                val next = ((settings.musicVolume * 10).roundToInt() + step).let { if (it > 10) 0 else if (it < 0) 10 else it }
+                settings.updateMusicVolume(next / 10f)
+            },
+            MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { settings.vslicePreview }, settings::updateVSlicePreview),
+            MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Tap it again to edit.", { settings.serverUrl }, settings::updateServerUrl, "https://my-server.example.com"),
+            MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { settings.errorReports }, settings::updateErrorReports)
+        )
+        FunkinOptionsMenu("Options", options, art, onClose = onDismiss, closeRequests = backPresses)
     }
 }
