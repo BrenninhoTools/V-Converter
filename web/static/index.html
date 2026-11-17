@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>V-Converter</title>
+    <link rel="icon" type="image/png" href="icons/icon.png">
+    <meta name="theme-color" content="#0F0C18">
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0F0C18; color: #F5F1FF; font-family: system-ui, sans-serif; }
+        #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+        #loading img { width: 96px; height: 96px; border-radius: 22px; }
+        #loading p { margin: 0; color: #A79CC4; }
+    </style>
+    <script src="platform.js"></script>
+    <script src="vconverter.js" defer></script>
+</head>
+<body>
+    <div id="loading">
+        <img src="icons/icon.png" alt="">
+        <p id="loading-text">Loading V-Converter...</p>
+    </div>
+    <noscript>V-Converter needs JavaScript and WebAssembly.</noscript>
+</body>
+</html>

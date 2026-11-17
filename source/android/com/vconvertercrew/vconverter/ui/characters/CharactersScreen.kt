@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.ui.characters
 
+import com.vconvertercrew.vconverter.overlay.UiSound
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -71,7 +72,7 @@ fun CharactersScreen(viewModel: CharactersViewModel, modFolderName: String?, onS
                             CharacterSlot.entries.forEachIndexed { slotIndex, slot ->
                                 SegmentedButton(
                                     selected = item.slot == slot,
-                                    onClick = { viewModel.setSlot(index, slot) },
+                                    onClick = UiSound.wrap { viewModel.setSlot(index, slot) },
                                     enabled = !busy,
                                     shape = SegmentedButtonDefaults.itemShape(slotIndex, CharacterSlot.entries.size),
                                     colors = SegmentedButtonDefaults.colors(

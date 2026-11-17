@@ -19,6 +19,11 @@ object UiSound {
         click()
         onClick()
     }
+
+    fun <T> wrapValue(onChange: (T) -> Unit): (T) -> Unit = { value ->
+        click()
+        onChange(value)
+    }
 }
 
 fun Modifier.soundClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier =

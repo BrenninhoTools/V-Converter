@@ -37,7 +37,7 @@ import com.vconvertercrew.vconverter.core.fmt
 import com.vconvertercrew.vconverter.platform.Platform
 
 interface PlayTestPlatform {
-    fun player(audio: List<EditorAudio>): SongPlayer?
+    suspend fun player(audio: List<EditorAudio>): SongPlayer?
     fun sprite(png: ByteArray, xml: String): CharacterSprite?
     fun image(asset: StageAsset): StageImage?
 }

@@ -219,7 +219,7 @@ fun ModScannerPanel(
         }
         if (onCancel != null) {
             OutlinedButton(
-                onClick = onCancel,
+                onClick = UiSound.wrap(onCancel),
                 enabled = !cancelling,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.danger)

@@ -45,7 +45,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 object DesktopPlayTestPlatform : PlayTestPlatform {
-    override fun player(audio: List<EditorAudio>): SongPlayer? = if (audio.isEmpty()) null else DesktopSongPlayer.create(audio).first
+    override suspend fun player(audio: List<EditorAudio>): SongPlayer? = if (audio.isEmpty()) null else DesktopSongPlayer.create(audio).first
 
     override fun sprite(png: ByteArray, xml: String): CharacterSprite? {
         val atlas = SpriteAtlas.parse(xml).takeIf { it.frames.isNotEmpty() } ?: return null

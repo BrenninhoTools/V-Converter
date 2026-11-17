@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.editorview
 
+import com.vconvertercrew.vconverter.overlay.UiSound
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -279,7 +280,7 @@ fun LiveSessionPanel(live: LiveSession, modifier: Modifier = Modifier, cursor: P
                 TextValueField("Room code", live.code, Modifier.weight(1f)) { live.code = it.uppercase() }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = live.publicRoom, onCheckedChange = { live.publicRoom = it })
+                Checkbox(checked = live.publicRoom, onCheckedChange = UiSound.wrapValue { live.publicRoom = it })
                 Text("List my room publicly (anyone can join from Online → Rooms)", fontSize = 13.sp)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

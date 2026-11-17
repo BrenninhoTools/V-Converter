@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.editorview
 
+import com.vconvertercrew.vconverter.overlay.UiSound
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,7 @@ import com.vconvertercrew.vconverter.overlay.soundClickable
 @Composable
 private fun WeekCheck(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = checked, onCheckedChange = onChange)
+        Checkbox(checked = checked, onCheckedChange = UiSound.wrapValue(onChange))
         Text(label, fontSize = 14.sp)
     }
 }

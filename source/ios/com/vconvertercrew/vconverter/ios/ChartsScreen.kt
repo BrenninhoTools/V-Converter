@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.ios
 
+import com.vconvertercrew.vconverter.overlay.UiSound
 import com.vconvertercrew.vconverter.overlay.soundClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -294,7 +295,7 @@ private fun OptionsCard(files: FileTabState, accent: Color) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.soundClickable(enabled = enabled) { files.updateTweaks { it.copy(keepUnknownEvents = !it.keepUnknownEvents) } }) {
                 Checkbox(
                     checked = tweaks.keepUnknownEvents,
-                    onCheckedChange = { value -> files.updateTweaks { it.copy(keepUnknownEvents = value) } },
+                    onCheckedChange = UiSound.wrapValue { value -> files.updateTweaks { it.copy(keepUnknownEvents = value) } },
                     enabled = enabled,
                     colors = CheckboxDefaults.colors(checkedColor = accent, checkmarkColor = Palette.Ink)
                 )
@@ -305,7 +306,7 @@ private fun OptionsCard(files: FileTabState, accent: Color) {
             }
         }
         if (!tweaks.isEmpty) {
-            TextButton(onClick = { files.updateTweaks { com.vconvertercrew.vconverter.chart.preview.ChartTweaks(keepUnknownEvents = it.keepUnknownEvents) } }, enabled = enabled) {
+            TextButton(onClick = UiSound.wrap { files.updateTweaks { com.vconvertercrew.vconverter.chart.preview.ChartTweaks(keepUnknownEvents = it.keepUnknownEvents) } }, enabled = enabled) {
                 Text("Reset options", color = Palette.Muted)
             }
         }

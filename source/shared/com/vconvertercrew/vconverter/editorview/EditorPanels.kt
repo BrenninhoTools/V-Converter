@@ -207,7 +207,7 @@ fun SelectionPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
                 var kind by remember { mutableStateOf("") }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(value = kind, onValueChange = { kind = it }, label = { Text("Custom event kind") }, singleLine = true, modifier = Modifier.weight(1f).typingField())
-                    TextButton(onClick = { if (kind.isNotBlank()) state.addEvent(kind.trim(), JSONObject()) }) { Text("Add") }
+                    TextButton(onClick = UiSound.wrap { if (kind.isNotBlank()) state.addEvent(kind.trim(), JSONObject()) }) { Text("Add") }
                 }
                 EditorChip("Cancel", false) { state.clearSelection() }
             }
@@ -239,7 +239,7 @@ private fun TemplateFields(template: EventTemplate, value: JSONObject, onValue: 
             FieldType.NUMBER -> NumberField(field.label, value.optDouble(field.key, (field.default as Number).toDouble()), Modifier.fillMaxWidth()) { put(field.key, it) }
             FieldType.TEXT -> TextValueField(field.label, value.optString(field.key, field.default.toString()), Modifier.fillMaxWidth()) { put(field.key, it) }
             FieldType.BOOL -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = value.optBoolean(field.key, field.default as Boolean), onCheckedChange = { put(field.key, it) })
+                Checkbox(checked = value.optBoolean(field.key, field.default as Boolean), onCheckedChange = UiSound.wrapValue { put(field.key, it) })
                 Text(field.label)
             }
             FieldType.CHOICE -> {
@@ -294,7 +294,7 @@ fun TimingPanel(state: ChartEditorState, modifier: Modifier = Modifier) {
                     val beats = n.toInt()
                     if (beats in 1..32) state.edit { doc -> doc.withTiming(doc.timing.mapIndexed { i, t -> if (i == index) t.copy(numerator = beats) else t }) }
                 }
-                if (index > 0) TextButton(onClick = { state.edit { doc -> doc.withTiming(doc.timing.filterIndexed { i, _ -> i != index }) } }) { Text("X") }
+                if (index > 0) TextButton(onClick = UiSound.wrap { state.edit { doc -> doc.withTiming(doc.timing.filterIndexed { i, _ -> i != index }) } }) { Text("X") }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

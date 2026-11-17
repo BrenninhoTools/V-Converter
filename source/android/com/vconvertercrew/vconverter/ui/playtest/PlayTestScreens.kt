@@ -77,7 +77,7 @@ private fun decodeBitmap(bytes: ByteArray): Pair<android.graphics.Bitmap, Float>
 }
 
 class AndroidPlayTestPlatform(private val context: Context) : PlayTestPlatform {
-    override fun player(audio: List<EditorAudio>): SongPlayer? = if (audio.isEmpty()) null else AndroidSongPlayer.create(context, audio)
+    override suspend fun player(audio: List<EditorAudio>): SongPlayer? = if (audio.isEmpty()) null else AndroidSongPlayer.create(context, audio)
 
     override fun sprite(png: ByteArray, xml: String): CharacterSprite? {
         val (bitmap, scale) = decodeBitmap(png) ?: return null

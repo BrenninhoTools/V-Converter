@@ -28,4 +28,5 @@ val modules = providers.gradleProperty("vconverter.modules").orNull?.split(',')?
 fun wanted(name: String) = modules == null || name in modules
 if (wanted("app")) include(":app")
 if (wanted("desktop")) include(":desktop")
+if (wanted("web")) include(":web")
 if (wanted("ios") && System.getProperty("os.name").startsWith("Mac")) include(":ios")

@@ -380,7 +380,7 @@ private fun ModScreen(state: AppState) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Primary("Open mod folder…", accent, !busy) { Dialogs.chooseFolder("Open a ${state.direction.from.title} mod folder")?.let { state.openMod(it) } }
             Secondary("Open archive…", !busy) { Dialogs.openFile("Open a mod archive", setOf("zip", "rar", "7z"))?.let { state.openMod(it) } }
-            if (mod.mod != null) TextButton(onClick = { mod.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
+            if (mod.mod != null) TextButton(onClick = UiSound.wrap { mod.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
         }
         val loaded = mod.mod
         if (loaded != null) {
@@ -479,7 +479,7 @@ internal fun FilesCard(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Primary("Add files…", accent, !busy) { Dialogs.openFiles("Add ${state.direction.from.title} files").takeIf { it.isNotEmpty() }?.let { state.addFiles(it) } }
             Secondary("Add folder…", !busy) { Dialogs.chooseFolder("Add a folder")?.let { state.addFiles(listOf(it)) } }
-            if (files.items.isNotEmpty()) TextButton(onClick = { files.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
+            if (files.items.isNotEmpty()) TextButton(onClick = UiSound.wrap { files.clear() }, enabled = !busy) { Text("Clear", color = Palette.Muted) }
         }
         Text("Archives (.zip, .rar, .7z) are opened and only the matching files are kept.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
         if (files.items.isEmpty()) {
@@ -505,7 +505,7 @@ internal fun FilesCard(
                     SlotPicker(slot, !busy) { files.setSlot(index, it) }
                 }
                 Spacer(Modifier.width(4.dp))
-                TextButton(onClick = { files.remove(index) }, enabled = !busy) { Text("✕", color = Palette.Muted) }
+                TextButton(onClick = UiSound.wrap { files.remove(index) }, enabled = !busy) { Text("✕", color = Palette.Muted) }
             }
         }
         Primary("Convert to ${state.direction.to.title}", accent, files.converter.canConvert(files.items) && !busy) { state.convertFiles() }

@@ -29,7 +29,7 @@ object Archives {
             session.mkdirs()
             when (kind) {
                 ArchiveKind.ZIP -> ZipExtractor.extract(source, target, onProgress)
-                ArchiveKind.RAR, ArchiveKind.SEVEN_ZIP -> throw IOException("${kind.label} archives can't be opened on iOS. Extract $name first, or use a .zip.")
+                ArchiveKind.RAR, ArchiveKind.SEVEN_ZIP -> throw IOException("${kind.label} archives can't be opened on this platform. Extract $name first, or use a .zip.")
             }
         } catch (e: Exception) {
             session.deleteRecursively()

@@ -21,6 +21,7 @@ SUPPORTED_PLATFORMS = [
     "linux",
     "macos",
     "ios",
+    "web",
     "desktop",
     "native",
     "test",
@@ -34,6 +35,7 @@ PLATFORM_MODULES = {
     "macos": "desktop",
     "desktop": "desktop",
     "ios": "ios",
+    "web": "web",
     "test": "app"
 }
 
@@ -61,6 +63,10 @@ PLATFORM_TASKS = {
     "ios": {
         "debug": ":ios:linkDebugFrameworkIosArm64",
         "release": ":ios:linkReleaseFrameworkIosArm64"
+    },
+    "web": {
+        "debug": ":web:wasmJsBrowserDevelopmentExecutableDistribution",
+        "release": ":web:wasmJsBrowserDistribution"
     },
     "test": {
         "debug": ":app:testDebugUnitTest",
@@ -191,6 +197,9 @@ class BuildSystem:
         if module:
             command.append(f"-Pvconverter.modules={module}")
 
+        if target == "web":
+            command.append("--no-configuration-cache")
+
         if self.args.offline:
             command.append("--offline")
 
@@ -278,7 +287,7 @@ class BuildSystem:
     def build_all(self):
         host = HOST_NAMES.get(self.system)
 
-        targets = ["native", "android"]
+        targets = ["native", "android", "web"]
 
         if host:
             targets.append(host)
@@ -315,7 +324,8 @@ class BuildSystem:
             ".rpm",
             ".jar",
             ".ipa",
-            ".zip"
+            ".zip",
+            ".wasm"
         }
 
         found = []
@@ -323,7 +333,8 @@ class BuildSystem:
         for directory in [
             ROOT_DIR / "app" / "build" / "outputs",
             ROOT_DIR / "desktop" / "build" / "compose" / "binaries",
-            ROOT_DIR / "ios" / "build" / "bin"
+            ROOT_DIR / "ios" / "build" / "bin",
+            ROOT_DIR / "web" / "build" / "dist"
         ]:
             if not directory.exists():
                 continue

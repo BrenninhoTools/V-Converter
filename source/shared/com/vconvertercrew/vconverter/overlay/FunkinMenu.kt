@@ -441,8 +441,8 @@ fun FunkinOptionsMenu(
                         }
                     )
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { editing = null }) { Text("CANCEL", color = Color(0xFFB8B8C8)) }
-                        TextButton(onClick = {
+                        TextButton(onClick = UiSound.wrap { editing = null }) { Text("CANCEL", color = Color(0xFFB8B8C8)) }
+                        TextButton(onClick = UiSound.wrap {
                             option.set(draft)
                             editing = null
                         }) { Text("SAVE", color = Color(0xFFEA71FD), fontWeight = FontWeight.Bold) }

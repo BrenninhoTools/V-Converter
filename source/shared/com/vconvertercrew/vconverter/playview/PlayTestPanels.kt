@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter.playview
 
+import com.vconvertercrew.vconverter.overlay.UiSound
 import com.vconvertercrew.vconverter.core.fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +34,7 @@ private val levelColors = mapOf(IssueLevel.ERROR to Color(0xFFFF6B6B), IssueLeve
 @Composable
 private fun Check(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = checked, onCheckedChange = onChange)
+        Checkbox(checked = checked, onCheckedChange = UiSound.wrapValue(onChange))
         Text(label, fontSize = 14.sp)
     }
 }

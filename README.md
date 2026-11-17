@@ -12,6 +12,7 @@
 ![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
 ![iOS](https://img.shields.io/badge/iOS-000000?logo=ios&logoColor=white)
+![Web](https://img.shields.io/badge/Web-654FF0?logo=webassembly&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)
 ![Vibe coded](https://img.shields.io/badge/vibe%20coded-%E2%9C%A8-ff69b4)
@@ -21,7 +22,7 @@
 > [!NOTE]
 > **This app was vibe coded.** V-Converter was built through vibe coding: the code was written with an AI assistant (Claude) from prompts, then tested and checked against the engines' source code. Conversions are validated, but expect rough edges, and please [open an issue](https://github.com/VConverterCrew/V-Converter/issues) if something breaks.
 
-A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux** and **macOS**. It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions, and from any of them to [FPS Plus](https://github.com/ThatRozebudDude/FPS-Plus-Public).
+A remake of the V-Slice converter as a native app written in Kotlin, for **Android**, **iOS**, **Windows**, **Linux**, **macOS** and the **web** (any modern browser, through WebAssembly). It converts content from **Psych Engine** and **Codename Engine** to **V-Slice** (the current base game), from V-Slice back to Psych, between Psych and Codename in both directions, between [NightmareVision](https://github.com/NMVTeam/NightmareVision) and Psych, V-Slice or Codename in both directions, and from any of them to [FPS Plus](https://github.com/ThatRozebudDude/FPS-Plus-Public).
 
 ## Contents
 
@@ -45,6 +46,11 @@ Every push to `main` is also built by [GitHub Actions](https://github.com/VConve
 | `V Converter-Linux` | 🐧 Linux | `V Converter-Linux.deb` for Debian/Ubuntu and `V Converter-Linux.tar.gz`, a portable folder for any distro (run `V-Converter/bin/V-Converter`) |
 | `V Converter-MacOS` | 🍎 macOS | `V Converter-MacOS.dmg` (drag the app to Applications) and `V Converter-MacOS.zip` with the app itself. It isn't notarized: the first time, right-click the app and choose **Open**, or allow it in **System Settings → Privacy & Security** |
 | `V Converter-IOS` | 📱 iOS / iPadOS | `V Converter-IOS.ipa`, unsigned: install it with AltStore, SideStore, Sideloadly or TrollStore (iOS 15 or newer) |
+| `V Converter-Web` | 🌐 Browser | The web app (Kotlin/Wasm): put the folder on any static host, or run `python3 -m http.server` inside it and open `http://localhost:8000`. Needs a browser with WebAssembly GC (Chrome/Edge 119+, Firefox 120+, Safari 18.2+) |
+
+### Web version
+
+The web app is the same app as on iOS, running in the browser: files you open are read into memory, never uploaded, and every result downloads as a `.zip` (browsers can't write into a folder). RAR and 7z archives can't be opened there; use a `.zip`. To publish it on GitHub Pages, set **Settings → Pages → Source** to **GitHub Actions** and add the repository variable `WEB_PAGES` = `true`: every push to `main` then deploys it.
 
 ## Supported conversions
 
@@ -485,20 +491,22 @@ Special thanks to YLuzew for bringing V-Converter to the Chinese-speaking commun
 
 ## Project layout
 
-All the code lives in `source/`; the Gradle modules in `app/`, `desktop/` and `ios/` only hold their build scripts.
+All the code lives in `source/`; the Gradle modules in `app/`, `desktop/`, `ios/` and `web/` only hold their build scripts (`web/static` also holds `index.html` and `platform.js`, the browser side of the web platform layer).
 
 | Folder | What it holds | Used by |
 |---|---|---|
-| `source/shared` | Converters, parsers, editors' logic and the Compose screens shared by every platform (`chartview`, `editorview`, `playview`, `onlineview`, `overlay`) | Android, desktop, iOS |
+| `source/shared` | Converters, parsers, editors' logic and the Compose screens shared by every platform (`chartview`, `editorview`, `playview`, `onlineview`, `overlay`) | Android, desktop, iOS, web |
+| `source/portable` | Pure Kotlin platform code for the targets without a JVM: streams, ZIP reading and writing, mod folders and archives | iOS, web |
 | `source/jvm` | JVM-only code: ZIP/7z extraction, the JVM platform layer, the WebSocket client and the V-MiniAudio JNI binding | Android, desktop |
 | `source/android` | Android UI (`ui/`), `MainActivity`, Storage Access Framework code, `AndroidManifest.xml` and `res/` | Android |
 | `source/desktop` | Windows, Linux and macOS app | desktop |
 | `source/ios` | iOS app and its platform layer | iOS |
+| `source/web` | Web app (Kotlin/Wasm) and its platform layer: in-memory files, browser downloads and pickers, Web Audio and WebSockets | web |
 | `source/native` | [V-MiniAudio](https://github.com/VConverterCrew/V-MiniAudio), its JNI bridge (`bridge/`) and the iOS cinterop definitions (`cinterop/`) | all |
 | `source/test` | JVM unit tests (`./gradlew :app:testDebugUnitTest`) | — |
 | `assets` | `images/`, `sounds/`, `music/`, `fonts/`, `data/` (files the converters embed, like `PsychApiLibrary.hxc`) and `icons/` | all |
 | `iosApp` | Xcode project (generated with XcodeGen) and the iOS app icon | iOS |
-| `scripts/Compile.py` | Build helper: `python3 scripts/Compile.py --platform android\|windows\|linux\|macos\|ios\|desktop\|native\|test --build debug\|release` | — |
+| `scripts/Compile.py` | Build helper: `python3 scripts/Compile.py --platform android\|windows\|linux\|macos\|ios\|web\|desktop\|native\|test --build debug\|release` | — |
 
 The app id and package are `com.vconvertercrew.vconverter`. Builds from before the move to VConverterCrew used `com.brenninhotools.vconverter`, so Android installs the new version as a separate app: uninstall the old one.
 
@@ -541,6 +549,12 @@ macOS (`.dmg` and `.app`, run on a Mac with JDK 17):
 
 ```
 ./gradlew :desktop:packageDmg :desktop:createDistributable
+```
+
+Web (any OS with JDK 17; Gradle downloads Node.js for the bundle). The site lands in `web/build/dist/wasmJs/productionExecutable`:
+
+```
+./gradlew :web:wasmJsBrowserDistribution --no-configuration-cache
 ```
 
 iOS (unsigned `.ipa`, run on a Mac with Xcode, JDK 17 and [XcodeGen](https://github.com/yonaskolb/XcodeGen)):
