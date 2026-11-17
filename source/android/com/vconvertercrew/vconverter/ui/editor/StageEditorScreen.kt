@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.ui.editor
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.vconvertercrew.vconverter.editorview.*
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -161,7 +163,7 @@ class StageEditorViewModel(application: Application) : BaseConverterViewModel(ap
 }
 
 @Composable
-fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, onSave: () -> Unit) {
+fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, onSave: () -> Unit, onExit: () -> Unit = {}) {
     val accent = Funkin.Up
     val busy = viewModel.busy
     val editor = viewModel.editor
@@ -170,9 +172,36 @@ fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, o
 
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FunkinCard {
-            SectionTitle("Stage", accent, 1)
+    val windows = rememberEditorWindows("layers")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Stage", enabled = !busy) { viewModel.createNew() },
+                EditorMenuItem.Action("Open Stage…", enabled = !busy) { opener.launch(arrayOf("*/*")) },
+                EditorMenuItem.Action("Add Images…", enabled = !busy) { imagePicker.launch(arrayOf("image/png", "text/xml", "application/xml", "*/*")) },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${viewModel.target.label}", enabled = !busy && true) {
+                    viewModel.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export & Save…") { windows.show("export") },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit Editor") { onExit() }
+            )
+        ),
+        StageMenus.edit(editor),
+        StageMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Stage Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Stage", 400.dp) {
             Text(viewModel.source, color = Funkin.Muted)
             DropZone(
                 title = "Open a stage",
@@ -182,34 +211,13 @@ fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, o
                 enabled = !busy,
                 onClick = { opener.launch(arrayOf("*/*")) }
             )
-            OutlineButton("Start a new stage", accent, onClick = viewModel::createNew, enabled = !busy)
-        }
-        FunkinCard {
-            SectionTitle("Preview", accent, 2)
-            StageToolbar(editor)
-            StagePreview(
-                editor,
-                Modifier
-                    .fillMaxWidth()
-                    .height(460.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp))
-            )
-            StageSelectionPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Layers", accent, 3)
-            StageLayersPanel(editor, onAddImage = { imagePicker.launch(arrayOf("image/png", "text/xml", "application/xml", "*/*")) })
-        }
-        FunkinCard {
-            SectionTitle("Stage info", accent, 4)
-            StageInfoPanel(editor)
-        }
-        FunkinCard {
-            com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live)
-        }
-        FunkinCard {
-            SectionTitle("Export format", accent, 5)
+        },
+        EditorWindow("layers", "Props") { StageLayersPanel(editor, onAddImage = { imagePicker.launch(arrayOf("image/png", "text/xml", "application/xml", "*/*")) }) },
+        EditorWindow("selection", "Selection") { StageSelectionPanel(editor) },
+        EditorWindow("properties", "Stage Data") { StageInfoPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            SectionTitle("Export format", accent, 1)
             ChoiceChips(
                 options = ExportTarget.entries,
                 label = { it.label },
@@ -226,18 +234,22 @@ fun StageEditorScreen(viewModel: StageEditorViewModel, modFolderName: String?, o
                 },
                 color = Funkin.Muted
             )
-        }
-        ConvertSection(
-            viewModel = viewModel,
-            accent = accent,
-            step = 6,
-            canConvert = true,
-            onConvert = viewModel::export,
-            onSave = onSave,
-            modFolderName = modFolderName,
-            title = "Export",
-            buttonText = "Export ${viewModel.target.label}",
-            buttonIcon = R.drawable.ic_magic
-        )
+            ConvertSection(
+                viewModel = viewModel,
+                accent = accent,
+                step = 2,
+                canConvert = true,
+                onConvert = viewModel::export,
+                onSave = onSave,
+                modFolderName = modFolderName,
+                title = "Export",
+                buttonText = "Export ${viewModel.target.label}",
+                buttonIcon = R.drawable.ic_magic
+            )
+        },
+        EditorWindow("help", "Controls") { EditorHelpText("Tap a prop or a character to select it and drag it to move it; dragging elsewhere moves the view. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
+    )
+    FunkinEditorShell(title = "Stage Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
+        StageEditorStage(editor)
     }
 }

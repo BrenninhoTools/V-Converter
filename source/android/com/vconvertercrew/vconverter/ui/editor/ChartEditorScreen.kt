@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.ui.editor
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.vconvertercrew.vconverter.editorview.*
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -213,7 +215,7 @@ class ChartEditorViewModel(application: Application) : BaseConverterViewModel(ap
 }
 
 @Composable
-fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, onSave: () -> Unit) {
+fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, onSave: () -> Unit, onExit: () -> Unit = {}) {
     val accent = Funkin.Down
     val busy = viewModel.busy
     val editor = viewModel.editor
@@ -241,9 +243,39 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { viewModel.pause() } }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FunkinCard {
-            SectionTitle("Song", accent, 1)
+    val launcher = com.vconvertercrew.vconverter.ui.playtest.LocalPlayTest.current
+    val split = if (splitVoices >= 0) splitVoices == 1 else viewModel.audioFor(AudioRole.PLAYER) != null || viewModel.audioFor(AudioRole.OPPONENT) != null
+    val windows = rememberEditorWindows("selection")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Song…") { windows.show("new") },
+                EditorMenuItem.Action("Open Chart…", enabled = !busy) { opener.launch(arrayOf("*/*")) },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${viewModel.target.label}", enabled = !busy && true) {
+                    viewModel.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export & Save…") { windows.show("export") },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit Editor") { onExit() }
+            )
+        ),
+        ChartMenus.edit(editor),
+        EditorMenu("Audio", ChartMenus.playback(editor) + listOf(EditorMenuItem.Separator, EditorMenuItem.Action("Audio Files…") { windows.show("audio") })),
+        ChartMenus.view(editor),
+        EditorMenu("Test", listOf(EditorMenuItem.Action("PlayTest This Chart", enabled = launcher != null) { launcher?.chart(editor.document, viewModel.audio) })),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Song Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Song", 400.dp) {
             Text(viewModel.source, color = Funkin.Muted)
             DropZone(
                 title = "Open a chart",
@@ -253,26 +285,26 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
                 enabled = !busy,
                 onClick = { opener.launch(arrayOf("*/*")) }
             )
-            OutlineButton(if (showNew) "Hide new song" else "Start a new song", accent, onClick = { showNew = !showNew })
-            if (showNew) {
-                FunkinTextField(viewModel.newName, { viewModel.newName = it }, "Song name", accent, enabled = !busy)
-                NumberField(viewModel.newBpm, { viewModel.newBpm = it }, "BPM", accent, enabled = !busy)
-                FieldLabel("Difficulties")
-                ChoiceChips(
-                    options = viewModel.difficultyOptions,
-                    label = { it.replaceFirstChar { c -> c.uppercase() } },
-                    isSelected = { it in viewModel.newDifficulties },
-                    onClick = { d -> viewModel.newDifficulties = if (d in viewModel.newDifficulties) viewModel.newDifficulties - d else viewModel.newDifficulties + d },
-                    accent = accent,
-                    enabled = !busy
-                )
-                OutlineButton("Create", accent, onClick = { viewModel.createNew(); showNew = false })
-            }
-        }
-        FunkinCard {
-            SectionTitle("Audio", accent, 2)
+        },
+        EditorWindow("new", "New Song", 400.dp) {
+            FunkinTextField(viewModel.newName, { viewModel.newName = it }, "Song name", accent, enabled = !busy)
+            NumberField(viewModel.newBpm, { viewModel.newBpm = it }, "BPM", accent, enabled = !busy)
+            FieldLabel("Difficulties")
+            ChoiceChips(
+                options = viewModel.difficultyOptions,
+                label = { it.replaceFirstChar { c -> c.uppercase() } },
+                isSelected = { it in viewModel.newDifficulties },
+                onClick = { d -> viewModel.newDifficulties = if (d in viewModel.newDifficulties) viewModel.newDifficulties - d else viewModel.newDifficulties + d },
+                accent = accent,
+                enabled = !busy
+            )
+            OutlineButton("Create", accent, onClick = {
+                viewModel.createNew()
+                windows.close("new")
+            })
+        },
+        EditorWindow("audio", "Audio Files", 420.dp) {
             AssetPicker("Instrumental", viewModel.audioFor(AudioRole.INST)?.name, accent, audioTypes, { viewModel.pickAudio(it, AudioRole.INST) }, { viewModel.clearAudio(AudioRole.INST) }, enabled = !busy)
-            val split = if (splitVoices >= 0) splitVoices == 1 else viewModel.audioFor(AudioRole.PLAYER) != null || viewModel.audioFor(AudioRole.OPPONENT) != null
             ChoiceChips(
                 options = listOf(false, true),
                 label = { if (it) "Split voices" else "One voices file" },
@@ -288,19 +320,14 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
                 AssetPicker("Voices", viewModel.audioFor(AudioRole.VOICES)?.name, accent, audioTypes, { viewModel.pickAudio(it, AudioRole.VOICES) }, { viewModel.clearAudio(AudioRole.VOICES) }, enabled = !busy)
             }
             if (editor.player == null && viewModel.audio.isNotEmpty()) Text("Loading audio…", color = Funkin.Muted)
-        }
-        FunkinCard {
-            SectionTitle("Chart", accent, 3)
-            ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 540.dp)
-            com.vconvertercrew.vconverter.ui.playtest.LocalPlayTest.current?.let { launcher ->
-                OutlineButton("PlayTest this chart", accent, onClick = { launcher.chart(editor.document, viewModel.audio) })
-            }
-        }
-        FunkinCard {
-            com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live, cursor = editor.position to editor.difficulty)
-        }
-        FunkinCard {
-            SectionTitle("Export format", accent, 4)
+        },
+        EditorWindow("metadata", "Metadata") { SongInfoPanel(editor) },
+        EditorWindow("difficulty", "Difficulties") { DifficultyPanel(editor) },
+        EditorWindow("timing", "Timing") { TimingPanel(editor) },
+        EditorWindow("selection", "Note & Event Data") { SelectionPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live, cursor = editor.position to editor.difficulty) },
+        EditorWindow("export", "Export", 420.dp) {
+            SectionTitle("Export format", accent, 1)
             ChoiceChips(
                 options = ExportTarget.entries,
                 label = { it.label },
@@ -309,28 +336,30 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
                 accent = accent,
                 enabled = !busy
             )
-            FieldRow {
-                Text(
-                    when (viewModel.target) {
-                        ExportTarget.VSLICE -> "data/songs/<id>/ metadata + chart, audio in songs/<id>/."
-                        ExportTarget.PSYCH -> "data/<id>/ charts + events.json, audio in songs/<id>/."
-                        ExportTarget.CODENAME -> "songs/<id>/ meta.json, charts/ and song/ audio."
-                    },
-                    color = Funkin.Muted
-                )
-            }
-        }
-        ConvertSection(
-            viewModel = viewModel,
-            accent = accent,
-            step = 5,
-            canConvert = true,
-            onConvert = viewModel::export,
-            onSave = onSave,
-            modFolderName = modFolderName,
-            title = "Export",
-            buttonText = "Export ${viewModel.target.label}",
-            buttonIcon = R.drawable.ic_magic
-        )
+            Text(
+                when (viewModel.target) {
+                    ExportTarget.VSLICE -> "data/songs/<id>/ metadata + chart, audio in songs/<id>/."
+                    ExportTarget.PSYCH -> "data/<id>/ charts + events.json, audio in songs/<id>/."
+                    ExportTarget.CODENAME -> "songs/<id>/ meta.json, charts/ and song/ audio."
+                },
+                color = Funkin.Muted
+            )
+            ConvertSection(
+                viewModel = viewModel,
+                accent = accent,
+                step = 2,
+                canConvert = true,
+                onConvert = viewModel::export,
+                onSave = onSave,
+                modFolderName = modFolderName,
+                title = "Export",
+                buttonText = "Export ${viewModel.target.label}",
+                buttonIcon = R.drawable.ic_magic
+            )
+        },
+        EditorWindow("help", "Controls") { EditorHelpText("Tap the lanes to place notes and tap a note to select it. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
+    )
+    FunkinEditorShell(title = "Chart Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
+        ChartEditorStage(editor, skin, eventIcon)
     }
 }

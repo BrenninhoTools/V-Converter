@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.web
 
+import androidx.compose.foundation.layout.*
+import com.vconvertercrew.vconverter.editorview.*
 import com.vconvertercrew.vconverter.platform.File
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -204,6 +206,7 @@ class IosStageEditor(private val scope: CoroutineScope) {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun StageEditorScreen(state: AppState) {
     val model = state.stageEditor
@@ -212,59 +215,68 @@ fun StageEditorScreen(state: AppState) {
 
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
 
-    Card {
-        SectionTitle("Stage", accent)
-        Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Primary("Open stage…", accent, !model.busy) { Dialogs.openFiles("Open the stage files and images, or an archive") { model.open(it) } }
-            Secondary("Open folder…", !model.busy) { Dialogs.chooseFolder("Choose the mod folder with the stage") { model.open(listOf(it)) } }
-            Secondary("New stage", !model.busy) { model.createNew() }
-        }
-        Text(
-            "A V-Slice or Psych stage .json (with its .lua) or a Codename stage .xml, plus the images. Opening the whole mod folder finds every image the stage uses. You can also drop files on the window.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.Muted
-        )
-        StatusBanner(model.status)
-    }
-
-    AdaptiveRow {
-        Column(Modifier.pane(1.5f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SectionTitle("Preview", accent)
-                StageToolbar(editor)
-                StagePreview(
-                    editor,
-                    Modifier.fillMaxWidth().height(620.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp))
-                )
-            }
-            Card { StageSelectionPanel(editor) }
-        }
-        Column(Modifier.pane(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card { StageLayersPanel(editor, onAddImage = { Dialogs.openFiles("Pick the images (.png, with .xml for animated ones)") { model.addImages(it) } }) }
-            Card { StageInfoPanel(editor) }
-        }
-    }
-
-    Card { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) }
-
     val output = model.output
-    Card(accent = if (output != null) accent else null) {
-        SectionTitle("Export", accent)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
-        }
-        Primary("Export ${model.target.label}", accent, !model.busy) { model.export() }
-        if (output != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    val windows = rememberEditorWindows("layers", "selection")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Stage", enabled = !model.busy) { model.createNew() },
+                EditorMenuItem.Action("Open Stage…", enabled = !model.busy) { Dialogs.openFiles("Open the stage files and images, or an archive") { model.open(it) } },
+                EditorMenuItem.Action("Open Folder…", enabled = !model.busy) { Dialogs.chooseFolder("Choose the mod folder with the stage") { model.open(listOf(it)) } },
+                EditorMenuItem.Action("Add Images…", enabled = !model.busy) { Dialogs.openFiles("Pick the images (.png, with .xml for animated ones)") { model.addImages(it) } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${model.target.label}", enabled = !model.busy) {
+                    model.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export Settings…") { windows.show("export") },
+                EditorMenuItem.Action("Download .zip…", enabled = output != null && !model.busy) { model.save(true) { state.lastOutput = it } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit To Main Menu") { MainMenu.open = true }
+            )
+        ),
+        StageMenus.edit(editor),
+        StageMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Stage Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Stage") {
+            Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+            Text("A V-Slice or Psych stage .json (with its .lua) or a Codename stage .xml, plus the images. Opening the whole mod folder finds every image the stage uses.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+        },
+        EditorWindow("layers", "Props") { StageLayersPanel(editor, onAddImage = { Dialogs.openFiles("Pick the images (.png, with .xml for animated ones)") { model.addImages(it) } }) },
+        EditorWindow("selection", "Selection") { StageSelectionPanel(editor) },
+        EditorWindow("properties", "Stage Data") { StageInfoPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
+            }
+            Primary("Export ${model.target.label}", accent, !model.busy) { model.export() }
+            if (output != null) {
                 Primary("Download .zip…", accent, !model.busy) { model.save(true) { state.lastOutput = it } }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
+                }
+                ReportView(output.report, accent)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
-            }
-            ReportView(output.report, accent)
+        },
+        EditorWindow("help", "Controls") { EditorHelpText(EditorTool.STAGE.hint) }
+    )
+    FunkinEditorShell(
+        "Stage Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        footer = {
+            val status = model.status
+            if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
-    }
+    ) { StageEditorStage(editor) }
 }
 
 fun stageShortcut(editor: StageEditorState, event: KeyEvent): Boolean {

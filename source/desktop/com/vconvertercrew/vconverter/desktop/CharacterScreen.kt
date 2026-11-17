@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.desktop
 
+import androidx.compose.foundation.layout.*
+import com.vconvertercrew.vconverter.editorview.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -221,6 +223,7 @@ class DesktopCharacterEditor(private val scope: CoroutineScope) {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CharacterEditorScreen(state: AppState) {
     val model = state.characterEditor
@@ -231,64 +234,72 @@ fun CharacterEditorScreen(state: AppState) {
 
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
 
-    Card {
-        SectionTitle("Character", accent)
-        Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Primary("Open character…", accent, !model.busy) { model.open(Dialogs.openFiles("Open the character files, spritesheet or archive")) }
-            Secondary("Open folder…", !model.busy) { Dialogs.chooseFolder("Choose the character or mod folder")?.let { model.open(listOf(it)) } }
-            Secondary(model.sheetName?.let { "Spritesheet: $it" } ?: "Add spritesheet…", !model.busy) { model.replaceSheet(Dialogs.openFiles("Pick the spritesheet .png and .xml")) }
-            Secondary("New character", !model.busy) { model.createNew() }
-        }
-        Text(
-            "A V-Slice or Psych character .json or a Codename character .xml with its spritesheet .png + .xml. A spritesheet alone starts a new character with guessed animations. You can also drop files on the window.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.Muted
-        )
-        StatusBanner(model.status)
-    }
-
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(Modifier.weight(1.3f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SectionTitle("Preview", accent)
-                CharacterToolbar(editor)
-                DragModeBar(editor)
-                CharacterPreview(
-                    editor,
-                    Modifier.fillMaxWidth().height(620.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp)),
-                    stage
-                )
-            }
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card { AnimationListPanel(editor) }
-            Card { AnimationPanel(editor) }
-        }
-    }
-
-    Card { CharacterInfoPanel(editor) }
-
-    Card { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) }
-
     val output = model.output
-    Card(accent = if (output != null) accent else null) {
-        SectionTitle("Export", accent)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
-        }
-        Primary("Export ${model.target.label}", accent, !model.busy && editor.document.animations.isNotEmpty()) { model.export() }
-        if (output != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Primary("Save into mod folder…", accent, !model.busy) { model.save(false) { state.lastOutput = it } }
-                Secondary("Save as .zip…", !model.busy) { model.save(true) { state.lastOutput = it } }
+    val windows = rememberEditorWindows("animations", "animation")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Character", enabled = !model.busy) { model.createNew() },
+                EditorMenuItem.Action("Open Character…", enabled = !model.busy) { Dialogs.openFiles("Open the character files, spritesheet or archive").let { model.open(it) } },
+                EditorMenuItem.Action("Open Folder…", enabled = !model.busy) { Dialogs.chooseFolder("Choose the character or mod folder")?.let { model.open(listOf(it)) } },
+                EditorMenuItem.Action(model.sheetName?.let { "Replace Spritesheet ($it)…" } ?: "Load Spritesheet…", enabled = !model.busy) { Dialogs.openFiles("Pick the spritesheet .png and .xml").let { model.replaceSheet(it) } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${model.target.label}", enabled = !model.busy && editor.document.animations.isNotEmpty()) {
+                    model.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export Settings…") { windows.show("export") },
+                EditorMenuItem.Action("Save Into Mod Folder…", enabled = output != null && !model.busy) { model.save(false) { state.lastOutput = it } },
+                EditorMenuItem.Action("Save As .zip…", enabled = output != null && !model.busy) { model.save(true) { state.lastOutput = it } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit To Main Menu") { MainMenu.open = true }
+            )
+        ),
+        CharacterMenus.edit(editor),
+        CharacterMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Character Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Character") {
+            Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+            Text("A V-Slice or Psych character .json or a Codename character .xml with its spritesheet .png + .xml. A spritesheet alone starts a new character with guessed animations. You can also drop files on the window.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+        },
+        EditorWindow("animations", "Animations") { AnimationListPanel(editor) },
+        EditorWindow("animation", "Animation Data") { AnimationPanel(editor) },
+        EditorWindow("properties", "Character Data") { CharacterInfoPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
+            Primary("Export ${model.target.label}", accent, !model.busy && editor.document.animations.isNotEmpty()) { model.export() }
+            if (output != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Primary("Save into mod folder…", accent, !model.busy) { model.save(false) { state.lastOutput = it } }
+                    Secondary("Save as .zip…", !model.busy) { model.save(true) { state.lastOutput = it } }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
+                }
+                ReportView(output.report, accent)
             }
-            ReportView(output.report, accent)
+        },
+        EditorWindow("help", "Controls") { EditorHelpText(EditorTool.CHARACTER.hint) }
+    )
+    FunkinEditorShell(
+        "Character Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        footer = {
+            val status = model.status
+            if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
-    }
+    ) { CharacterEditorStage(editor, stage) }
 }
 
 fun characterShortcut(editor: CharacterEditorState, event: KeyEvent): Boolean {

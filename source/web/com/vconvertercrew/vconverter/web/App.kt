@@ -211,17 +211,22 @@ private fun EnginePicker(caption: String, selected: Engine, all: List<Engine>, e
 private fun Content(state: AppState) {
     val scroll = rememberScrollState()
     val side = if (LocalCompact.current) 12.dp else 28.dp
+    val editing = state.tool == EditorTool.CHART || state.tool == EditorTool.CHARACTER || state.tool == EditorTool.STAGE || state.tool == EditorTool.WEEK
     Box(Modifier.fillMaxSize()) {
-        Column(
+        if (editing) Box(Modifier.fillMaxSize().padding(start = side, end = side, top = 48.dp, bottom = 16.dp)) {
+            when (state.tool) {
+                EditorTool.CHART -> EditorScreen(state)
+                EditorTool.CHARACTER -> CharacterEditorScreen(state)
+                EditorTool.STAGE -> StageEditorScreen(state)
+                EditorTool.WEEK -> WeekEditorScreen(state)
+                else -> Unit
+            }
+        } else Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(start = side, end = side, top = 48.dp, bottom = 22.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Hero(state)
             when {
-                state.tool == EditorTool.CHART -> EditorScreen(state)
-                state.tool == EditorTool.CHARACTER -> CharacterEditorScreen(state)
-                state.tool == EditorTool.STAGE -> StageEditorScreen(state)
-                state.tool == EditorTool.WEEK -> WeekEditorScreen(state)
                 state.tool == EditorTool.ONLINE -> OnlineScreen(state)
                 state.tool == EditorTool.PLAYTEST -> PlayTestScreen(state)
                 state.tab == Tab.MOD -> ModScreen(state)

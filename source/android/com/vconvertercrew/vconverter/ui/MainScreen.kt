@@ -574,7 +574,17 @@ fun MainScreen() {
                     .imePadding(),
                 label = "tab"
             ) { (current, currentDirection) ->
-                Column(
+                val editorTab = current == GenTab.SONG || current == GenTab.CHARACTER || current == GenTab.STAGE || current == GenTab.WEEK
+                if (editorTab) Box(Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)) {
+                    val exit = { menuScreen = MENU_GENERATOR }
+                    when (current) {
+                        GenTab.SONG -> ChartEditorScreen(genSong, folderName, save, exit)
+                        GenTab.CHARACTER -> CharacterEditorScreen(genCharacter, folderName, save, exit)
+                        GenTab.STAGE -> StageEditorScreen(genStage, folderName, save, exit)
+                        GenTab.WEEK -> WeekEditorScreen(genWeek, folderName, save, exit)
+                        else -> Unit
+                    }
+                } else Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
@@ -635,10 +645,6 @@ fun MainScreen() {
                         Tab.WEEKS -> WeeksScreen(weeks, folderName, save)
                         Tab.SCRIPTS -> ScriptsScreen(scripts, folderName, save)
                         GenTab.MOD -> ModGenScreen(genMod, folderName, save)
-                        GenTab.SONG -> ChartEditorScreen(genSong, folderName, save)
-                        GenTab.CHARACTER -> CharacterEditorScreen(genCharacter, folderName, save)
-                        GenTab.STAGE -> StageEditorScreen(genStage, folderName, save)
-                        GenTab.WEEK -> WeekEditorScreen(genWeek, folderName, save)
                         GenTab.SCRIPT -> ScriptGenScreen(genScript, folderName, save)
                         OnlineTab.MODS -> OnlineModsScreen(online)
                         OnlineTab.SHARE -> OnlineShareScreen(online)
@@ -646,6 +652,7 @@ fun MainScreen() {
                         OnlineTab.ROOMS -> OnlineRoomsScreen(online, joinRoom)
                         PlayTab.PLAY -> PlayTestPlayScreen(playtest)
                         PlayTab.REPORT -> PlayTestReportScreen(playtest)
+                        else -> Unit
                     }
                     Spacer(Modifier.size(24.dp))
                 }

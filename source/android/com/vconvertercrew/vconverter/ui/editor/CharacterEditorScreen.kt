@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.ui.editor
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.vconvertercrew.vconverter.editorview.*
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -185,7 +187,7 @@ class CharacterEditorViewModel(application: Application) : BaseConverterViewMode
 }
 
 @Composable
-fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: String?, onSave: () -> Unit) {
+fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: String?, onSave: () -> Unit, onExit: () -> Unit = {}) {
     val accent = Funkin.Left
     val busy = viewModel.busy
     val editor = viewModel.editor
@@ -201,9 +203,36 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
 
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FunkinCard {
-            SectionTitle("Character", accent, 1)
+    val windows = rememberEditorWindows("animations")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Character", enabled = !busy) { viewModel.createNew() },
+                EditorMenuItem.Action("Open Character…", enabled = !busy) { opener.launch(arrayOf("*/*")) },
+                EditorMenuItem.Action(viewModel.sheetName?.let { "Replace Spritesheet ($it)…" } ?: "Load Spritesheet…", enabled = !busy) { sheetPicker.launch(arrayOf("*/*")) },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${viewModel.target.label}", enabled = !busy && editor.document.animations.isNotEmpty()) {
+                    viewModel.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export & Save…") { windows.show("export") },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit Editor") { onExit() }
+            )
+        ),
+        CharacterMenus.edit(editor),
+        CharacterMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Character Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Character", 400.dp) {
             Text(viewModel.source, color = Funkin.Muted)
             DropZone(
                 title = "Open a character",
@@ -213,37 +242,13 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
                 enabled = !busy,
                 onClick = { opener.launch(arrayOf("*/*")) }
             )
-            OutlineButton(viewModel.sheetName?.let { "Spritesheet: $it (replace)" } ?: "Add spritesheet (.png + .xml)", accent, onClick = { sheetPicker.launch(arrayOf("*/*")) }, enabled = !busy)
-            OutlineButton("Start a new character", accent, onClick = viewModel::createNew, enabled = !busy)
-        }
-        FunkinCard {
-            SectionTitle("Preview", accent, 2)
-            CharacterToolbar(editor)
-            DragModeBar(editor)
-            CharacterPreview(
-                editor,
-                Modifier
-                    .fillMaxWidth()
-                    .height(460.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp)),
-                stage
-            )
-        }
-        FunkinCard {
-            SectionTitle("Animations", accent, 3)
-            AnimationListPanel(editor)
-            AnimationPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Character info", accent, 4)
-            CharacterInfoPanel(editor)
-        }
-        FunkinCard {
-            com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live)
-        }
-        FunkinCard {
-            SectionTitle("Export format", accent, 5)
+        },
+        EditorWindow("animations", "Animations") { AnimationListPanel(editor) },
+        EditorWindow("animation", "Animation Data") { AnimationPanel(editor) },
+        EditorWindow("properties", "Character Data") { CharacterInfoPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            SectionTitle("Export format", accent, 1)
             ChoiceChips(
                 options = ExportTarget.entries,
                 label = { it.label },
@@ -260,18 +265,22 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
                 },
                 color = Funkin.Muted
             )
-        }
-        ConvertSection(
-            viewModel = viewModel,
-            accent = accent,
-            step = 6,
-            canConvert = editor.document.animations.isNotEmpty(),
-            onConvert = viewModel::export,
-            onSave = onSave,
-            modFolderName = modFolderName,
-            title = "Export",
-            buttonText = "Export ${viewModel.target.label}",
-            buttonIcon = R.drawable.ic_magic
-        )
+            ConvertSection(
+                viewModel = viewModel,
+                accent = accent,
+                step = 2,
+                canConvert = editor.document.animations.isNotEmpty(),
+                onConvert = viewModel::export,
+                onSave = onSave,
+                modFolderName = modFolderName,
+                title = "Export",
+                buttonText = "Export ${viewModel.target.label}",
+                buttonIcon = R.drawable.ic_magic
+            )
+        },
+        EditorWindow("help", "Controls") { EditorHelpText("Drag the character to move the offset of the animation shown. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
+    )
+    FunkinEditorShell(title = "Character Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
+        CharacterEditorStage(editor, stage)
     }
 }

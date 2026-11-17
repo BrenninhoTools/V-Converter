@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.ui.editor
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.vconvertercrew.vconverter.editorview.*
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -172,7 +174,7 @@ class WeekEditorViewModel(application: Application) : BaseConverterViewModel(app
 }
 
 @Composable
-fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onSave: () -> Unit) {
+fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onSave: () -> Unit, onExit: () -> Unit = {}) {
     val accent = Funkin.Right
     val busy = viewModel.busy
     val editor = viewModel.editor
@@ -186,9 +188,37 @@ fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onS
 
     LaunchedEffect(editor.revision) { viewModel.changed(editor.revision) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FunkinCard {
-            SectionTitle("Week", accent, 1)
+    val windows = rememberEditorWindows("songs")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Week", enabled = !busy) { viewModel.createNew() },
+                EditorMenuItem.Action("Open Week…", enabled = !busy) { opener.launch(arrayOf("*/*")) },
+                EditorMenuItem.Action("Title Image…", enabled = !busy) { pick(WeekImageRole.TITLE) },
+                EditorMenuItem.Action("Background Image…", enabled = !busy) { pick(WeekImageRole.BACKGROUND) },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${viewModel.target.label}", enabled = !busy && editor.document.songs.isNotEmpty()) {
+                    viewModel.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export & Save…") { windows.show("export") },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit Editor") { onExit() }
+            )
+        ),
+        WeekMenus.edit(editor),
+        WeekMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Week Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Week", 400.dp) {
             Text(viewModel.source, color = Funkin.Muted)
             DropZone(
                 title = "Open a week",
@@ -198,36 +228,17 @@ fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onS
                 enabled = !busy,
                 onClick = { opener.launch(arrayOf("*/*")) }
             )
-            OutlineButton("Start a new week", accent, onClick = viewModel::createNew, enabled = !busy)
-        }
-        FunkinCard {
-            SectionTitle("Story menu", accent, 2)
-            WeekToolbar(editor)
-            WeekPreview(
-                editor,
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, Funkin.Outline, RoundedCornerShape(14.dp))
-            )
-            WeekPropsPanel(editor, onLoadImage = { slot -> pick(WeekImageRole.PROP, slot) })
-        }
-        FunkinCard {
-            SectionTitle("Songs", accent, 3)
-            WeekSongsPanel(editor)
-        }
-        FunkinCard {
-            SectionTitle("Week info", accent, 4)
+        },
+        EditorWindow("songs", "Songs") { WeekSongsPanel(editor) },
+        EditorWindow("properties", "Week Data") {
             WeekInfoPanel(editor)
             OutlineButton("Title image (.png)", accent, onClick = { pick(WeekImageRole.TITLE) }, enabled = !busy)
             OutlineButton("Background image (.png)", accent, onClick = { pick(WeekImageRole.BACKGROUND) }, enabled = !busy)
-        }
-        FunkinCard {
-            com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live)
-        }
-        FunkinCard {
-            SectionTitle("Export format", accent, 5)
+        },
+        EditorWindow("props", "Menu Characters", 400.dp) { WeekPropsPanel(editor, onLoadImage = { slot -> pick(WeekImageRole.PROP, slot) }) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(viewModel.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            SectionTitle("Export format", accent, 1)
             ChoiceChips(
                 options = ExportTarget.entries,
                 label = { it.label },
@@ -244,18 +255,22 @@ fun WeekEditorScreen(viewModel: WeekEditorViewModel, modFolderName: String?, onS
                 },
                 color = Funkin.Muted
             )
-        }
-        ConvertSection(
-            viewModel = viewModel,
-            accent = accent,
-            step = 6,
-            canConvert = editor.document.songs.isNotEmpty(),
-            onConvert = viewModel::export,
-            onSave = onSave,
-            modFolderName = modFolderName,
-            title = "Export",
-            buttonText = "Export ${viewModel.target.label}",
-            buttonIcon = R.drawable.ic_magic
-        )
+            ConvertSection(
+                viewModel = viewModel,
+                accent = accent,
+                step = 2,
+                canConvert = editor.document.songs.isNotEmpty(),
+                onConvert = viewModel::export,
+                onSave = onSave,
+                modFolderName = modFolderName,
+                title = "Export",
+                buttonText = "Export ${viewModel.target.label}",
+                buttonIcon = R.drawable.ic_magic
+            )
+        },
+        EditorWindow("help", "Controls") { EditorHelpText("Tap a menu character in the preview and drag it to move it. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
+    )
+    FunkinEditorShell(title = "Week Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
+        WeekEditorStage(editor)
     }
 }

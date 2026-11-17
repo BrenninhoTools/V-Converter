@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.web
 
+import androidx.compose.foundation.layout.*
+import com.vconvertercrew.vconverter.editorview.*
 import com.vconvertercrew.vconverter.platform.File
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -212,6 +214,7 @@ class IosWeekEditor(private val scope: CoroutineScope) {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun WeekEditorScreen(state: AppState) {
     val model = state.weekEditor
@@ -220,65 +223,75 @@ fun WeekEditorScreen(state: AppState) {
 
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
 
-    Card {
-        SectionTitle("Week", accent)
-        Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Primary("Open week…", accent, !model.busy) { Dialogs.openFiles("Open the week files and images, or an archive") { model.open(it) } }
-            Secondary("Open folder…", !model.busy) { Dialogs.chooseFolder("Choose the mod folder with the week") { model.open(listOf(it)) } }
-            Secondary("New week", !model.busy) { model.createNew() }
-        }
-        Text(
-            "A V-Slice level .json, a Psych week .json (with images/menucharacters/*.json) or a Codename week .xml (with data/weeks/characters/*.xml), plus the title and menu character images. Opening the whole mod folder also finds the song names.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.Muted
-        )
-        StatusBanner(model.status)
-    }
-
-    AdaptiveRow {
-        Column(Modifier.pane(1.5f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                SectionTitle("Story menu", accent)
-                WeekToolbar(editor)
-                WeekPreview(
-                    editor,
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).border(1.dp, Palette.Outline, RoundedCornerShape(12.dp))
-                )
-            }
-            Card { WeekPropsPanel(editor, onLoadImage = { slot -> Dialogs.openFiles("Pick the character image (.png and its .xml)") { model.addImage(WeekImageRole.PROP, slot, it) } }) }
-        }
-        Column(Modifier.pane(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card { WeekSongsPanel(editor) }
-            Card {
-                WeekInfoPanel(editor)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Secondary("Title image…", !model.busy) { Dialogs.openFiles("Pick the title image (.png)") { model.addImage(WeekImageRole.TITLE, null, it) } }
-                    Secondary("Background image…", !model.busy) { Dialogs.openFiles("Pick the background image (.png)") { model.addImage(WeekImageRole.BACKGROUND, null, it) } }
-                }
-            }
-        }
-    }
-
-    Card { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) }
-
     val output = model.output
-    Card(accent = if (output != null) accent else null) {
-        SectionTitle("Export", accent)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
-        }
-        Primary("Export ${model.target.label}", accent, !model.busy && editor.document.songs.isNotEmpty()) { model.export() }
-        if (output != null) {
+    val windows = rememberEditorWindows("songs", "properties")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Week", enabled = !model.busy) { model.createNew() },
+                EditorMenuItem.Action("Open Week…", enabled = !model.busy) { Dialogs.openFiles("Open the week files and images, or an archive") { model.open(it) } },
+                EditorMenuItem.Action("Open Folder…", enabled = !model.busy) { Dialogs.chooseFolder("Choose the mod folder with the week") { model.open(listOf(it)) } },
+                EditorMenuItem.Action("Title Image…", enabled = !model.busy) { Dialogs.openFiles("Pick the title image (.png)") { model.addImage(WeekImageRole.TITLE, null, it) } },
+                EditorMenuItem.Action("Background Image…", enabled = !model.busy) { Dialogs.openFiles("Pick the background image (.png)") { model.addImage(WeekImageRole.BACKGROUND, null, it) } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${model.target.label}", enabled = !model.busy && editor.document.songs.isNotEmpty()) {
+                    model.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export Settings…") { windows.show("export") },
+                EditorMenuItem.Action("Download .zip…", enabled = output != null && !model.busy) { model.save(true) { state.lastOutput = it } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit To Main Menu") { MainMenu.open = true }
+            )
+        ),
+        WeekMenus.edit(editor),
+        WeekMenus.view(editor),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Week Info…") { windows.show("info") }
+            )
+        )
+    )
+    val panels = listOf(
+        EditorWindow("info", "Week") {
+            Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+            Text("A V-Slice level .json, a Psych week .json (with images/menucharacters/*.json) or a Codename week .xml (with data/weeks/characters/*.xml), plus the title and menu character images. Opening the whole mod folder also finds the song names.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+        },
+        EditorWindow("songs", "Songs") { WeekSongsPanel(editor) },
+        EditorWindow("properties", "Week Data") {
+            WeekInfoPanel(editor)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Secondary("Title image…", !model.busy) { Dialogs.openFiles("Pick the title image (.png)") { model.addImage(WeekImageRole.TITLE, null, it) } }
+                Secondary("Background image…", !model.busy) { Dialogs.openFiles("Pick the background image (.png)") { model.addImage(WeekImageRole.BACKGROUND, null, it) } }
+            }
+        },
+        EditorWindow("props", "Menu Characters", 400.dp) { WeekPropsPanel(editor, onLoadImage = { slot -> Dialogs.openFiles("Pick the character image (.png and its .xml)") { model.addImage(WeekImageRole.PROP, slot, it) } }) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live) },
+        EditorWindow("export", "Export", 420.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
+            }
+            Primary("Export ${model.target.label}", accent, !model.busy && editor.document.songs.isNotEmpty()) { model.export() }
+            if (output != null) {
                 Primary("Download .zip…", accent, !model.busy) { model.save(true) { state.lastOutput = it } }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
+                }
+                ReportView(output.report, accent)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
-            }
-            ReportView(output.report, accent)
+        },
+        EditorWindow("help", "Controls") { EditorHelpText(EditorTool.WEEK.hint) }
+    )
+    FunkinEditorShell(
+        "Week Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        footer = {
+            val status = model.status
+            if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
-    }
+    ) { WeekEditorStage(editor) }
 }
 
 fun weekShortcut(editor: WeekEditorState, event: KeyEvent): Boolean {

@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.web
 
+import androidx.compose.foundation.layout.*
+import com.vconvertercrew.vconverter.editorview.*
 import com.vconvertercrew.vconverter.platform.File
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -258,24 +260,55 @@ fun EditorScreen(state: AppState) {
     LaunchedEffect(editor.revision) { model.changed(editor.revision) }
     DisposableEffect(Unit) { onDispose { if (editor.playing) editor.togglePlay() } }
 
-    Card {
-        SectionTitle("Song", accent)
-        Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Primary("Open chart…", accent, !model.busy) { Dialogs.openFiles("Open the chart files, song folder or archive") { model.open(it) } }
-            Secondary("Open folder…", !model.busy) { Dialogs.chooseFolder("Choose the song or mod folder") { model.open(listOf(it)) } }
-            Secondary(if (showNew) "Hide new song" else "New song", !model.busy) { showNew = !showNew }
-        }
-        Text(
-            "V-Slice <song>-metadata.json + <song>-chart.json, Psych chart .json files or a Codename song folder. Inst/Voices audio next to them is loaded too. You can also drop files on the window.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.Muted
+    val output = model.output
+    val isSplit = split ?: (model.audioFor(AudioRole.PLAYER) != null || model.audioFor(AudioRole.OPPONENT) != null)
+    val windows = rememberEditorWindows("metadata", "selection")
+    val menus = listOf(
+        EditorMenu(
+            "File",
+            listOf(
+                EditorMenuItem.Action("New Song…") { windows.show("new") },
+                EditorMenuItem.Action("Open Chart…", enabled = !model.busy) { Dialogs.openFiles("Open the chart files, song folder or archive") { model.open(it) } },
+                EditorMenuItem.Action("Open Folder…", enabled = !model.busy) { Dialogs.chooseFolder("Choose the song or mod folder") { model.open(listOf(it)) } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Export ${model.target.label}", enabled = !model.busy) {
+                    model.export()
+                    windows.show("export")
+                },
+                EditorMenuItem.Action("Export Settings…") { windows.show("export") },
+                EditorMenuItem.Action("Download .zip…", enabled = output != null && !model.busy) { model.save(true) { state.lastOutput = it } },
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Exit To Main Menu") { MainMenu.open = true }
+            )
+        ),
+        ChartMenus.edit(editor),
+        EditorMenu(
+            "Audio",
+            ChartMenus.playback(editor) + listOf(
+                EditorMenuItem.Separator,
+                EditorMenuItem.Action("Load Instrumental…") { model.pickAudio(AudioRole.INST) },
+                EditorMenuItem.Action("Load Voices…") { model.pickAudio(if (isSplit) AudioRole.PLAYER else AudioRole.VOICES) },
+                EditorMenuItem.Action("Audio Files…") { windows.show("audio") }
+            )
+        ),
+        ChartMenus.view(editor),
+        EditorMenu("Test", listOf(EditorMenuItem.Action("PlayTest This Chart") { state.playTestChart(editor.document, model.audio) })),
+        EditorMenu(
+            "Help",
+            listOf(
+                EditorMenuItem.Action("Controls…") { windows.show("help") },
+                EditorMenuItem.Action("Song Info…") { windows.show("info") }
+            )
         )
-        if (showNew) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(2f)) { Field(model.newName, { model.newName = it }, "Song name", accent, !model.busy) }
-                Column(Modifier.weight(1f)) { Field(model.newBpm, { model.newBpm = it }, "BPM", accent, !model.busy) }
-            }
+    )
+    val panels = listOf(
+        EditorWindow("info", "Song") {
+            Text(model.source, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+            Text("V-Slice <song>-metadata.json + <song>-chart.json, Psych chart .json files or a Codename song folder. Inst/Voices audio next to them is loaded too.", style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
+        },
+        EditorWindow("new", "New Song") {
+            Field(model.newName, { model.newName = it }, "Song name", accent, !model.busy)
+            Field(model.newBpm, { model.newBpm = it }, "BPM", accent, !model.busy)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 model.difficultyOptions.forEach { d ->
                     EditorChip(d, d in model.newDifficulties) {
@@ -283,52 +316,51 @@ fun EditorScreen(state: AppState) {
                     }
                 }
             }
-            Primary("Create", accent, !model.busy) { model.createNew(); showNew = false }
-        }
-        StatusBanner(model.status)
-    }
-
-    Card {
-        SectionTitle("Audio", accent)
-        val isSplit = split ?: (model.audioFor(AudioRole.PLAYER) != null || model.audioFor(AudioRole.OPPONENT) != null)
-        AudioRow("Instrumental", model.audioFor(AudioRole.INST), { model.pickAudio(AudioRole.INST) }, { model.clearAudio(AudioRole.INST) })
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            EditorChip("One voices file", !isSplit) { split = false }
-            EditorChip("Split voices", isSplit) { split = true }
-        }
-        if (isSplit) {
-            AudioRow("Player voices", model.audioFor(AudioRole.PLAYER), { model.pickAudio(AudioRole.PLAYER) }, { model.clearAudio(AudioRole.PLAYER) })
-            AudioRow("Opponent voices", model.audioFor(AudioRole.OPPONENT), { model.pickAudio(AudioRole.OPPONENT) }, { model.clearAudio(AudioRole.OPPONENT) })
-        } else {
-            AudioRow("Voices", model.audioFor(AudioRole.VOICES), { model.pickAudio(AudioRole.VOICES) }, { model.clearAudio(AudioRole.VOICES) })
-        }
-    }
-
-    Card {
-        SectionTitle("Chart", accent)
-        ChartEditorWorkspace(editor, Modifier.fillMaxWidth(), skin, eventIcon, gridHeight = 680.dp)
-        Secondary("PlayTest this chart") { state.playTestChart(editor.document, model.audio) }
-    }
-
-    Card { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live, cursor = editor.position to editor.difficulty) }
-
-    val output = model.output
-    Card(accent = if (output != null) accent else null) {
-        SectionTitle("Export", accent)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
-        }
-        Primary("Export ${model.target.label}", accent, !model.busy) { model.export() }
-        if (output != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Primary("Create", accent, !model.busy) {
+                model.createNew()
+                windows.close("new")
+            }
+        },
+        EditorWindow("audio", "Audio Files", 420.dp) {
+            AudioRow("Instrumental", model.audioFor(AudioRole.INST), { model.pickAudio(AudioRole.INST) }, { model.clearAudio(AudioRole.INST) })
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                EditorChip("One voices file", !isSplit) { split = false }
+                EditorChip("Split voices", isSplit) { split = true }
+            }
+            if (isSplit) {
+                AudioRow("Player voices", model.audioFor(AudioRole.PLAYER), { model.pickAudio(AudioRole.PLAYER) }, { model.clearAudio(AudioRole.PLAYER) })
+                AudioRow("Opponent voices", model.audioFor(AudioRole.OPPONENT), { model.pickAudio(AudioRole.OPPONENT) }, { model.clearAudio(AudioRole.OPPONENT) })
+            } else {
+                AudioRow("Voices", model.audioFor(AudioRole.VOICES), { model.pickAudio(AudioRole.VOICES) }, { model.clearAudio(AudioRole.VOICES) })
+            }
+        },
+        EditorWindow("metadata", "Metadata") { SongInfoPanel(editor) },
+        EditorWindow("difficulty", "Difficulties") { DifficultyPanel(editor) },
+        EditorWindow("timing", "Timing") { TimingPanel(editor) },
+        EditorWindow("selection", "Note & Event Data") { SelectionPanel(editor) },
+        EditorWindow("live", "Multieditor") { com.vconvertercrew.vconverter.editorview.LiveSessionPanel(model.live, cursor = editor.position to editor.difficulty) },
+        EditorWindow("export", "Export", 420.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ExportTarget.entries.forEach { t -> EditorChip(t.label, t == model.target) { if (t != model.target) { model.target = t; model.changed(-2) } } }
+            }
+            Primary("Export ${model.target.label}", accent, !model.busy) { model.export() }
+            if (output != null) {
                 Primary("Download .zip…", accent, !model.busy) { model.save(true) { state.lastOutput = it } }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
+                }
+                ReportView(output.report, accent)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                output.files.forEach { file -> Text(file.relativePath, style = MaterialTheme.typography.bodySmall, color = Palette.Text) }
-            }
-            ReportView(output.report, accent)
+        },
+        EditorWindow("help", "Controls") { EditorHelpText(EditorTool.CHART.hint) }
+    )
+    FunkinEditorShell(
+        "Chart Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        footer = {
+            val status = model.status
+            if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
-    }
+    ) { ChartEditorStage(editor, skin, eventIcon) }
 }
 
 @Composable
