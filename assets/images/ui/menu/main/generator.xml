@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="generator.png">
+	<SubTexture name="generator basic0000" x="0" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0001" x="0" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0002" x="0" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0003" x="593" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0004" x="593" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0005" x="593" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0006" x="1186" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0007" x="1186" y="0" width="583" height="108"/>
+	<SubTexture name="generator basic0008" x="1186" y="0" width="583" height="108"/>
+	<SubTexture name="generator white0000" x="0" y="118" width="801" height="145"/>
+	<SubTexture name="generator white0001" x="811" y="118" width="801" height="145"/>
+	<SubTexture name="generator white0002" x="0" y="273" width="801" height="145"/>
+</TextureAtlas>

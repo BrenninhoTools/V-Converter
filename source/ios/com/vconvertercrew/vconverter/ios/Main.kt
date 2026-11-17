@@ -40,9 +40,10 @@ fun MainViewController(): UIViewController {
         val state = remember { AppState(scope) }
         AppTheme {
             BoxWithConstraints(Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.safeDrawing)) {
-                CompositionLocalProvider(LocalCompact provides (maxWidth < 760.dp)) {
+                CompositionLocalProvider(LocalCompact provides (maxWidth < 760.dp || maxHeight < 500.dp)) {
                     App(state)
                 }
+                MainMenuOverlay(state)
                 OptionsOverlay()
             }
             UiSounds()

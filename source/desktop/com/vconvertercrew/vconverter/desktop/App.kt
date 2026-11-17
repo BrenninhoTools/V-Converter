@@ -86,7 +86,7 @@ private fun Sidebar(state: AppState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            logo?.let { Image(it, contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))) }
+            logo?.let { Image(it, contentDescription = "Main menu", modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).soundClickable { MainMenu.open = true }) }
             Spacer(Modifier.width(10.dp))
             Column {
                 Text("V-CONVERTER", style = MaterialTheme.typography.titleLarge, color = Palette.Text)

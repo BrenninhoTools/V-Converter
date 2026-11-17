@@ -1,0 +1,1 @@
+Main menu items, one Sparrow atlas per item ("<item> basic" idle and "<item> white" selected, 24 fps). options, story-mode, freeplay and donate are split from the base game FNF_main_menu_assets; converter and generator are drawn in the same style with scripts/MenuAssets.py (Luckiest Guy font, Apache 2.0).

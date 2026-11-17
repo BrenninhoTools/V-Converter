@@ -30,7 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.vconvertercrew.vconverter.overlay.FunkinMainMenu
 import com.vconvertercrew.vconverter.overlay.FunkinOptionsMenu
+import com.vconvertercrew.vconverter.overlay.MainMenuArt
+import com.vconvertercrew.vconverter.overlay.MainMenuEntry
 import com.vconvertercrew.vconverter.overlay.MenuArt
 import com.vconvertercrew.vconverter.overlay.MenuOption
 import com.vconvertercrew.vconverter.overlay.OverlayIcons
@@ -117,6 +120,40 @@ object AppSettings {
 
 object OptionsMenu {
     var open by mutableStateOf(false)
+}
+
+object MainMenu {
+    var open by mutableStateOf(true)
+}
+
+private val mainMenuEntries = listOf(
+    MainMenuEntry("converter", "converter"),
+    MainMenuEntry("generator", "generator"),
+    MainMenuEntry("options", "options", flicker = false)
+)
+
+@Composable
+fun MainMenuOverlay(state: AppState) {
+    if (!MainMenu.open) return
+    val art = remember { MainMenuArt.load(mainMenuEntries.map { it.id }, { Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    FunkinMainMenu(
+        entries = mainMenuEntries,
+        art = art,
+        version = "V-Converter v${AppSettings.APP_VERSION}",
+        onSelect = { entry ->
+            when (entry.id) {
+                "converter" -> {
+                    state.tool = null
+                    MainMenu.open = false
+                }
+                "generator" -> {
+                    state.tool = EditorTool.CHART
+                    MainMenu.open = false
+                }
+                else -> OptionsMenu.open = true
+            }
+        }
+    )
 }
 
 @Composable

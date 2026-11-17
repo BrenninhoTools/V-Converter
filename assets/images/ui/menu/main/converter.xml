@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="converter.png">
+	<SubTexture name="converter basic0000" x="0" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0001" x="0" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0002" x="0" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0003" x="568" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0004" x="568" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0005" x="568" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0006" x="1136" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0007" x="1136" y="0" width="558" height="109"/>
+	<SubTexture name="converter basic0008" x="1136" y="0" width="558" height="109"/>
+	<SubTexture name="converter white0000" x="0" y="119" width="769" height="147"/>
+	<SubTexture name="converter white0001" x="779" y="119" width="769" height="147"/>
+	<SubTexture name="converter white0002" x="0" y="276" width="769" height="147"/>
+</TextureAtlas>
