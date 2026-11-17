@@ -30,6 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.platform.LocalUriHandler
+import com.vconvertercrew.vconverter.overlay.DiscordBadge
+import com.vconvertercrew.vconverter.overlay.discordOption
 import com.vconvertercrew.vconverter.overlay.FunkinMainMenu
 import com.vconvertercrew.vconverter.overlay.FunkinOptionsMenu
 import com.vconvertercrew.vconverter.overlay.MainMenuArt
@@ -94,6 +99,14 @@ object AppSettings {
         runCatching { prefs?.putBoolean("vslicePreview", value) }
     }
 
+    var discordStatus by mutableStateOf(prefs?.getBoolean("discordStatus", true) ?: true)
+        private set
+
+    fun updateDiscordStatus(value: Boolean) {
+        discordStatus = value
+        runCatching { prefs?.putBoolean("discordStatus", value) }
+    }
+
     fun applyOnline() {
         com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         val os = System.getProperty("os.name").lowercase()
@@ -105,9 +118,14 @@ object AppSettings {
         com.vconvertercrew.vconverter.online.Online.appVersion = APP_VERSION
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
+        com.vconvertercrew.vconverter.overlay.DiscordAccount.setup(
+            prefs?.get("discordProfile", "") ?: "",
+            store = { value -> runCatching { prefs?.put("discordProfile", value) } },
+            decode = { bytes -> org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap() }
+        )
     }
 
-    const val APP_VERSION = "0.0.2"
+    const val APP_VERSION = "0.1.0-playtest"
 
     var musicVolume by mutableStateOf(prefs?.getFloat("musicVolume", 0.5f) ?: 0.5f)
         private set
@@ -124,6 +142,12 @@ object OptionsMenu {
 
 object MainMenu {
     var open by mutableStateOf(true)
+    var list by mutableStateOf<String?>(null)
+
+    fun close() {
+        list = null
+        open = false
+    }
 }
 
 private val mainMenuEntries = listOf(
@@ -136,25 +160,52 @@ private val mainMenuEntries = listOf(
 fun MainMenuOverlay(state: AppState) {
     if (!MainMenu.open) return
     val art = remember { MainMenuArt.load(mainMenuEntries.map { it.id }, { Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
-    FunkinMainMenu(
-        entries = mainMenuEntries,
-        art = art,
-        version = "V-Converter v${AppSettings.APP_VERSION}",
-        onSelect = { entry ->
-            when (entry.id) {
-                "converter" -> {
+    val listArt = remember { MenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val list = MainMenu.list
+    if (list == null) {
+        FunkinMainMenu(
+            entries = mainMenuEntries,
+            art = art,
+            version = "V-Converter v${AppSettings.APP_VERSION}",
+            onSelect = { entry ->
+                when (entry.id) {
+                    "converter", "generator" -> MainMenu.list = entry.id
+                    else -> OptionsMenu.open = true
+                }
+            },
+            overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).padding(16.dp)) }
+        )
+        return
+    }
+    val options = if (list == "converter") Direction.entries.map { direction ->
+        MenuOption.Submenu("${direction.from.label} to ${direction.to.label}", direction.label, direction.label) {
+            Tab.entries.map { tab ->
+                MenuOption.Action(tab.title, "Convert ${tab.title.lowercase()} from ${direction.from.title} to ${direction.to.title}.") {
+                    state.direction = direction
+                    state.tab = tab
                     state.tool = null
-                    MainMenu.open = false
+                    MainMenu.close()
                 }
-                "generator" -> {
-                    state.tool = EditorTool.CHART
-                    MainMenu.open = false
-                }
-                else -> OptionsMenu.open = true
             }
         }
-    )
+    } else generatorTools.map { tool ->
+        MenuOption.Action(tool.title, tool.hint) {
+            state.tool = tool
+            MainMenu.close()
+        }
+    }
+    key(list) {
+        FunkinOptionsMenu(
+            title = if (list == "converter") "Converter" else "Generator",
+            options = options,
+            art = listArt,
+            onClose = { MainMenu.list = null },
+            overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).padding(16.dp)) }
+        )
+    }
 }
+
+private val generatorTools = listOf(EditorTool.CHART, EditorTool.CHARACTER, EditorTool.STAGE, EditorTool.WEEK)
 
 @Composable
 fun OptionsButton() {
@@ -173,7 +224,8 @@ fun OptionsButton() {
 fun OptionsOverlay() {
     if (!OptionsMenu.open) return
     val art = remember { MenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
-    val options = listOf(
+    val links = LocalUriHandler.current
+    val preferences = listOf(
         MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { AppSettings.fpsCounter }, AppSettings::updateFpsCounter),
         MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", { AppSettings.uiSounds }, AppSettings::updateUiSounds),
         MenuOption.Toggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", { AppSettings.menuMusic }, AppSettings::updateMenuMusic),
@@ -181,9 +233,17 @@ fun OptionsOverlay() {
             val next = ((AppSettings.musicVolume * 10).roundToInt() + step).let { if (it > 10) 0 else if (it < 0) 10 else it }
             AppSettings.updateMusicVolume(next / 10f)
         },
+        MenuOption.Toggle("Discord Status", "Shows what you are doing in V-Converter on your Discord profile (needs the Discord app open).", { AppSettings.discordStatus }, AppSettings::updateDiscordStatus),
         MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { AppSettings.vslicePreview }, AppSettings::updateVSlicePreview),
         MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Press Enter on it to edit.", { AppSettings.serverUrl }, AppSettings::updateServerUrl, "https://my-server.example.com"),
         MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { AppSettings.errorReports }, AppSettings::updateErrorReports)
     )
-    FunkinOptionsMenu("Options", options, art, onClose = { OptionsMenu.open = false })
+    val options = listOf(
+        MenuOption.Submenu("Preferences", "FPS counter, sounds, music, Discord status, the V-Slice layout, the online server and error reports.") { preferences },
+        discordOption { links.openUri(it) }
+    )
+    FunkinOptionsMenu(
+        "Options", options, art, onClose = { OptionsMenu.open = false },
+        overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).padding(16.dp)) }
+    )
 }

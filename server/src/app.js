@@ -5,8 +5,9 @@ import { modsRouter } from './routes/mods.js';
 import { updatesRouter, createReleaseSource } from './routes/updates.js';
 import { reportsRouter } from './routes/reports.js';
 import { roomsRouter } from './collab.js';
+import { discordRouter } from './routes/discord.js';
 
-export function createApp({ config, db, rooms, latest = createReleaseSource(config) }) {
+export function createApp({ config, db, rooms, latest = createReleaseSource(config), discordFetch = fetch }) {
   fs.mkdirSync(config.uploadDir, { recursive: true });
   const app = express();
   app.disable('x-powered-by');
@@ -30,11 +31,13 @@ export function createApp({ config, db, rooms, latest = createReleaseSource(conf
   const mods = modsRouter({ db, config });
   const reports = reportsRouter({ db, config });
   const roomRoutes = roomsRouter({ rooms, config });
+  const discord = discordRouter({ config, fetchImpl: discordFetch });
   app.use('/api/mods', mods);
   app.use('/api', updatesRouter({ db, latest }));
   app.use('/api/reports', reports);
   app.use('/api/rooms', roomRoutes);
-  app.limits = [mods.uploadLimit, reports.limit, roomRoutes.limit, roomRoutes.assetLimit];
+  app.use('/api/discord', discord);
+  app.limits = [mods.uploadLimit, reports.limit, roomRoutes.limit, roomRoutes.assetLimit, discord.limit];
 
   app.use((req, res, next) => next(new HttpError(404, 'Not found.')));
   app.use((error, req, res, next) => {

@@ -14,6 +14,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,9 +34,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -168,6 +171,10 @@ sealed class MenuOption(val label: String, val hint: String) {
         override fun value(): String? = null
     }
 
+    class Submenu(label: String, hint: String, val title: String = label, val options: () -> List<MenuOption>) : MenuOption(label, hint) {
+        override fun value(): String? = null
+    }
+
     fun text(): String = value()?.let { "$label: $it" } ?: label
 }
 
@@ -188,8 +195,16 @@ fun FunkinOptionsMenu(
     art: MenuArt,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
-    closeRequests: Int = 0
+    closeRequests: Int = 0,
+    overlay: @Composable BoxScope.() -> Unit = {}
 ) {
+    val pages = remember { mutableStateListOf<MenuOption.Submenu>() }
+    val returns = remember { mutableStateListOf<Int>() }
+    val page = pages.lastOrNull()
+    val shown = page?.options?.invoke() ?: options
+    val heading = page?.let { "$title / ${it.title}" } ?: title
+    val live = rememberUpdatedState(shown)
+    val closeAction = rememberUpdatedState(onClose)
     var selected by remember { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<MenuOption.TextEntry?>(null) }
     var draft by remember { mutableStateOf("") }
@@ -203,7 +218,7 @@ fun FunkinOptionsMenu(
     val ticker = rememberInfiniteTransition(label = "alphabet")
     val tickValue by ticker.animateFloat(0f, 4f, infiniteRepeatable(tween(4 * 1000 / 24, easing = LinearEasing), RepeatMode.Restart), label = "tick")
     val tick = tickValue.toInt().coerceIn(0, 3)
-    val count = options.size
+    val count = shown.size
     val rects = remember { arrayOf<List<Rect>>(emptyList()) }
     val backRect = remember { arrayOf(Rect.Zero) }
 
@@ -217,18 +232,31 @@ fun FunkinOptionsMenu(
                 backFrame = i
                 delay(1000L / 24)
             }
-            onClose()
+            closeAction.value()
         }
     }
 
+    fun back() {
+        if (closing) return
+        if (pages.isEmpty()) {
+            close()
+            return
+        }
+        pages.removeAt(pages.lastIndex)
+        selected = returns.removeAt(returns.lastIndex)
+        UiSound.click()
+    }
+
     fun move(change: Int) {
-        if (count == 0 || change == 0) return
-        selected = ((selected + change) % count + count) % count
+        val size = live.value.size
+        if (size == 0 || change == 0) return
+        selected = ((selected + change) % size + size) % size
         UiSound.click()
     }
 
     fun accept(direction: Int = 0) {
-        when (val option = options.getOrNull(selected)) {
+        if (closing) return
+        when (val option = live.value.getOrNull(selected)) {
             is MenuOption.Toggle -> option.toggle()
             is MenuOption.Stepper -> option.step(if (direction == 0) 1 else direction)
             is MenuOption.TextEntry -> if (direction == 0) {
@@ -236,6 +264,11 @@ fun FunkinOptionsMenu(
                 editing = option
             }
             is MenuOption.Action -> if (direction == 0) option.run()
+            is MenuOption.Submenu -> if (direction >= 0) {
+                returns.add(selected)
+                pages.add(option)
+                selected = 0
+            }
             null -> return
         }
         UiSound.click()
@@ -243,8 +276,12 @@ fun FunkinOptionsMenu(
 
     LaunchedEffect(closeRequests) {
         if (closeRequests > 0) {
-            if (editing != null) editing = null else close()
+            if (editing != null) editing = null else back()
         }
+    }
+
+    LaunchedEffect(count) {
+        if (selected >= count) selected = max(0, count - 1)
     }
 
     LaunchedEffect(editing) {
@@ -265,16 +302,16 @@ fun FunkinOptionsMenu(
                     Key.DirectionLeft, Key.A -> accept(-1)
                     Key.DirectionRight, Key.D -> accept(1)
                     Key.Enter, Key.NumPadEnter, Key.Spacebar -> accept()
-                    Key.Escape, Key.Backspace, Key.Back -> close()
+                    Key.Escape, Key.Backspace, Key.Back -> back()
                     else -> return@onKeyEvent false
                 }
                 true
             }
-            .pointerInput(count) {
+            .pointerInput(count, pages.size) {
                 detectTapGestures { tap ->
                     if (editing != null) return@detectTapGestures
                     if (backRect[0].contains(tap)) {
-                        close()
+                        back()
                         return@detectTapGestures
                     }
                     val hit = rects[0].indexOfFirst { it.contains(tap) }
@@ -320,7 +357,7 @@ fun FunkinOptionsMenu(
             val scale = menuScale(w, h)
             val font = art.font
             val hits = ArrayList<Rect>(count)
-            options.forEachIndexed { index, option ->
+            shown.forEachIndexed { index, option ->
                 val target = index - position
                 val x = (90f + target * 20f) * scale
                 val y = h * 0.48f + target * 1.3f * 120f * scale
@@ -347,19 +384,20 @@ fun FunkinOptionsMenu(
         }
         if (art.font == null) {
             Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp)) {
-                options.forEachIndexed { index, option ->
+                shown.forEachIndexed { index, option ->
                     Text(option.text().uppercase(), color = Color.Black.copy(alpha = if (index == selected) 1f else 0.6f), fontSize = 28.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
         Text(
-            title.uppercase(),
+            heading.uppercase(),
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopStart).padding(16.dp).clip(RoundedCornerShape(8.dp)).background(Color(0x66000000)).padding(horizontal = 10.dp, vertical = 4.dp)
         )
-        options.getOrNull(selected)?.let { option ->
+        overlay()
+        shown.getOrNull(selected)?.let { option ->
             val extra = when (option) {
                 is MenuOption.TextEntry -> option.current().ifBlank { option.placeholder.ifBlank { "(empty)" } }.let { "\n$it" }
                 else -> ""

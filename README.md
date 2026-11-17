@@ -463,6 +463,8 @@ or with Docker (`docker build -t v-converter-server server` and `docker run -p 3
 | `GITHUB_REPO` / `GITHUB_TOKEN` | `VConverterCrew/V-Converter` / (empty) | Where the latest release is read from |
 | `LATEST_VERSION` | (empty) | Version to report when GitHub can't be reached |
 | `ROOM_IDLE_MINUTES` / `MAX_PEERS_PER_ROOM` / `MAX_MESSAGE_MB` | `120` / `16` / `8` | Live editing rooms |
+| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | `1536017631579078738` / (empty) | Enables "Login To Discord" in the app. Add `<PUBLIC_URL>/api/discord/callback` as a redirect in the Discord Developer Portal (OAuth2) |
+| `DISCORD_LOGINS_PER_HOUR` | `30` | Discord logins started per address per hour |
 | `ROOM_ASSETS_PER_HOUR` / `MAX_ROOM_ASSET_MB` / `MAX_ROOM_ASSETS_MB` | `600` / `40` / `200` | Files shared in rooms |
 
 Admin calls: `POST /api/announcements` (`{"title", "body", "level": "info"|"warning"|"update", "url", "platforms": ["android"], "expiresAt"}`), `DELETE /api/announcements/:id`, `PATCH /api/mods/:id` (`{"hidden": true}`), `DELETE /api/mods/:id`, `GET /api/reports` and `DELETE /api/reports/:id`. `npm test` runs the server's tests, and the [Server workflow](https://github.com/VConverterCrew/V-Converter/actions/workflows/server.yml) runs them on every change to `server/`.

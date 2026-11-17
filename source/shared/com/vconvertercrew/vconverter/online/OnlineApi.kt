@@ -110,6 +110,17 @@ class OnlineApi(baseUrl: String, private val timeoutMs: Int = 20_000) {
         }
     }
 
+    fun discordLogin(): DiscordLoginTicket {
+        val root = JSONObject(request("/api/discord/login", "POST", JSONObject()))
+        val id = root.optString("id")
+        val url = root.optString("url")
+        if (id.isBlank() || !url.startsWith("https://")) throw OnlineException("The server did not start a Discord login.")
+        return DiscordLoginTicket(id, url)
+    }
+
+    fun discordLoginStatus(id: String): DiscordProfile? =
+        DiscordProfile.from(JSONObject(request("/api/discord/login/${encode(id)}")).optJSONObject("user"))
+
     private fun mod(obj: JSONObject): ModEntry = ModEntry(
         id = obj.optString("id"),
         title = obj.optString("title"),

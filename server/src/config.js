@@ -29,6 +29,9 @@ export function loadConfig(env = process.env) {
     releaseCacheMinutes: number(env.RELEASE_CACHE_MINUTES, 10),
     roomIdleMinutes: number(env.ROOM_IDLE_MINUTES, 120),
     maxPeersPerRoom: number(env.MAX_PEERS_PER_ROOM, 16),
-    maxMessageMb: number(env.MAX_MESSAGE_MB, 8)
+    maxMessageMb: number(env.MAX_MESSAGE_MB, 8),
+    discordClientId: env.DISCORD_CLIENT_ID || '1536017631579078738',
+    discordClientSecret: env.DISCORD_CLIENT_SECRET || '',
+    discordLoginsPerHour: number(env.DISCORD_LOGINS_PER_HOUR, 30)
   };
 }

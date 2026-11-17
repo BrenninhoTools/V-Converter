@@ -103,7 +103,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Dmg)
             packageName = "V-Converter"
-            packageVersion = "0.0.2"
+            packageVersion = "0.1.0"
             description = "Friday Night Funkin' converter for Psych Engine, Codename Engine and V-Slice"
             vendor = "VConverterCrew"
             modules("java.naming", "jdk.unsupported", "jdk.crypto.ec")

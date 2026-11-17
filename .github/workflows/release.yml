@@ -6,7 +6,7 @@ on:
       version:
         description: "Version to release (reads docs/releases/v<version>.md)"
         required: true
-        default: "0.0.2"
+        default: "0.1.0-playtest"
       prerelease:
         description: "Mark as pre-release"
         type: boolean

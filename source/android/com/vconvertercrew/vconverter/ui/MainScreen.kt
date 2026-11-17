@@ -128,6 +128,10 @@ import com.vconvertercrew.vconverter.ui.reverse.ReverseWeeksViewModel
 import com.vconvertercrew.vconverter.overlay.MainMenuEntry
 import com.vconvertercrew.vconverter.overlay.MainMenuArt
 import com.vconvertercrew.vconverter.overlay.FunkinMainMenu
+import com.vconvertercrew.vconverter.overlay.FunkinOptionsMenu
+import com.vconvertercrew.vconverter.overlay.MenuArt
+import com.vconvertercrew.vconverter.overlay.MenuOption
+import com.vconvertercrew.vconverter.overlay.DiscordBadge
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -282,6 +286,11 @@ enum class GenTab(
     WEEK("Week", R.drawable.ic_tab_week, Funkin.Right, "Week Editor", "Open any week or start a new one, then lay out the story menu, its songs and how it unlocks."),
     SCRIPT("Script", R.drawable.ic_tab_script, Funkin.Lavender, "New script", "Ready-to-edit .hxc classes for V-Slice.")
 }
+
+private const val MENU_NONE = ""
+private const val MENU_MAIN = "main"
+private const val MENU_CONVERTER = "converter"
+private const val MENU_GENERATOR = "generator"
 
 @Composable
 fun MainScreen() {
@@ -442,9 +451,9 @@ fun MainScreen() {
     val cursor = rememberAppCursor()
     val settings = rememberAppSettings()
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
-    var inMenu by rememberSaveable { mutableStateOf(true) }
+    var menuScreen by rememberSaveable { mutableStateOf(MENU_MAIN) }
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val landscape = configuration.screenWidthDp > configuration.screenHeightDp && configuration.screenHeightDp < 600
+    val compact = configuration.screenHeightDp < 600
     val menuContext = androidx.compose.ui.platform.LocalContext.current
     val menuEntries = remember { listOf(MainMenuEntry("converter", "converter"), MainMenuEntry("generator", "generator"), MainMenuEntry("options", "options", flicker = false)) }
     val menuArt = remember {
@@ -455,10 +464,40 @@ fun MainScreen() {
             text = { path -> runCatching { assets.open(path).use { it.readBytes().decodeToString() } }.getOrNull() }
         )
     }
+    val listArt = remember {
+        val assets = menuContext.assets
+        MenuArt.load(
+            image = { path -> runCatching { assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull() },
+            text = { path -> runCatching { assets.open(path).use { it.readBytes().decodeToString() } }.getOrNull() }
+        )
+    }
+    fun listFor(target: Section): String = when (target) {
+        Section.CONVERTER -> MENU_CONVERTER
+        Section.GENERATOR -> MENU_GENERATOR
+        else -> MENU_MAIN
+    }
+    val converterOptions = Direction.entries.map { option ->
+        MenuOption.Submenu("${option.from.label} to ${option.to.label}", option.label, option.label) {
+            Tab.entries.map { target ->
+                MenuOption.Action(target.title, target.describe(option)) {
+                    direction = option
+                    converterTab = target
+                    section = Section.CONVERTER
+                    menuScreen = MENU_NONE
+                }
+            }
+        }
+    }
+    val generatorOptions = GenTab.entries.map { target ->
+        MenuOption.Action(target.title, target.description) {
+            generatorTab = target
+            section = Section.GENERATOR
+            menuScreen = MENU_NONE
+        }
+    }
     val appVersion = remember { runCatching { menuContext.packageManager.getPackageInfo(menuContext.packageName, 0).versionName }.getOrNull() ?: "" }
     val navTabs: List<AppTab> = when (section) {
-        Section.CONVERTER -> Tab.entries
-        Section.GENERATOR -> GenTab.entries
+        Section.CONVERTER, Section.GENERATOR -> emptyList()
         Section.ONLINE -> OnlineTab.entries
         Section.PLAYTEST -> PlayTab.entries
     }
@@ -470,48 +509,62 @@ fun MainScreen() {
             is PlayTab -> playTab = selected
         }
     }
-    androidx.activity.compose.BackHandler(enabled = !inMenu && !optionsOpen) { inMenu = true }
+    androidx.activity.compose.BackHandler(enabled = menuScreen == MENU_NONE && !optionsOpen) { menuScreen = listFor(section) }
     val touchCursor = remember { TouchCursorState() }
     val cursorImage = rememberCursorImage()
 
     androidx.compose.runtime.CompositionLocalProvider(LocalPlayTest provides playLauncher) {
     Box(Modifier.fillMaxSize().then(if (settings.touchCursor) Modifier.touchCursor(touchCursor) else Modifier)) {
-        if (inMenu) {
+        if (menuScreen == MENU_MAIN) {
             FunkinMainMenu(
                 entries = menuEntries,
                 art = menuArt,
                 version = "V-Converter v$appVersion",
                 onSelect = { entry ->
                     when (entry.id) {
-                        "converter" -> { section = Section.CONVERTER; inMenu = false }
-                        "generator" -> { section = Section.GENERATOR; inMenu = false }
+                        "converter" -> menuScreen = MENU_CONVERTER
+                        "generator" -> menuScreen = MENU_GENERATOR
                         else -> optionsOpen = true
                     }
-                }
+                },
+                overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).displayCutoutPadding().padding(16.dp)) }
             )
+        } else if (menuScreen == MENU_CONVERTER || menuScreen == MENU_GENERATOR) {
+            androidx.compose.runtime.key(menuScreen) {
+                var listBack by remember { mutableStateOf(0) }
+                androidx.activity.compose.BackHandler(enabled = !optionsOpen) { listBack++ }
+                FunkinOptionsMenu(
+                    title = if (menuScreen == MENU_CONVERTER) "Converter" else "Generator",
+                    options = if (menuScreen == MENU_CONVERTER) converterOptions else generatorOptions,
+                    art = listArt,
+                    onClose = { menuScreen = MENU_MAIN },
+                    closeRequests = listBack,
+                    overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).displayCutoutPadding().padding(16.dp)) }
+                )
+            }
         } else Scaffold(
             modifier = Modifier.appCursor(cursor),
             containerColor = Funkin.Background,
             contentWindowInsets = WindowInsets(0),
             topBar = {
                 Header(
-                    compact = landscape,
-                    onLogo = { inMenu = true },
+                    compact = compact,
+                    onLogo = { menuScreen = MENU_MAIN },
                     folderName = folderName,
                     onPickFolder = { folderPicker.launch(null) },
                     onOptions = { optionsOpen = true },
                     section = section,
-                    onSection = { section = it },
+                    onSection = {
+                        section = it
+                        if (it == Section.CONVERTER || it == Section.GENERATOR) menuScreen = listFor(it)
+                    },
                     direction = direction
                 )
             },
-            bottomBar = {
-                if (!landscape) FunkinNavBar(navTabs, tab, onTab)
-            }
         ) { padding ->
             Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize().padding(padding)) {
-            if (landscape) FunkinNavRail(navTabs, tab, onTab)
+            if (navTabs.isNotEmpty()) FunkinNavRail(navTabs, tab, onTab)
             AnimatedContent(
                 targetState = tab to (if (section == Section.CONVERTER) direction else Direction.PSYCH_TO_VSLICE),
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -743,64 +796,6 @@ private fun TabHero(tab: AppTab, direction: Direction) {
                 Text(tab.title.uppercase(), style = MaterialTheme.typography.titleLarge, color = Funkin.Text)
                 Spacer(Modifier.height(2.dp))
                 Text(if (tab is Tab) tab.describe(direction) else tab.description, style = MaterialTheme.typography.bodySmall, color = Funkin.Muted)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FunkinNavBar(tabs: List<AppTab>, selected: AppTab, onSelect: (AppTab) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Funkin.Surface)
-            .navigationBarsPadding()
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(Brush.horizontalGradient(tabs.map { it.accent }))
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp)
-        ) {
-            tabs.forEach { item ->
-                val active = item == selected
-                val fill by animateColorAsState(if (active) item.accent else Color.Transparent, label = "fill")
-                val tint by animateColorAsState(if (active) Funkin.Ink else Funkin.Muted, label = "tint")
-                val lift by animateDpAsState(if (active) 0.dp else 3.dp, label = "lift")
-                val shape = RoundedCornerShape(12.dp)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .soundClickable { onSelect(item) }
-                        .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .offset(y = lift)
-                            .size(width = 46.dp, height = 32.dp)
-                            .clip(shape)
-                            .background(fill)
-                            .then(if (active) Modifier.border(2.5.dp, Funkin.Ink, shape) else Modifier),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(painterResource(item.icon), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        item.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (active) item.accent else Funkin.Muted,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
             }
         }
     }

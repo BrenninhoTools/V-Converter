@@ -1,5 +1,6 @@
 package com.vconvertercrew.vconverter
 
+import androidx.compose.ui.graphics.asImageBitmap
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -63,9 +64,14 @@ class MainActivity : ComponentActivity() {
     private fun setupOnline() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         Online.platform = "android"
-        Online.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0.0.2"
+        Online.appVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0.1.0-playtest"
         Online.serverUrl = prefs.getString("server_url", "") ?: ""
         Online.reportsEnabled = prefs.getBoolean("error_reports", false)
+        com.vconvertercrew.vconverter.overlay.DiscordAccount.setup(
+            prefs.getString("discord_profile", "") ?: "",
+            store = { prefs.edit().putString("discord_profile", it).apply() },
+            decode = { bytes -> android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+        )
         val crashFile = File(filesDir, "last-crash.txt")
         if (crashFile.exists()) {
             val text = runCatching { crashFile.readText() }.getOrDefault("")

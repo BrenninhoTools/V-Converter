@@ -165,7 +165,8 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         androidx.activity.compose.BackHandler { backPresses++ }
-        val options = listOf(
+        val links = androidx.compose.ui.platform.LocalUriHandler.current
+        val preferences = listOf(
             MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { settings.fpsCounter }, settings::updateFpsCounter),
             MenuOption.Toggle("Touch Cursor", "Shows the cursor where you touch the screen.", { settings.touchCursor }, settings::updateTouchCursor),
             MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you tap tabs and buttons.", { settings.uiSounds }, settings::updateUiSounds),
@@ -178,6 +179,17 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
             MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Tap it again to edit.", { settings.serverUrl }, settings::updateServerUrl, "https://my-server.example.com"),
             MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { settings.errorReports }, settings::updateErrorReports)
         )
-        FunkinOptionsMenu("Options", options, art, onClose = onDismiss, closeRequests = backPresses)
+        val options = listOf(
+            MenuOption.Submenu("Preferences", "FPS counter, touch cursor, sounds, music, the V-Slice layout, the online server and error reports.") { preferences },
+            com.vconvertercrew.vconverter.overlay.discordOption { links.openUri(it) }
+        )
+        FunkinOptionsMenu(
+            "Options", options, art, onClose = onDismiss, closeRequests = backPresses,
+            overlay = {
+                com.vconvertercrew.vconverter.overlay.DiscordBadge(
+                    Modifier.align(Alignment.TopEnd).padding(16.dp)
+                )
+            }
+        )
     }
 }

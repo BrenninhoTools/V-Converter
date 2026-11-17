@@ -16,6 +16,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -89,7 +90,8 @@ fun FunkinMainMenu(
     onSelect: (MainMenuEntry) -> Unit,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    initial: Int = 0
+    initial: Int = 0,
+    overlay: @Composable BoxScope.() -> Unit = {}
 ) {
     var selected by remember { mutableIntStateOf(initial.coerceIn(0, max(0, entries.lastIndex))) }
     var confirming by remember { mutableStateOf<Int?>(null) }
@@ -241,6 +243,7 @@ fun FunkinMainMenu(
                 )
             }
         }
+        overlay()
         Text(
             version,
             color = Color.White,
