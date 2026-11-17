@@ -63,8 +63,8 @@ class CharacterEditorViewModel(application: Application) : BaseConverterViewMode
         if (i != null && x != null) runCatching { editor.sprite = decode(i, x) }
     }
     var target by mutableStateOf(ExportTarget.VSLICE)
-    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
         private set
+    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
     var source by mutableStateOf("New character")
         private set
     var sheetName by mutableStateOf<String?>(null)

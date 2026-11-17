@@ -53,8 +53,8 @@ class StageEditorViewModel(application: Application) : BaseConverterViewModel(ap
     val editor = StageEditorState(StageDocument("new-stage", "New Stage"))
     val live = com.vconvertercrew.vconverter.editorview.LiveSession(com.vconvertercrew.vconverter.editorview.StageLiveAdapter(editor) { asset -> decode(asset) }) { block -> android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
     var target by mutableStateOf(ExportTarget.VSLICE)
-    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
         private set
+    override val vsliceOutput: Boolean get() = target == ExportTarget.VSLICE
     var source by mutableStateOf("New stage")
         private set
     private var exportedRevision = -1
