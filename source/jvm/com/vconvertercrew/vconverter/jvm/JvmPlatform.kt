@@ -5,6 +5,7 @@ import java.net.URL
 import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 
+typealias Volatile = kotlin.jvm.Volatile
 typealias InputStream = java.io.InputStream
 typealias OutputStream = java.io.OutputStream
 typealias IOException = java.io.IOException

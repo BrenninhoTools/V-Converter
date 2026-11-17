@@ -27,6 +27,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  ORG_GRADLE_PROJECT_kotlin.incremental: "false"
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.vfs.watch=false
   CCACHE_COMPRESS: "true"
   CCACHE_MAXSIZE: 300M
@@ -104,6 +105,12 @@ jobs:
           cache-cleanup: on-success
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           add-job-summary: on-failure
+
+      - name: Cache WiX
+        uses: actions/cache@v4
+        with:
+          path: build/wixToolset
+          key: wix-3.11.2
 
       - name: Build installer
         shell: bash
@@ -319,13 +326,18 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           add-job-summary: on-failure
 
-      - name: Cache Node.js and Yarn for Kotlin/Wasm
+      - name: Cache Node.js, Yarn, Binaryen and npm packages for Kotlin/Wasm
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/nodejs
             ~/.gradle/yarn
-          key: kotlin-web-tools-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+            ~/.gradle/binaryen
+            ~/.cache/yarn
+            build/js/node_modules
+            kotlin-js-store
+          key: kotlin-web-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'web/build.gradle.kts') }}
+          restore-keys: kotlin-web-${{ runner.os }}-
 
       - name: Build the web app
         run: ./gradlew :web:wasmJsBrowserDistribution -Pvconverter.modules=web --no-configuration-cache --build-cache

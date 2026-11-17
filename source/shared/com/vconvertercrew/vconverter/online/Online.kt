@@ -2,7 +2,7 @@ package com.vconvertercrew.vconverter.online
 
 import com.vconvertercrew.vconverter.platform.Platform
 import com.vconvertercrew.vconverter.platform.PlatformLock
-import kotlin.concurrent.Volatile
+import com.vconvertercrew.vconverter.platform.Volatile
 
 object Online {
     @Volatile var serverUrl: String = ""

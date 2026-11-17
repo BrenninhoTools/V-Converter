@@ -4,7 +4,7 @@ import com.vconvertercrew.vconverter.json.JSONArray
 import com.vconvertercrew.vconverter.json.JSONObject
 import com.vconvertercrew.vconverter.platform.Platform
 import com.vconvertercrew.vconverter.platform.PlatformLock
-import kotlin.concurrent.Volatile
+import com.vconvertercrew.vconverter.platform.Volatile
 
 data class RoomWelcome(val id: Int, val kind: String, val title: String, val peers: List<RoomPeer>, val snapshot: JSONObject?, val ops: List<JSONObject>, val assets: List<String>)
 

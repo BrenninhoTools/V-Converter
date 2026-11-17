@@ -35,6 +35,8 @@ import platform.posix.memcpy
 import kotlin.concurrent.AtomicInt
 import kotlin.time.TimeSource
 
+typealias Volatile = kotlin.concurrent.Volatile
+
 class PlatformLock {
     private val lock = NSRecursiveLock()
 

@@ -7,6 +7,9 @@ private fun jsXhr(method: String, url: String, headers: String, body: JsAny?): J
 private fun jsInt(obj: JsAny, name: String): Int = js("(obj[name] | 0)")
 private fun jsText(obj: JsAny, name: String): String = js("String(obj[name])")
 
+@Target(AnnotationTarget.PROPERTY, AnnotationTarget.FIELD)
+annotation class Volatile
+
 class PlatformLock {
     fun <T> withLock(block: () -> T): T = block()
 }

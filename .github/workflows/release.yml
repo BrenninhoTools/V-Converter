@@ -19,6 +19,9 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  ORG_GRADLE_PROJECT_kotlin.incremental: "false"
+
 jobs:
   android:
     name: V Converter-Android
@@ -77,6 +80,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Cache WiX
+        uses: actions/cache@v4
+        with:
+          path: build/wixToolset
+          key: wix-3.11.2
 
       - name: Build installer
         shell: bash
@@ -240,13 +249,18 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Cache Node.js and Yarn for Kotlin/Wasm
+      - name: Cache Node.js, Yarn, Binaryen and npm packages for Kotlin/Wasm
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/nodejs
             ~/.gradle/yarn
-          key: kotlin-web-tools-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+            ~/.gradle/binaryen
+            ~/.cache/yarn
+            build/js/node_modules
+            kotlin-js-store
+          key: kotlin-web-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', 'web/build.gradle.kts') }}
+          restore-keys: kotlin-web-${{ runner.os }}-
 
       - name: Build the web app
         run: ./gradlew :web:wasmJsBrowserDistribution -Pvconverter.modules=web --no-configuration-cache
