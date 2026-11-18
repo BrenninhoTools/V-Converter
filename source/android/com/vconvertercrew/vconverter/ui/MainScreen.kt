@@ -560,6 +560,16 @@ fun MainScreen() {
                     overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).displayCutoutPadding().padding(16.dp)) }
                 )
             }
+        } else if (section == Section.ONLINE) {
+            var onlineBack by remember { mutableStateOf(0) }
+            androidx.activity.compose.BackHandler(enabled = !optionsOpen) { onlineBack++ }
+            com.vconvertercrew.vconverter.ui.online.OnlineMenuScreen(
+                online,
+                onJoin = joinRoom,
+                onBack = { menuScreen = MENU_MAIN },
+                backRequests = onlineBack,
+                overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp)) }
+            )
         } else if (section == Section.GENERATOR && generatorTab == GenTab.SONG) {
             Box(Modifier.fillMaxSize()) {
                 ChartEditorScreen(genSong, folderName, save) { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { menuScreen = MENU_GENERATOR } }

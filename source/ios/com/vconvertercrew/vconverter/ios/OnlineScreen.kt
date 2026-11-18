@@ -1,55 +1,53 @@
 package com.vconvertercrew.vconverter.ios
 
-import com.vconvertercrew.vconverterui.VCard as Card
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.vconvertercrew.vconverter.onlineview.ModGalleryPanel
-import com.vconvertercrew.vconverter.onlineview.ModSharePanel
-import com.vconvertercrew.vconverter.onlineview.OnlineNewsPanel
-import com.vconvertercrew.vconverter.onlineview.PublicRoomsPanel
+import com.vconvertercrew.vconverter.onlineview.FunkinOnlineMenu
+import com.vconvertercrew.vconverter.onlineview.OnlineActions
+import com.vconvertercrew.vconverter.onlineview.OnlineMenuArt
+import com.vconvertercrew.vconverter.overlay.DiscordBadge
 import com.vconvertercrew.vconverter.platform.File
 
 @Composable
 fun OnlineScreen(state: AppState) {
     val online = state.online
-    AdaptiveRow {
-        Column(Modifier.pane(1.4f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                ModGalleryPanel(online, onDownload = { mod ->
-                    val target = File(Dialogs.exports, mod.fileName.replace('/', '_'))
-                    online.download(mod, open = { target.outputStream() }) { ok ->
-                        if (ok) {
-                            state.lastOutput = target
-                            Dialogs.export(target)
-                        }
+    val art = remember { OnlineMenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val actions = remember(state) {
+        OnlineActions(
+            download = { mod ->
+                val target = File(Dialogs.exports, mod.fileName.replace('/', '_'))
+                online.download(mod, open = { target.outputStream() }) { ok ->
+                    if (ok) {
+                        state.lastOutput = target
+                        Dialogs.export(target)
                     }
-                })
-            }
-        }
-        Column(Modifier.pane(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                PublicRoomsPanel(online, onJoin = { room ->
-                    val live = when (room.kind) {
-                        "character" -> state.characterEditor.live.also { state.tool = EditorTool.CHARACTER }
-                        "stage" -> state.stageEditor.live.also { state.tool = EditorTool.STAGE }
-                        "week" -> state.weekEditor.live.also { state.tool = EditorTool.WEEK }
-                        else -> state.editor.live.also { state.tool = EditorTool.CHART }
-                    }
-                    live.join(room.code)
-                })
-            }
-            Card { OnlineNewsPanel(online, onOpenLink = { Dialogs.openLink(it) }) }
-            Card {
-                ModSharePanel(online, onPickFile = {
-                    Dialogs.openFile("Pick the mod .zip", setOf("zip")) { file ->
-                        online.file = file.name to file.readBytes()
-                        if (online.title.isBlank()) online.title = file.nameWithoutExtension
-                    }
-                })
-            }
-        }
+                }
+            },
+            pickFile = {
+                Dialogs.openFile("Pick the mod .zip", setOf("zip")) { file ->
+                    online.file = file.name to file.readBytes()
+                    if (online.title.isBlank()) online.title = file.nameWithoutExtension
+                }
+            },
+            join = { room ->
+                val live = when (room.kind) {
+                    "character" -> state.characterEditor.live.also { state.tool = EditorTool.CHARACTER }
+                    "stage" -> state.stageEditor.live.also { state.tool = EditorTool.STAGE }
+                    "week" -> state.weekEditor.live.also { state.tool = EditorTool.WEEK }
+                    else -> state.editor.live.also { state.tool = EditorTool.CHART }
+                }
+                live.join(room.code)
+            },
+            openLink = { Dialogs.openLink(it) }
+        )
     }
+    FunkinOnlineMenu(
+        online, art, actions,
+        onBack = { MainMenu.open = true },
+        overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) }
+    )
 }

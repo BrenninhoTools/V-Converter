@@ -6,19 +6,25 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vconvertercrew.vconverter.online.ModEntry
 import com.vconvertercrew.vconverter.onlineview.ModGalleryPanel
+import com.vconvertercrew.vconverter.onlineview.FunkinOnlineMenu
 import com.vconvertercrew.vconverter.onlineview.ModSharePanel
+import com.vconvertercrew.vconverter.onlineview.OnlineActions
+import com.vconvertercrew.vconverter.onlineview.OnlineMenuArt
 import com.vconvertercrew.vconverter.onlineview.OnlineNewsPanel
 import com.vconvertercrew.vconverter.onlineview.OnlineState
 import com.vconvertercrew.vconverter.onlineview.PublicRoomsPanel
@@ -102,4 +108,40 @@ fun OnlineRoomsScreen(viewModel: OnlineViewModel, onJoin: (RoomInfo) -> Unit) {
             PublicRoomsPanel(viewModel.state, onJoin = onJoin)
         }
     }
+}
+
+@Composable
+fun OnlineMenuScreen(
+    viewModel: OnlineViewModel,
+    onJoin: (RoomInfo) -> Unit,
+    onBack: () -> Unit,
+    backRequests: Int,
+    overlay: @Composable BoxScope.() -> Unit = {}
+) {
+    val context = LocalContext.current
+    val links = LocalUriHandler.current
+    var pending by remember { mutableStateOf<ModEntry?>(null) }
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val mod = pending
+        pending = null
+        if (uri != null && mod != null) viewModel.saveTo(mod, uri)
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) viewModel.pick(uri) }
+    val art = remember {
+        val assets = context.assets
+        OnlineMenuArt.load(
+            image = { path -> runCatching { assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it) }?.asImageBitmap() }.getOrNull() },
+            text = { path -> runCatching { assets.open(path).use { it.readBytes().decodeToString() } }.getOrNull() }
+        )
+    }
+    val actions = OnlineActions(
+        download = { mod ->
+            pending = mod
+            saver.launch(mod.fileName)
+        },
+        pickFile = { picker.launch(arrayOf("application/zip", "application/x-zip-compressed", "*/*")) },
+        join = onJoin,
+        openLink = { runCatching { links.openUri(it) } }
+    )
+    FunkinOnlineMenu(viewModel.state, art, actions, onBack, backRequests = backRequests, overlay = overlay)
 }

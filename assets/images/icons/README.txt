@@ -1,0 +1,1 @@
+Health icons in the V-Slice layout: icon-<character>.png is 300x150, the normal face on the left and the losing face on the right. They were cut from the base game iconGrid.png with scripts/SplitIcons.py. Characters with a single face in the grid repeat it on both halves. Unknown characters fall back to icon-face.png.

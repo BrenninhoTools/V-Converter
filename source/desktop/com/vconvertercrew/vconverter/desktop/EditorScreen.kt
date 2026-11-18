@@ -365,12 +365,14 @@ fun EditorScreen(state: AppState) {
             if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
     ) {
+        val healthIcons = androidx.compose.runtime.remember { com.vconvertercrew.vconverter.overlay.HealthIcons { Resources.image(it) } }
         FnfChartEditor(
             editor, skin, eventIcon,
             onSave = { windows.show("export") },
             onReloadAudio = { windows.show("audio") },
             onPlayTest = { state.playTestChart(editor.document, model.audio) },
             onExit = { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { MainMenu.open = true } },
+            icon = { healthIcons[it] },
             onReloadJson = { Dialogs.openFiles("Open the chart files, song folder or archive").let { model.open(it) } }
         )
     }

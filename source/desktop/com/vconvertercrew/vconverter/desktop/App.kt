@@ -85,6 +85,10 @@ fun App(state: AppState) {
         Box(Modifier.fillMaxSize()) { EditorScreen(state) }
         return
     }
+    if (state.tool == EditorTool.ONLINE) {
+        Box(Modifier.fillMaxSize()) { OnlineScreen(state) }
+        return
+    }
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         Sidebar(state)
         Box(Modifier.width(1.dp).fillMaxHeight().background(Palette.Outline))

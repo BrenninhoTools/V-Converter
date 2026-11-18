@@ -360,12 +360,15 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         EditorWindow("help", "Controls") { EditorHelpText("Tap the lanes to place notes and tap a note to select it. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
     )
     FunkinEditorShell(title = "Chart Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize(), showMenuBar = false) {
+        val iconContext = LocalContext.current
+        val healthIcons = remember { com.vconvertercrew.vconverter.overlay.HealthIcons { path -> iconContext.assets.open(path).use { BitmapFactory.decodeStream(it) }?.asImageBitmap() } }
         FnfChartEditor(
             editor, skin, eventIcon,
             onSave = { windows.show("export") },
             onReloadAudio = { windows.show("audio") },
             onPlayTest = { launcher?.chart(editor.document, viewModel.audio) },
             onExit = onExit,
+            icon = { healthIcons[it] },
             onReloadJson = { opener.launch(arrayOf("*/*")) }
         )
     }
