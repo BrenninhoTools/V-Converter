@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val abis = (findProperty("vconverter.abis") as String?)?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+    ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore/keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -24,7 +27,7 @@ android {
         versionName = "0.1.0-playtest"
 
         ndk {
-            abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            abiFilters += abis
         }
     }
 

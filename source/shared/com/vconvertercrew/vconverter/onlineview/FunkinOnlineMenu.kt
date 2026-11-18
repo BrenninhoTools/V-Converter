@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -131,7 +132,7 @@ private object Colors {
 private val sorts = listOf("new" to "Newest", "downloads" to "Most Downloaded", "title" to "A to Z")
 private val roomKinds = listOf<Pair<String?, String>>(null to "All", "chart" to "Chart Editor", "character" to "Character Editor", "stage" to "Stage Editor", "week" to "Week Editor")
 private val roomIcons = mapOf("chart" to "bf", "character" to "pico", "stage" to "spooky", "week" to "dad")
-private const val NO_SERVER = "No server is set. Open the Options, then Preferences, and type the address of a V-Converter server."
+private const val NO_SERVER = "No V-Converter server answered. Check your internet connection and choose Retry, or type a server address in Options, then Preferences, then Online Server."
 private const val MAX_CHARS = 26
 
 private fun bytes(size: Long): String = when {
@@ -150,7 +151,12 @@ private fun <T> List<T>.cycled(current: T, by: Int): T {
 private fun label(text: String): String = if (text.length <= MAX_CHARS) text else text.take(MAX_CHARS - 3).trimEnd() + "..."
 
 private fun hubItems(state: OnlineState, go: (OnlinePage) -> Unit): List<OnlineItem> {
-    val server = if (state.configured) "Server: ${com.vconvertercrew.vconverter.online.OnlineApi.normalize(com.vconvertercrew.vconverter.online.Online.serverUrl)}" else NO_SERVER
+    val online = com.vconvertercrew.vconverter.online.Online
+    val server = when {
+        state.configured -> (if (online.isAutomatic) "Server (automatic): " else "Server: ") + online.activeUrl
+        AutoServer.searching -> "Looking for a server..."
+        else -> NO_SERVER
+    }
     return listOf(
         OnlineItem("Mod Gallery", "bf", Colors.mods, listOf("MOD GALLERY", "Find mods people shared on the server and download them.", server), accept = { go(OnlinePage.MODS) }),
         OnlineItem("Public Rooms", "gf", Colors.rooms, listOf("PUBLIC ROOMS", "Join a Multieditor room someone listed publicly and edit together.", server), accept = { go(OnlinePage.ROOMS) }),
@@ -321,7 +327,9 @@ private fun shareItems(state: OnlineState, actions: OnlineActions): List<OnlineI
     return list
 }
 
-private fun notConfigured(): List<OnlineItem> = listOf(OnlineItem("No server set", "face", Colors.grey, listOf("NO SERVER", NO_SERVER)))
+private fun notConfigured(retry: () -> Unit): List<OnlineItem> =
+    if (AutoServer.searching) listOf(OnlineItem("Connecting...", "face", Colors.grey, listOf("CONNECTING", "Looking for a V-Converter server.")))
+    else listOf(OnlineItem("No server online", "face", Colors.grey, listOf("NO SERVER", NO_SERVER, "ENTER: RETRY"), accept = retry))
 
 @Composable
 fun FunkinOnlineMenu(
@@ -341,6 +349,7 @@ fun FunkinOnlineMenu(
     var leaving by remember { mutableStateOf(false) }
     val exit = rememberUpdatedState(onBack)
     val focus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     fun open(target: OnlinePage) {
         hubSelected = selected
@@ -350,7 +359,7 @@ fun FunkinOnlineMenu(
 
     val items = when {
         page == OnlinePage.HUB -> hubItems(state, ::open)
-        !state.configured -> notConfigured()
+        !state.configured -> notConfigured { AutoServer.refresh(scope) }
         page == OnlinePage.MODS -> modItems(state, actions)
         page == OnlinePage.ROOMS -> roomItems(state, actions)
         page == OnlinePage.NEWS -> newsItems(state, actions)

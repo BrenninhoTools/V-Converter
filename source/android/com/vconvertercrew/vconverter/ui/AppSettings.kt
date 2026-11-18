@@ -181,7 +181,7 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                 settings.updateMusicVolume(next / 10f)
             },
             MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { settings.vslicePreview }, settings::updateVSlicePreview),
-            MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Tap it again to edit.", { settings.serverUrl }, settings::updateServerUrl, "https://my-server.example.com"),
+            MenuOption.TextEntry("Online Server", "Leave it empty to connect to a V-Converter server automatically, or type the address of your own server. Tap it again to edit.", { settings.serverUrl }, settings::updateServerUrl, "Automatic"),
             MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { settings.errorReports }, settings::updateErrorReports)
         )
         val options = listOf(

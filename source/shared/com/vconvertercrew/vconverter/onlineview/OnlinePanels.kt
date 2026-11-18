@@ -42,7 +42,7 @@ private fun size(bytes: Long): String = when {
 @Composable
 fun NotConfigured(modifier: Modifier = Modifier) {
     Text(
-        "No server is set. Open the options (the gear) and type the address of a V-Converter server, for example https://my-server.example.com. The server's code is in the server/ folder of the repository.",
+        if (AutoServer.searching) "Looking for a V-Converter server..." else "No V-Converter server answered. Check your internet connection, or type the address of your own server in the options.",
         fontSize = 13.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier

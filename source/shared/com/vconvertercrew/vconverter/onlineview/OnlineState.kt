@@ -59,7 +59,11 @@ class OnlineState(private val scope: CoroutineScope) {
     var uploadError by mutableStateOf<String?>(null)
         private set
 
-    val configured: Boolean get() = Online.isConfigured
+    val configured: Boolean get() = AutoServer.url.isNotEmpty() || Online.isConfigured
+
+    init {
+        AutoServer.start(scope)
+    }
 
     var rooms by mutableStateOf<List<RoomInfo>?>(null)
         private set

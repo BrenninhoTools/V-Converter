@@ -6,13 +6,18 @@ import com.vconvertercrew.vconverter.platform.Volatile
 
 object Online {
     @Volatile var serverUrl: String = ""
+    @Volatile var autoServer: String = ""
     @Volatile var reportsEnabled: Boolean = false
     @Volatile var platform: String = "android"
     @Volatile var appVersion: String = "0.1.0-playtest"
 
-    val isConfigured: Boolean get() = OnlineApi.normalize(serverUrl).isNotEmpty()
+    val activeUrl: String get() = OnlineApi.normalize(serverUrl).ifEmpty { autoServer }
 
-    fun api(): OnlineApi = OnlineApi(serverUrl)
+    val isAutomatic: Boolean get() = OnlineApi.normalize(serverUrl).isEmpty()
+
+    val isConfigured: Boolean get() = activeUrl.isNotEmpty()
+
+    fun api(): OnlineApi = OnlineApi(activeUrl)
 }
 
 object ErrorReports {

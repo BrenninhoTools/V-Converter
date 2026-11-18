@@ -240,7 +240,7 @@ fun OptionsOverlay() {
             AppSettings.updateMusicVolume(next / 10f)
         },
         MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { AppSettings.vslicePreview }, AppSettings::updateVSlicePreview),
-        MenuOption.TextEntry("Online Server", "Address of the V-Converter online server. Press Enter on it to edit.", { AppSettings.serverUrl }, AppSettings::updateServerUrl, "https://my-server.example.com"),
+        MenuOption.TextEntry("Online Server", "Leave it empty to connect to a V-Converter server automatically, or type the address of your own server. Press Enter on it to edit.", { AppSettings.serverUrl }, AppSettings::updateServerUrl, "Automatic"),
         MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { AppSettings.errorReports }, AppSettings::updateErrorReports)
     )
     val options = listOf(

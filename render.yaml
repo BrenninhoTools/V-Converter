@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: v-converter-server
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATA_DIR
+        value: /tmp/v-converter
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: DISCORD_CLIENT_SECRET
+        sync: false

@@ -71,7 +71,7 @@ jobs:
       - name: Build release APK
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
-        run: ./gradlew :app:assembleRelease -Pvconverter.modules=app --build-cache
+        run: ./gradlew :app:assembleRelease -Pvconverter.modules=app -Pvconverter.abis=arm64-v8a --build-cache
 
       - name: Name the APK
         run: |
@@ -288,8 +288,9 @@ jobs:
         run: |
           cd iosApp
           set -o pipefail
-          xcodebuild -quiet -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos -jobs 8 \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ENABLE_EXPLICIT_MODULES=NO build 2>&1 | tee xcodebuild.log \
+          xcodebuild -quiet -project VConverter.xcodeproj -target VConverter -configuration Release -sdk iphoneos -jobs "$(sysctl -n hw.ncpu)" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+            ONLY_ACTIVE_ARCH=YES ARCHS=arm64 DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO SWIFT_COMPILATION_MODE=wholemodule build 2>&1 | tee xcodebuild.log \
             || { grep -E "error:|fatal error|Undefined symbol|ld:" xcodebuild.log | head -60; exit 1; }
 
       - name: Package the IPA
