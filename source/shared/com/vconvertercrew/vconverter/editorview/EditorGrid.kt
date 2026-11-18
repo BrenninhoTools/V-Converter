@@ -82,7 +82,7 @@ private val arrowPath: Path = Path().apply {
 
 private val arrowRotation = floatArrayOf(-90f, 180f, 0f, 90f)
 
-private fun DrawScope.arrow(center: Offset, size: Float, direction: Int, color: Color, outline: Color?, filled: Boolean = true) {
+internal fun DrawScope.arrow(center: Offset, size: Float, direction: Int, color: Color, outline: Color?, filled: Boolean = true) {
     translate(center.x, center.y) {
         rotate(arrowRotation[direction], pivot = Offset.Zero) {
             scale(size, size, pivot = Offset.Zero) {

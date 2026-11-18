@@ -179,6 +179,157 @@ class ChartEditorState(initial: ChartDocument) {
         return selectedNote != null
     }
 
+    var legacyTab by mutableIntStateOf(0)
+
+    val section: Int get() = floor(document.conductor.beatAt(position) / 4.0 + 1e-6).toInt().coerceAtLeast(0)
+
+    fun sectionStart(index: Int): Double = document.conductor.timeAt(index.coerceAtLeast(0) * 4.0)
+
+    fun sectionEnd(index: Int): Double = document.conductor.timeAt((index.coerceAtLeast(0) + 1) * 4.0)
+
+    private fun inSection(time: Double, index: Int): Boolean = time >= sectionStart(index) - 0.5 && time < sectionEnd(index) - 0.5
+
+    fun sectionNotes(index: Int = section): List<EditorNote> = document.notes(difficulty).filter { inSection(it.time, index) }
+
+    fun timeAtRow(index: Int, row: Double): Double = document.conductor.timeAt(index * 4.0 + row / 4.0)
+
+    fun rowAt(index: Int, time: Double): Double = (document.conductor.beatAt(time) - index * 4.0) * 4.0
+
+    private fun pause() {
+        if (playing) togglePlay()
+    }
+
+    fun changeSection(delta: Int) {
+        pause()
+        seek(sectionStart((section + delta).coerceAtLeast(0)))
+    }
+
+    fun resetSection(toStart: Boolean) {
+        pause()
+        seek(if (toStart) 0.0 else sectionStart(section))
+    }
+
+    fun placeNote(time: Double, column: Int, mirror: Boolean) {
+        val data = if (column >= 4) column - 4 else column + 4
+        val note = EditorNote(time.coerceAtLeast(0.0), data)
+        edit { doc ->
+            val added = doc.addNote(difficulty, note)
+            if (mirror) added.addNote(difficulty, note.copy(data = (data + 4) % 8)) else added
+        }
+        selectedEvent = null
+        eventDraftTime = null
+        selectedNote = note
+    }
+
+    fun noteAtCell(time: Double, column: Int): EditorNote? {
+        val data = if (column >= 4) column - 4 else column + 4
+        return document.noteAt(difficulty, time, data, document.conductor.stepMs(time) * 0.5)
+    }
+
+    fun removeNote(note: EditorNote) {
+        edit { it.removeNote(difficulty, note) }
+        if (selectedNote == note) selectedNote = null
+    }
+
+    fun selectNote(note: EditorNote) {
+        selectedEvent = null
+        eventDraftTime = null
+        selectedNote = note
+    }
+
+    fun copySection(back: Int) {
+        val current = section
+        val from = current - back
+        if (back == 0 || from < 0) return
+        val shift = sectionStart(current) - sectionStart(from)
+        val copies = sectionNotes(from).map { it.copy(time = it.time + shift) }
+        if (copies.isEmpty()) return
+        edit { doc -> copies.fold(doc) { acc, note -> acc.addNote(difficulty, note) } }
+    }
+
+    fun clearSection() {
+        val notes = sectionNotes()
+        if (notes.isEmpty()) return
+        edit { doc -> notes.fold(doc) { acc, note -> acc.removeNote(difficulty, note) } }
+        clearMissingSelection()
+    }
+
+    fun swapSection() {
+        val notes = sectionNotes()
+        if (notes.isEmpty()) return
+        edit { doc -> notes.fold(doc) { acc, note -> acc.replaceNote(difficulty, note, note.copy(data = (note.data + 4) % 8)) } }
+        selectedNote = null
+    }
+
+    fun mustHit(index: Int = section): Boolean {
+        val start = sectionStart(index)
+        val focus = document.events.filter { it.kind == "FocusCamera" && it.time <= start + 0.5 }.maxByOrNull { it.time } ?: return false
+        val target = when (val v = focus.value) {
+            is JSONObject -> v.opt("char")
+            else -> v
+        }
+        return target?.toString()?.toDoubleOrNull()?.toInt() == 0
+    }
+
+    fun setMustHit(value: Boolean) {
+        val start = sectionStart(section)
+        edit { doc ->
+            val cleared = doc.events.filter { it.kind == "FocusCamera" && abs(it.time - start) < 0.5 }.fold(doc) { acc, event -> acc.removeEvent(event) }
+            cleared.addEvent(EditorEvent(start, "FocusCamera", JSONObject().put("char", if (value) 0 else 1)))
+        }
+    }
+
+    fun changesBpm(index: Int = section): Boolean {
+        val start = sectionStart(index)
+        return index > 0 && document.timing.any { abs(it.time - start) < 0.5 }
+    }
+
+    fun sectionBpm(index: Int = section): Double = document.conductor.change(sectionStart(index) + 0.5).bpm
+
+    fun setChangeBpm(value: Boolean) {
+        val index = section
+        if (index == 0) return
+        val start = sectionStart(index)
+        val bpm = sectionBpm(index)
+        edit { doc ->
+            val others = doc.timing.filterNot { abs(it.time - start) < 0.5 }
+            doc.withTiming(if (value) others + EditorTiming(start, bpm, doc.conductor.change(start).numerator) else others)
+        }
+    }
+
+    fun setSectionBpm(bpm: Double) {
+        if (bpm <= 0.0) return
+        val index = section
+        val start = sectionStart(index)
+        edit { doc ->
+            if (index == 0) {
+                doc.withTiming(doc.timing.mapIndexed { i, t -> if (i == 0) t.copy(bpm = bpm) else t })
+            } else {
+                val others = doc.timing.filterNot { abs(it.time - start) < 0.5 }
+                doc.withTiming(others + EditorTiming(start, bpm, doc.conductor.change(start).numerator))
+            }
+        }
+    }
+
+    fun altAnim(index: Int = section): Boolean {
+        val opponent = sectionNotes(index).filter { !it.isPlayer }
+        return opponent.isNotEmpty() && opponent.all { it.kind == "alt" }
+    }
+
+    fun setAltAnim(value: Boolean) {
+        val notes = sectionNotes().filter { !it.isPlayer && (it.kind.isEmpty() || it.kind == "alt") }
+        if (notes.isEmpty()) return
+        edit { doc -> notes.fold(doc) { acc, note -> acc.replaceNote(difficulty, note, note.copy(kind = if (value) "alt" else "")) } }
+        selectedNote = null
+    }
+
+    fun setSustain(ms: Double) {
+        val note = selectedNote ?: return
+        val updated = note.copy(length = (ms.coerceAtLeast(0.0) * 1000.0).roundLong() / 1000.0)
+        edit { it.replaceNote(difficulty, note, updated) }
+        selectedNote = updated
+    }
+
     fun clearSelection() {
         selectedNote = null
         selectedEvent = null

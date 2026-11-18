@@ -234,7 +234,7 @@ fun FunkinOptionsMenu(
                 backFrame = i
                 delay(1000L / 24)
             }
-            closeAction.value()
+            FunkinTransition.go { closeAction.value() }
         }
     }
 
@@ -294,7 +294,7 @@ fun FunkinOptionsMenu(
     Box(
         modifier
             .fillMaxSize()
-            .background(Color(0xFFEA71FD))
+            .background(Color.Black)
             .focusRequester(focus)
             .focusable()
             .onKeyEvent { event ->

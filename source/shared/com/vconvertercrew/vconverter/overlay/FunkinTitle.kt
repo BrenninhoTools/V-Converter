@@ -112,7 +112,7 @@ fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifi
             val pressed = pressedAt
             if (pressed != null && time - pressed >= 2.0 && !finished) {
                 finished = true
-                finish()
+                FunkinTransition.go { finish() }
             }
         }
     }

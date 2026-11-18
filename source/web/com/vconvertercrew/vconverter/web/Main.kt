@@ -33,6 +33,7 @@ fun main() {
                 }
                 MainMenuOverlay(state)
                 OptionsOverlay()
+                com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
             }
             UiSounds()
             MenuMusic(suppressed = state.editor.editor.playing)

@@ -87,6 +87,7 @@ fun main() {
                     App(state)
                     MainMenuOverlay(state)
                     OptionsOverlay()
+                    com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
                     DiscordStatus(state)
                     UiSounds()
                     MenuMusic(suppressed = windowState.isMinimized || state.editor.editor.playing)

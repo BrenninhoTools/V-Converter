@@ -481,19 +481,23 @@ fun MainScreen() {
         MenuOption.Submenu("${option.from.label} to ${option.to.label}", option.label, option.label) {
             Tab.entries.map { target ->
                 MenuOption.Action(target.title, target.describe(option)) {
-                    direction = option
-                    converterTab = target
-                    section = Section.CONVERTER
-                    menuScreen = MENU_NONE
+                    com.vconvertercrew.vconverter.overlay.FunkinTransition.go {
+                        direction = option
+                        converterTab = target
+                        section = Section.CONVERTER
+                        menuScreen = MENU_NONE
+                    }
                 }
             }
         }
     }
     val generatorOptions = GenTab.entries.map { target ->
         MenuOption.Action(target.title, target.description) {
-            generatorTab = target
-            section = Section.GENERATOR
-            menuScreen = MENU_NONE
+            com.vconvertercrew.vconverter.overlay.FunkinTransition.go {
+                generatorTab = target
+                section = Section.GENERATOR
+                menuScreen = MENU_NONE
+            }
         }
     }
     val appVersion = remember { runCatching { menuContext.packageManager.getPackageInfo(menuContext.packageName, 0).versionName }.getOrNull() ?: "" }
@@ -677,6 +681,7 @@ fun MainScreen() {
             }
             }
         }
+        com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
         if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
     }
     }

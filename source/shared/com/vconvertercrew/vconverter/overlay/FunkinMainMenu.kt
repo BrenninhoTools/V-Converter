@@ -141,10 +141,12 @@ fun FunkinMainMenu(
                 elapsed += 60
             }
             selectedVisible = true
-            onSelect(entry)
-            fade.snapTo(1f)
             flashVisible = false
-            confirming = null
+            FunkinTransition.go {
+                onSelect(entry)
+                confirming = null
+                scope.launch { fade.snapTo(1f) }
+            }
         }
     }
 
@@ -154,7 +156,7 @@ fun FunkinMainMenu(
     Box(
         modifier
             .fillMaxSize()
-            .background(Color(0xFFFDE871))
+            .background(Color.Black)
             .focusRequester(focus)
             .focusable()
             .onKeyEvent { event ->

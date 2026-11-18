@@ -178,17 +178,21 @@ fun MainMenuOverlay(state: AppState) {
         MenuOption.Submenu("${direction.from.label} to ${direction.to.label}", direction.label, direction.label) {
             Tab.entries.map { tab ->
                 MenuOption.Action(tab.title, "Convert ${tab.title.lowercase()} from ${direction.from.title} to ${direction.to.title}.") {
-                    state.direction = direction
-                    state.tab = tab
-                    state.tool = null
-                    MainMenu.close()
+                    com.vconvertercrew.vconverter.overlay.FunkinTransition.go {
+                        state.direction = direction
+                        state.tab = tab
+                        state.tool = null
+                        MainMenu.close()
+                    }
                 }
             }
         }
     } else generatorTools.map { tool ->
         MenuOption.Action(tool.title, tool.hint) {
-            state.tool = tool
-            MainMenu.close()
+            com.vconvertercrew.vconverter.overlay.FunkinTransition.go {
+                state.tool = tool
+                MainMenu.close()
+            }
         }
     }
     key(list) {

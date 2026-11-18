@@ -245,7 +245,7 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
 
     val launcher = com.vconvertercrew.vconverter.ui.playtest.LocalPlayTest.current
     val split = if (splitVoices >= 0) splitVoices == 1 else viewModel.audioFor(AudioRole.PLAYER) != null || viewModel.audioFor(AudioRole.OPPONENT) != null
-    val windows = rememberEditorWindows("selection")
+    val windows = rememberEditorWindows()
     val menus = listOf(
         EditorMenu(
             "File",
@@ -360,6 +360,11 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         EditorWindow("help", "Controls") { EditorHelpText("Tap the lanes to place notes and tap a note to select it. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
     )
     FunkinEditorShell(title = "Chart Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
-        ChartEditorStage(editor, skin, eventIcon)
+        FnfChartEditor(
+            editor, skin, eventIcon,
+            onSave = { windows.show("export") },
+            onReloadAudio = { windows.show("audio") },
+            onReloadJson = { opener.launch(arrayOf("*/*")) }
+        )
     }
 }

@@ -267,7 +267,7 @@ fun EditorScreen(state: AppState) {
 
     val output = model.output
     val isSplit = split ?: (model.audioFor(AudioRole.PLAYER) != null || model.audioFor(AudioRole.OPPONENT) != null)
-    val windows = rememberEditorWindows("metadata", "selection")
+    val windows = rememberEditorWindows()
     val menus = listOf(
         EditorMenu(
             "File",
@@ -369,7 +369,14 @@ fun EditorScreen(state: AppState) {
             val status = model.status
             if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
         }
-    ) { ChartEditorStage(editor, skin, eventIcon) }
+    ) {
+        FnfChartEditor(
+            editor, skin, eventIcon,
+            onSave = { windows.show("export") },
+            onReloadAudio = { windows.show("audio") },
+            onReloadJson = { Dialogs.openFiles("Open the chart files, song folder or archive") { model.open(it) } }
+        )
+    }
 }
 
 @Composable
