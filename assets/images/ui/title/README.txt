@@ -1,0 +1,1 @@
+Title screen art from Friday Night Funkin' (logoBumpin, gfDanceTitle, titleEnter), cropped and scaled to half size; the atlases' coordinates are halved to match, so the title screen draws them at twice the scale.

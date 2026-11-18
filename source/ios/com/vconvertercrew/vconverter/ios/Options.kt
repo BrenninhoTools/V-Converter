@@ -134,6 +134,7 @@ object OptionsMenu {
 object MainMenu {
     var open by mutableStateOf(true)
     var list by mutableStateOf<String?>(null)
+    var title by mutableStateOf(true)
 
     fun close() {
         list = null
@@ -150,6 +151,11 @@ private val mainMenuEntries = listOf(
 @Composable
 fun MainMenuOverlay(state: AppState) {
     if (!MainMenu.open) return
+    if (MainMenu.title) {
+        val titleArt = remember { com.vconvertercrew.vconverter.overlay.TitleArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+        com.vconvertercrew.vconverter.overlay.FunkinTitle(titleArt, onFinish = { MainMenu.title = false })
+        return
+    }
     val art = remember { MainMenuArt.load(mainMenuEntries.map { it.id }, { Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
     val listArt = remember { MenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
     val list = MainMenu.list

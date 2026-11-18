@@ -208,6 +208,7 @@ fun DiscordStatus(state: AppState) {
             if (!AppSettings.discordStatus) return@snapshotFlow null
             val tool = state.tool
             val (details, line) = when {
+                MainMenu.open && MainMenu.title -> "In the title screen" to null
                 OptionsMenu.open -> "In the options" to null
                 MainMenu.open && MainMenu.list == "converter" -> "Picking a converter" to null
                 MainMenu.open && MainMenu.list == "generator" -> "Picking an editor" to null

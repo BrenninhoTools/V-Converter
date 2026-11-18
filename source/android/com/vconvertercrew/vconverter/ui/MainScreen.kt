@@ -289,6 +289,7 @@ enum class GenTab(
 
 private const val MENU_NONE = ""
 private const val MENU_MAIN = "main"
+private const val MENU_TITLE = "title"
 private const val MENU_CONVERTER = "converter"
 private const val MENU_GENERATOR = "generator"
 
@@ -451,7 +452,7 @@ fun MainScreen() {
     val cursor = rememberAppCursor()
     val settings = rememberAppSettings()
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
-    var menuScreen by rememberSaveable { mutableStateOf(MENU_MAIN) }
+    var menuScreen by rememberSaveable { mutableStateOf(MENU_TITLE) }
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val compact = configuration.screenHeightDp < 600
     val menuContext = androidx.compose.ui.platform.LocalContext.current
@@ -515,7 +516,16 @@ fun MainScreen() {
 
     androidx.compose.runtime.CompositionLocalProvider(LocalPlayTest provides playLauncher) {
     Box(Modifier.fillMaxSize().then(if (settings.touchCursor) Modifier.touchCursor(touchCursor) else Modifier)) {
-        if (menuScreen == MENU_MAIN) {
+        if (menuScreen == MENU_TITLE) {
+            val titleArt = remember {
+                val assets = menuContext.assets
+                com.vconvertercrew.vconverter.overlay.TitleArt.load(
+                    image = { path -> runCatching { assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull() },
+                    text = { path -> runCatching { assets.open(path).use { it.readBytes().decodeToString() } }.getOrNull() }
+                )
+            }
+            com.vconvertercrew.vconverter.overlay.FunkinTitle(titleArt, onFinish = { menuScreen = MENU_MAIN })
+        } else if (menuScreen == MENU_MAIN) {
             FunkinMainMenu(
                 entries = menuEntries,
                 art = menuArt,
