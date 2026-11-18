@@ -38,8 +38,8 @@ class TitleArt(val font: AlphabetFont?, val logo: SpriteSheet?, val gf: SpriteSh
         const val ATLAS_SCALE = 2f
         const val INTRO_TEXT = "data/introText.txt"
 
-        fun image(name: String) = "images/ui/title/$name.png"
-        fun atlas(name: String) = "images/ui/title/$name.xml"
+        fun imagePath(name: String) = "images/ui/title/$name.png"
+        fun atlasPath(name: String) = "images/ui/title/$name.xml"
 
         fun parseIntro(raw: String?): List<List<String>> =
             raw.orEmpty().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.map { line -> line.split("--").map { it.trim() } }.toList()
@@ -47,9 +47,9 @@ class TitleArt(val font: AlphabetFont?, val logo: SpriteSheet?, val gf: SpriteSh
 
         fun load(image: (String) -> ImageBitmap?, text: (String) -> String?): TitleArt = TitleArt(
             AlphabetFont.create(image(AlphabetFont.IMAGE), text(AlphabetFont.ATLAS)),
-            SpriteSheet.create(image(image("logoBumpin")), text(atlas("logoBumpin"))),
-            SpriteSheet.create(image(image("gfDanceTitle")), text(atlas("gfDanceTitle"))),
-            SpriteSheet.create(image(image("titleEnter")), text(atlas("titleEnter"))),
+            SpriteSheet.create(image(imagePath("logoBumpin")), text(atlasPath("logoBumpin"))),
+            SpriteSheet.create(image(imagePath("gfDanceTitle")), text(atlasPath("gfDanceTitle"))),
+            SpriteSheet.create(image(imagePath("titleEnter")), text(atlasPath("titleEnter"))),
             parseIntro(text(INTRO_TEXT))
         )
     }
