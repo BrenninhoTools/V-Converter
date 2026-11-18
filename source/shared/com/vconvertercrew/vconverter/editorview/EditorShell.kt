@@ -111,6 +111,7 @@ fun FunkinEditorShell(
     panels: List<EditorWindow>,
     modifier: Modifier = Modifier,
     footer: @Composable BoxScope.() -> Unit = {},
+    showMenuBar: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     val windowMenu = EditorMenu(
@@ -122,12 +123,10 @@ fun FunkinEditorShell(
     val bar = if (help < 0) menus + windowMenu else menus.subList(0, help) + windowMenu + menus.subList(help, menus.size)
     val shape = RoundedCornerShape(12.dp)
     Column(
-        modifier
-            .clip(shape)
-            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
-            .background(MaterialTheme.colorScheme.background)
+        if (showMenuBar) modifier.clip(shape).border(1.dp, MaterialTheme.colorScheme.outline, shape).background(MaterialTheme.colorScheme.background)
+        else modifier.background(Color.Black)
     ) {
-        EditorMenuBar(title, accent, bar)
+        if (showMenuBar) EditorMenuBar(title, accent, bar)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             content()
             val areaWidth = constraints.maxWidth.toFloat()

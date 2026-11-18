@@ -118,7 +118,7 @@ def frames_for(text, size, fill, stroke, stroke_width, wobble, count, seed):
     return result
 
 
-for word, name in [("CONVERTER", "converter"), ("GENERATOR", "generator")]:
+for word, name in [("CONVERTER", "converter"), ("GENERATOR", "generator"), ("ONLINE", "online")]:
     basic = frames_for(word, 104, (0, 0, 0, 255), (255, 255, 255, 255), 8, 1.2, 3, 11)
     white = frames_for(word, 146, (255, 255, 255, 255), (0, 0, 0, 255), 10, 2.2, 3, 41)
     frames = []

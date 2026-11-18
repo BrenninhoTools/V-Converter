@@ -81,6 +81,10 @@ private val logo = Resources.image("icons/icon.png")
 
 @Composable
 fun App(state: AppState) {
+    if (state.tool == EditorTool.CHART) {
+        Box(Modifier.fillMaxSize()) { EditorScreen(state) }
+        return
+    }
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         Sidebar(state)
         Box(Modifier.width(1.dp).fillMaxHeight().background(Palette.Outline))

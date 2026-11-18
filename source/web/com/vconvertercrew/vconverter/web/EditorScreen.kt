@@ -359,7 +359,7 @@ fun EditorScreen(state: AppState) {
         EditorWindow("help", "Controls") { EditorHelpText(EditorTool.CHART.hint) }
     )
     FunkinEditorShell(
-        "Chart Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        "Chart Editor", accent, menus, windows, panels, Modifier.fillMaxSize(), showMenuBar = false,
         footer = {
             val status = model.status
             if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }
@@ -369,6 +369,8 @@ fun EditorScreen(state: AppState) {
             editor, skin, eventIcon,
             onSave = { windows.show("export") },
             onReloadAudio = { windows.show("audio") },
+            onPlayTest = { state.playTestChart(editor.document, model.audio) },
+            onExit = { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { MainMenu.open = true } },
             onReloadJson = { Dialogs.openFiles("Open the chart files, song folder or archive") { model.open(it) } }
         )
     }

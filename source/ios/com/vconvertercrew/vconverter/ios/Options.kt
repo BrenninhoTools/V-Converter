@@ -145,6 +145,7 @@ object MainMenu {
 private val mainMenuEntries = listOf(
     MainMenuEntry("converter", "converter"),
     MainMenuEntry("generator", "generator"),
+    MainMenuEntry("online", "online"),
     MainMenuEntry("options", "options", flicker = false)
 )
 
@@ -167,6 +168,10 @@ fun MainMenuOverlay(state: AppState) {
             onSelect = { entry ->
                 when (entry.id) {
                     "converter", "generator" -> MainMenu.list = entry.id
+                    "online" -> {
+                        state.tool = EditorTool.ONLINE
+                        MainMenu.close()
+                    }
                     else -> OptionsMenu.open = true
                 }
             },

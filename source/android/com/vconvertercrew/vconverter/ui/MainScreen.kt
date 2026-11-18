@@ -456,7 +456,7 @@ fun MainScreen() {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val compact = configuration.screenHeightDp < 600
     val menuContext = androidx.compose.ui.platform.LocalContext.current
-    val menuEntries = remember { listOf(MainMenuEntry("converter", "converter"), MainMenuEntry("generator", "generator"), MainMenuEntry("options", "options", flicker = false)) }
+    val menuEntries = remember { listOf(MainMenuEntry("converter", "converter"), MainMenuEntry("generator", "generator"), MainMenuEntry("online", "online"), MainMenuEntry("options", "options", flicker = false)) }
     val menuArt = remember {
         val assets = menuContext.assets
         MainMenuArt.load(
@@ -538,6 +538,10 @@ fun MainScreen() {
                     when (entry.id) {
                         "converter" -> menuScreen = MENU_CONVERTER
                         "generator" -> menuScreen = MENU_GENERATOR
+                        "online" -> {
+                            section = Section.ONLINE
+                            menuScreen = MENU_NONE
+                        }
                         else -> optionsOpen = true
                     }
                 },
@@ -555,6 +559,10 @@ fun MainScreen() {
                     closeRequests = listBack,
                     overlay = { DiscordBadge(Modifier.align(Alignment.TopEnd).displayCutoutPadding().padding(16.dp)) }
                 )
+            }
+        } else if (section == Section.GENERATOR && generatorTab == GenTab.SONG) {
+            Box(Modifier.fillMaxSize()) {
+                ChartEditorScreen(genSong, folderName, save) { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { menuScreen = MENU_GENERATOR } }
             }
         } else Scaffold(
             modifier = Modifier.appCursor(cursor),
