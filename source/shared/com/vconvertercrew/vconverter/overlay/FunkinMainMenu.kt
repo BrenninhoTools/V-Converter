@@ -55,6 +55,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.onSizeChanged
 import com.vconvertercrew.vtouch.vMenuNavigation
+import com.vconvertercrew.vconverter.skin.MainMenuSkin
+import com.vconvertercrew.vconverter.skin.SkinAnchor
+import com.vconvertercrew.vconverter.skin.SkinJson
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -64,25 +68,38 @@ import kotlin.math.roundToInt
 
 class MainMenuEntry(val id: String, val label: String, val flicker: Boolean = true)
 
-class MainMenuArt(val background: ImageBitmap?, val flash: ImageBitmap?, val items: Map<String, SpriteSheet>) {
+class MainMenuArt(
+    val skin: MainMenuSkin,
+    val backgroundArt: SkinImageArt?,
+    val flashArt: SkinImageArt?,
+    val items: Map<String, SpriteSheet>,
+    val sprites: List<SkinSpriteArt>
+) {
+    val background: ImageBitmap? get() = backgroundArt?.image
+    val flash: ImageBitmap? get() = flashArt?.image
+
     companion object {
         const val BACKGROUND = "images/ui/menu/menuBG.png"
         const val FLASH = "images/ui/menu/menuBGMagenta.png"
 
-        fun itemImage(id: String) = "images/ui/menu/main/$id.png"
-        fun itemAtlas(id: String) = "images/ui/menu/main/$id.xml"
-
-        fun load(ids: List<String>, image: (String) -> ImageBitmap?, text: (String) -> String?): MainMenuArt = MainMenuArt(
-            image(BACKGROUND),
-            image(FLASH),
-            ids.mapNotNull { id -> SpriteSheet.create(image(itemImage(id)), text(itemAtlas(id)))?.let { id to it } }.toMap()
-        )
+        fun load(ids: List<String>, image: (String) -> ImageBitmap?, text: (String) -> String?): MainMenuArt {
+            val skin = SkinJson.mainMenu(text(SkinJson.MAIN_MENU))
+            return MainMenuArt(
+                skin,
+                SkinImageArt.load(skin.background, image),
+                SkinImageArt.load(skin.flash, image),
+                ids.mapNotNull { id ->
+                    val path = skin.itemPath(id)
+                    SpriteSheet.create(image(SkinJson.png(path)), text(SkinJson.xml(path)))?.let { id to it }
+                }.toMap(),
+                SkinSpriteArt.loadAll(skin.sprites, image, text)
+            )
+        }
     }
 }
 
 private const val GAME_WIDTH = 1280f
 private const val GAME_HEIGHT = 720f
-private const val ITEM_SPACING = 160f
 
 @Composable
 fun FunkinMainMenu(
@@ -95,7 +112,14 @@ fun FunkinMainMenu(
     initial: Int = 0,
     overlay: @Composable BoxScope.() -> Unit = {}
 ) {
-    var selected by remember { mutableIntStateOf(initial.coerceIn(0, max(0, entries.lastIndex))) }
+    val skin = art.skin
+    val all = entries
+    val shown = remember(all, skin) { skin.arrange(all.map { it.id }).mapNotNull { id -> all.firstOrNull { it.id == id } } }
+    @Suppress("NAME_SHADOWING") val entries = shown
+    val spacing = skin.spacing
+    val startId = all.getOrNull(initial)?.id
+    var selected by remember { mutableIntStateOf(entries.indexOfFirst { it.id == startId }.coerceAtLeast(0)) }
+    var clock by remember { mutableFloatStateOf(0f) }
     var confirming by remember { mutableStateOf<Int?>(null) }
     var flashVisible by remember { mutableStateOf(false) }
     var selectedVisible by remember { mutableStateOf(true) }
@@ -103,10 +127,7 @@ fun FunkinMainMenu(
     val fade = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
-    val camera by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 1f, stiffness = 60f), label = "camera")
-    val ticker = rememberInfiniteTransition(label = "items")
-    val tickValue by ticker.animateFloat(0f, 72f, infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart), label = "tick")
-    val tick = tickValue.toInt()
+    val camera by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 1f, stiffness = skin.cameraStiffness.coerceAtLeast(1f)), label = "camera")
     val rects = remember { arrayOf<List<Rect>>(emptyList()) }
 
     fun shift(by: Int) {
@@ -123,22 +144,24 @@ fun FunkinMainMenu(
         UiSound.click()
         scope.launch {
             launch {
-                if (entry.flicker) {
+                if (entry.flicker && art.flashArt != null) {
                     var elapsed = 0L
-                    while (elapsed < 1100L) {
+                    val step = skin.flashInterval.coerceAtLeast(16L)
+                    while (elapsed < skin.flashDuration) {
                         flashVisible = !flashVisible
-                        delay(150)
-                        elapsed += 150
+                        delay(step)
+                        elapsed += step
                     }
                 }
                 flashVisible = false
             }
-            launch { fade.animateTo(0f, tween(400, easing = FastOutSlowInEasing)) }
+            launch { fade.animateTo(0f, tween(skin.fadeMillis.coerceAtLeast(0), easing = FastOutSlowInEasing)) }
             var elapsed = 0L
-            while (elapsed < 1000L) {
+            val step = skin.blinkInterval.coerceAtLeast(16L)
+            while (elapsed < skin.blinkDuration) {
                 selectedVisible = !selectedVisible
-                delay(60)
-                elapsed += 60
+                delay(step)
+                elapsed += step
             }
             selectedVisible = true
             flashVisible = false
@@ -151,6 +174,13 @@ fun FunkinMainMenu(
     }
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) {
+        var start = 0L
+        while (true) withFrameNanos { now ->
+            if (start == 0L) start = now
+            clock = (now - start) / 1_000_000_000f
+        }
+    }
 
     val area = remember { floatArrayOf(1280f, 720f) }
     Box(
@@ -176,7 +206,7 @@ fun FunkinMainMenu(
             }
             .vMenuNavigation(
                 key = entries.size,
-                step = { ITEM_SPACING * mainMenuScale(area[0], area[1]) * 0.6f },
+                step = { spacing * mainMenuScale(area[0], area[1]) * 0.6f },
                 onMove = { shift(it) },
                 onTap = { tap ->
                     if (confirming == null) {
@@ -196,33 +226,45 @@ fun FunkinMainMenu(
             val w = size.width
             val h = size.height
             val scale = mainMenuScale(w, h)
+            val time = clock.toDouble()
             val middle = (entries.size - 1) / 2f
-            val parallax = (camera - middle) * ITEM_SPACING * scale * 0.18f
-            drawCover(if (flashVisible) art.flash ?: art.background else art.background, w, h, parallax)
+            val scroll = (camera - middle) * spacing * scale
+            val backdrop = if (flashVisible) art.flashArt ?: art.backgroundArt else art.backgroundArt
+            backdrop?.let { with(it) { drawCover(w, h, scroll) } }
+            val area = SkinArea(0f, 0f, w, h, scale)
+            art.sprites.filter { it.spec.layer < 0 }.forEach { sprite -> with(sprite) { draw(area, sprite.spec.play, time, scrollY = scroll) } }
             val hits = ArrayList<Rect>(entries.size)
             entries.forEachIndexed { index, entry ->
                 val sheet = art.items[entry.id]
+                val style = skin.style(entry.id)
                 val active = index == selected
-                val frames = sheet?.animation("${entry.label} ${if (active) "white" else "basic"}").orEmpty()
-                val frame = frames.getOrNull(tick % max(1, frames.size))
-                val centerY = h / 2f + (index - middle) * ITEM_SPACING * scale
+                val prefix = if (active) skin.selectedFor(entry.id, entry.label) else skin.idleFor(entry.id, entry.label)
+                val frames = sheet?.prefixed(prefix).orEmpty()
+                val frame = frames.getOrNull(((time * skin.itemFps).toInt()) % max(1, frames.size))
+                val itemScale = scale * skin.itemScale * (style.scale ?: 1f)
+                val slot = (index - middle) * spacing * scale
                 val alpha = when {
                     confirming == null -> 1f
                     confirming == index -> if (selectedVisible) 1f else 0f
                     else -> fade.value
                 }
+                val fw = (frame?.frameWidth ?: 0) * itemScale
+                val fh = (frame?.frameHeight ?: 0) * itemScale
+                val (anchorLeft, anchorTop) = skin.itemsAnchor.place(0f, 0f, w, h, skin.itemsX + style.offsetX, skin.itemsY + style.offsetY, fw, fh, scale)
+                val left = anchorLeft
+                val top = anchorTop + slot
+                val centerY = top + fh / 2f
+                val band = spacing * scale / 2f
                 if (frame != null && sheet != null) {
-                    val fw = frame.frameWidth * scale
-                    val fh = frame.frameHeight * scale
-                    val left = (w - fw) / 2f
-                    val top = centerY - fh / 2f
-                    hits += Rect(min(left, w * 0.2f), centerY - ITEM_SPACING * scale / 2f, max(left + fw, w * 0.8f), centerY + ITEM_SPACING * scale / 2f)
-                    if (alpha > 0f) with(sheet) { drawFrame(frame, left, top, scale, alpha) }
+                    hits += Rect(min(left, w * 0.2f), centerY - band, max(left + fw, w * 0.8f), centerY + band)
+                    if (alpha > 0f) with(sheet) { drawFrame(frame, left, top, itemScale, alpha) }
                 } else {
-                    hits += Rect(w * 0.2f, centerY - ITEM_SPACING * scale / 2f, w * 0.8f, centerY + ITEM_SPACING * scale / 2f)
+                    val fallbackCenter = h / 2f + slot
+                    hits += Rect(w * 0.2f, fallbackCenter - band, w * 0.8f, fallbackCenter + band)
                 }
             }
             rects[0] = hits
+            art.sprites.filter { it.spec.layer >= 0 }.forEach { sprite -> with(sprite) { draw(area, sprite.spec.play, time, scrollY = scroll) } }
         }
         if (entries.any { art.items[it.id] == null }) {
             entries.forEachIndexed { index, entry ->
@@ -237,25 +279,28 @@ fun FunkinMainMenu(
             }
         }
         overlay()
-        Text(
-            version,
-            color = Color.White,
-            style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, shadow = Shadow(Color.Black, blurRadius = 3f)),
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 8.dp, vertical = 6.dp)
-        )
+        val label = skin.version
+        if (label.visible) {
+            Text(
+                label.format(mapOf("version" to version)),
+                color = Color(label.color),
+                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = label.size.sp, shadow = label.shadow?.let { Shadow(Color(it), blurRadius = 3f) }),
+                modifier = Modifier.align(label.anchor.alignment()).padding(horizontal = label.x.dp, vertical = label.y.dp)
+            )
+        }
     }
 }
 
-private fun DrawScope.drawCover(image: ImageBitmap?, w: Float, h: Float, parallax: Float) {
-    image ?: return
-    val cover = max(w / image.width, h / image.height) * 1.1f
-    val dw = image.width * cover
-    val dh = image.height * cover
-    drawImage(
-        image,
-        dstOffset = IntOffset(((w - dw) / 2f).roundToInt(), ((h - dh) / 2f - parallax).roundToInt()),
-        dstSize = IntSize(dw.roundToInt(), dh.roundToInt())
-    )
+private fun SkinAnchor.alignment(): Alignment = when (this) {
+    SkinAnchor.TOP_LEFT -> Alignment.TopStart
+    SkinAnchor.TOP -> Alignment.TopCenter
+    SkinAnchor.TOP_RIGHT -> Alignment.TopEnd
+    SkinAnchor.LEFT -> Alignment.CenterStart
+    SkinAnchor.CENTER -> Alignment.Center
+    SkinAnchor.RIGHT -> Alignment.CenterEnd
+    SkinAnchor.BOTTOM_LEFT -> Alignment.BottomStart
+    SkinAnchor.BOTTOM -> Alignment.BottomCenter
+    SkinAnchor.BOTTOM_RIGHT -> Alignment.BottomEnd
 }
 
 private fun mainMenuScale(width: Float, height: Float): Float {

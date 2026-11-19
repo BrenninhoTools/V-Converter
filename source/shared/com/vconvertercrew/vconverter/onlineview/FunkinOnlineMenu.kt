@@ -517,16 +517,7 @@ fun FunkinOnlineMenu(
                 }
             }
             rects[0] = hits
-            art.menu.back?.let { sheet ->
-                val frame = sheet.animation("back").firstOrNull() ?: return@let
-                val backScale = scale * 0.6f
-                val bw = frame.frameWidth * backScale
-                val bh = frame.frameHeight * backScale
-                val left = w - bw - 24f * scale
-                val top = h - bh - 24f * scale
-                backRect[0] = Rect(left, top, left + bw, top + bh)
-                with(sheet) { drawFrame(frame, left, top, backScale) }
-            }
+            backRect[0] = art.menu.back?.let { back -> with(back) { draw(0, scale) } } ?: Rect.Zero
         }
         if (art.menu.font == null) {
             Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp)) {

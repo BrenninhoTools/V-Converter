@@ -1,0 +1,71 @@
+{
+  "bpm": 102,
+  "background": "#000000",
+  "atlasScale": 1,
+  "confirmDelay": 2.0,
+  "flash": {
+    "color": "#FFFFFF",
+    "skip": 4.0,
+    "confirm": 1.0
+  },
+  "intro": {
+    "textFile": "data/introText.txt",
+    "length": 16,
+    "top": 200,
+    "spacing": 60,
+    "scale": 1,
+    "events": [
+      { "beat": 1, "action": "set", "text": ["brenninho", "vconverter crew"] },
+      { "beat": 3, "action": "add", "text": ["present"] },
+      { "beat": 4, "action": "clear" },
+      { "beat": 5, "action": "set", "text": ["not associated", "with"] },
+      { "beat": 7, "action": "add", "text": ["newgrounds"] },
+      { "beat": 8, "action": "clear" },
+      { "beat": 9, "action": "set", "text": ["{wacky0}"] },
+      { "beat": 11, "action": "add", "text": ["{wacky1}"] },
+      { "beat": 12, "action": "clear" },
+      { "beat": 13, "action": "add", "text": ["friday"] },
+      { "beat": 14, "action": "add", "text": ["night"] },
+      { "beat": 15, "action": "add", "text": ["converter"] }
+    ],
+    "sprites": []
+  },
+  "sprites": [
+    {
+      "id": "gf",
+      "image": "images/ui/title/gfDanceTitle",
+      "position": [512, 50.4],
+      "scale": 2,
+      "layer": 0,
+      "animations": [
+        { "name": "danceLeft", "prefix": "gfDance", "fps": 24, "loop": false, "indices": [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] },
+        { "name": "danceRight", "prefix": "gfDance", "fps": 24, "loop": false, "indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] }
+      ],
+      "beat": ["danceLeft", "danceRight"]
+    },
+    {
+      "id": "logo",
+      "image": "images/ui/title/logoBumpin",
+      "position": [-150, -100],
+      "scale": 2,
+      "layer": 1,
+      "animations": [
+        { "name": "bump", "prefix": "logo bumpin", "fps": 24, "loop": false }
+      ],
+      "beat": ["bump"]
+    },
+    {
+      "id": "enter",
+      "image": "images/ui/title/titleEnter",
+      "position": [100, 576],
+      "scale": 2,
+      "layer": 2,
+      "animations": [
+        { "name": "idle", "prefix": "Press Enter to Begin", "fps": 24, "loop": true },
+        { "name": "pressed", "prefix": "ENTER PRESSED", "fps": 24, "loop": true }
+      ],
+      "play": "idle",
+      "pressed": "pressed"
+    }
+  ]
+}

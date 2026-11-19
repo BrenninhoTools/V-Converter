@@ -29,51 +29,42 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import com.vconvertercrew.vconverter.skin.IntroState
+import com.vconvertercrew.vconverter.skin.SkinJson
+import com.vconvertercrew.vconverter.skin.TitleSkin
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
-class TitleArt(val font: AlphabetFont?, val logo: SpriteSheet?, val gf: SpriteSheet?, val enter: SpriteSheet?, val intro: List<List<String>>) {
+class TitleArt(
+    val font: AlphabetFont?,
+    val skin: TitleSkin,
+    val sprites: List<SkinSpriteArt>,
+    val introSprites: List<SkinSpriteArt>,
+    val intro: List<List<String>>
+) {
     companion object {
-        const val ATLAS_SCALE = 2f
         const val INTRO_TEXT = "data/introText.txt"
-
-        fun imagePath(name: String) = "images/ui/title/$name.png"
-        fun atlasPath(name: String) = "images/ui/title/$name.xml"
 
         fun parseIntro(raw: String?): List<List<String>> =
             raw.orEmpty().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.map { line -> line.split("--").map { it.trim() } }.toList()
                 .ifEmpty { listOf(listOf("v-converter", "playtest")) }
 
-        fun load(image: (String) -> ImageBitmap?, text: (String) -> String?): TitleArt = TitleArt(
-            AlphabetFont.create(image(AlphabetFont.IMAGE), text(AlphabetFont.ATLAS)),
-            SpriteSheet.create(image(imagePath("logoBumpin")), text(atlasPath("logoBumpin"))),
-            SpriteSheet.create(image(imagePath("gfDanceTitle")), text(atlasPath("gfDanceTitle"))),
-            SpriteSheet.create(image(imagePath("titleEnter")), text(atlasPath("titleEnter"))),
-            parseIntro(text(INTRO_TEXT))
-        )
+        fun load(image: (String) -> ImageBitmap?, text: (String) -> String?): TitleArt {
+            val skin = SkinJson.title(text(SkinJson.TITLE))
+            return TitleArt(
+                AlphabetFont.create(image(AlphabetFont.IMAGE), text(AlphabetFont.ATLAS)),
+                skin,
+                SkinSpriteArt.loadAll(skin.sprites, image, text),
+                SkinSpriteArt.loadAll(skin.introSprites, image, text),
+                parseIntro(text(skin.introText) ?: text(INTRO_TEXT))
+            )
+        }
     }
 }
 
 private const val TITLE_W = 1280f
 private const val TITLE_H = 720f
-private const val BPM = 102.0
-private const val FPS = 24.0
-private val DANCE_LEFT = listOf(30) + (0..14).toList()
-private val DANCE_RIGHT = (15..29).toList()
-
-private fun introLines(beat: Int, wacky: List<String>): List<String> = when (beat) {
-    1, 2 -> listOf("brenninho", "vconverter crew")
-    3 -> listOf("brenninho", "vconverter crew", "present")
-    5, 6 -> listOf("not associated", "with")
-    7 -> listOf("not associated", "with", "newgrounds")
-    9, 10 -> listOf(wacky.getOrElse(0) { "" })
-    11 -> listOf(wacky.getOrElse(0) { "" }, wacky.drop(1).joinToString(" "))
-    13 -> listOf("friday")
-    14 -> listOf("friday", "night")
-    15 -> listOf("friday", "night", "converter")
-    else -> emptyList()
-}
 
 @Composable
 fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifier) {
@@ -85,7 +76,10 @@ fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifi
     var finished by remember { mutableStateOf(false) }
     val finish by rememberUpdatedState(onFinish)
     val focus = remember { FocusRequester() }
-    val beatLength = 60.0 / BPM
+    val skin = art.skin
+    val beatLength = skin.beatLength
+    val background = Color(skin.background)
+    val flashColor = Color(skin.flashColor)
 
     fun elapsed(): Double = if (start == 0L) 0.0 else (now - start) / 1_000_000_000.0
 
@@ -108,9 +102,9 @@ fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifi
                 now = frame
             }
             val time = elapsed()
-            if (skippedAt == null && time >= beatLength * 16) skippedAt = beatLength * 16
+            if (skippedAt == null && time >= beatLength * skin.introEnd) skippedAt = beatLength * skin.introEnd
             val pressed = pressedAt
-            if (pressed != null && time - pressed >= 2.0 && !finished) {
+            if (pressed != null && time - pressed >= skin.confirmDelay && !finished) {
                 finished = true
                 FunkinTransition.go { finish() }
             }
@@ -120,7 +114,7 @@ fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifi
     Canvas(
         modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(background)
             .focusRequester(focus)
             .focusable()
             .onKeyEvent { event ->
@@ -142,43 +136,42 @@ fun FunkinTitle(art: TitleArt, onFinish: () -> Unit, modifier: Modifier = Modifi
         val beat = floor(time / beatLength).toInt()
         val sinceBeat = time - beat * beatLength
         val skipped = skippedAt
+        val area = SkinArea(ox, oy, TITLE_W * k, TITLE_H * k, k)
         clipRect(ox, oy, ox + TITLE_W * k, oy + TITLE_H * k) {
             if (skipped == null) {
-                drawIntro(art, introLines(beat, wacky), k, ox, oy)
+                drawIntro(art, skin.intro(beat, wacky), area, time)
             } else {
-                drawTitle(art, beat, sinceBeat, time, pressedAt, k, ox, oy)
+                drawTitle(art, beat, sinceBeat, time, pressedAt, area)
                 val pressed = pressedAt
-                val flash = if (pressed != null) max(0.0, 1.0 - (time - pressed)) else max(0.0, 1.0 - (time - skipped) / 4.0)
-                if (flash > 0.0) drawRect(Color.White.copy(alpha = flash.toFloat()), Offset(ox, oy), Size(TITLE_W * k, TITLE_H * k))
+                val flash = if (pressed != null) fadeOut(time - pressed, skin.confirmFlash) else fadeOut(time - skipped, skin.skipFlash)
+                if (flash > 0.0) drawRect(flashColor.copy(alpha = (flashColor.alpha * flash).toFloat()), Offset(ox, oy), Size(TITLE_W * k, TITLE_H * k))
             }
         }
     }
 }
 
-private fun DrawScope.drawIntro(art: TitleArt, lines: List<String>, k: Float, ox: Float, oy: Float) {
+private fun fadeOut(elapsed: Double, length: Double): Double = if (length <= 0.0) 0.0 else max(0.0, 1.0 - elapsed / length)
+
+private fun DrawScope.drawIntro(art: TitleArt, state: IntroState, area: SkinArea, time: Double) {
+    art.introSprites.forEach { sprite ->
+        if (sprite.spec.id in state.sprites) with(sprite) { draw(area, sprite.spec.play, time, art.skin.atlasScale) }
+    }
     val font = art.font ?: return
-    lines.forEachIndexed { index, line ->
-        val width = font.width(line) * k
-        with(font) { draw(line, ox + (TITLE_W * k - width) / 2f, oy + (200f + index * 60f) * k, k, 1f, 0) }
+    val scale = area.scale * art.skin.introScale
+    state.lines.forEachIndexed { index, line ->
+        val width = font.width(line) * scale
+        with(font) { draw(line, area.left + (area.width - width) / 2f, area.top + (art.skin.introTop + index * art.skin.introSpacing) * area.scale, scale, 1f, 0) }
     }
 }
 
-private fun DrawScope.drawTitle(art: TitleArt, beat: Int, sinceBeat: Double, time: Double, pressedAt: Double?, k: Float, ox: Float, oy: Float) {
-    val scale = k * TitleArt.ATLAS_SCALE
-    val step = (sinceBeat * FPS).toInt()
-    art.gf?.let { sheet ->
-        val frames = sheet.animation("gfDance")
-        val indices = if (beat % 2 == 1) DANCE_RIGHT else DANCE_LEFT
-        val frame = frames.getOrNull(indices[min(indices.lastIndex, step)])
-        if (frame != null) with(sheet) { drawFrame(frame, ox + TITLE_W * 0.4f * k, oy + TITLE_H * 0.07f * k, scale) }
-    }
-    art.logo?.let { sheet ->
-        val frames = sheet.animation("logo bumpin")
-        frames.getOrNull(min(frames.lastIndex, step))?.let { frame -> with(sheet) { drawFrame(frame, ox - 150f * k, oy - 100f * k, scale) } }
-    }
-    art.enter?.let { sheet ->
-        val frames = sheet.animation(if (pressedAt != null) "ENTER PRESSED" else "Press Enter to Begin")
-        val loop = ((time - (pressedAt ?: 0.0)) * FPS).toInt()
-        frames.getOrNull(loop % max(1, frames.size))?.let { frame -> with(sheet) { drawFrame(frame, ox + 100f * k, oy + TITLE_H * 0.8f * k, scale) } }
+private fun DrawScope.drawTitle(art: TitleArt, beat: Int, sinceBeat: Double, time: Double, pressedAt: Double?, area: SkinArea) {
+    art.sprites.forEach { sprite ->
+        val spec = sprite.spec
+        val (animation, seconds) = when {
+            pressedAt != null && spec.pressed != null -> spec.pressed to time - pressedAt
+            spec.beat.isNotEmpty() -> spec.beat[((beat % spec.beat.size) + spec.beat.size) % spec.beat.size] to sinceBeat
+            else -> spec.play to time
+        }
+        with(sprite) { draw(area, animation, seconds, art.skin.atlasScale) }
     }
 }

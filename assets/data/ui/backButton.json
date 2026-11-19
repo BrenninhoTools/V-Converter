@@ -1,0 +1,10 @@
+{
+  "image": "images/ui/mobile/backButton",
+  "animation": { "prefix": "back", "fps": 24, "playOnPress": true },
+  "anchor": "bottomRight",
+  "position": [24, 24],
+  "scale": 0.6,
+  "alpha": 1,
+  "hitPadding": 10,
+  "visible": true
+}

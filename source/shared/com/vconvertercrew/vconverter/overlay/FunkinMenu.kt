@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vconvertercrew.vconverter.editor.AtlasFrame
 import com.vconvertercrew.vconverter.editor.SpriteAtlas
+import com.vconvertercrew.vconverter.skin.SkinJson
 import androidx.compose.ui.layout.onSizeChanged
 import com.vconvertercrew.vtouch.vMenuNavigation
 import kotlinx.coroutines.delay
@@ -79,16 +81,23 @@ class SpriteSheet(val image: ImageBitmap, val atlas: SpriteAtlas) {
         .groupBy { frame -> if (frame.name.length > 4 && frame.name.takeLast(4).all { it.isDigit() }) frame.name.dropLast(4) else frame.name }
         .mapValues { (_, frames) -> frames.sortedBy { it.name } }
 
+    private val prefixes = HashMap<String, List<AtlasFrame>>()
+
     fun animation(prefix: String): List<AtlasFrame> = groups[prefix].orEmpty()
 
-    fun DrawScope.drawFrame(frame: AtlasFrame, left: Float, top: Float, scale: Float, alpha: Float = 1f) {
+    fun prefixed(prefix: String): List<AtlasFrame> = groups[prefix] ?: prefixes.getOrPut(prefix) {
+        atlas.frames.filter { it.name.startsWith(prefix) }.sortedBy { it.name }
+    }
+
+    fun DrawScope.drawFrame(frame: AtlasFrame, left: Float, top: Float, scale: Float, alpha: Float = 1f, colorFilter: ColorFilter? = null) {
         drawImage(
             image = image,
             srcOffset = IntOffset(frame.x, frame.y),
             srcSize = IntSize(frame.width, frame.height),
             dstOffset = IntOffset((left - frame.frameX * scale).roundToInt(), (top - frame.frameY * scale).roundToInt()),
             dstSize = IntSize(max(1, (frame.width * scale).roundToInt()), max(1, (frame.height * scale).roundToInt())),
-            alpha = alpha
+            alpha = alpha,
+            colorFilter = colorFilter
         )
     }
 
@@ -180,12 +189,12 @@ sealed class MenuOption(val label: String, val hint: String) {
     fun text(): String = value()?.let { "$label: $it" } ?: label
 }
 
-class MenuArt(val font: AlphabetFont?, val background: ImageBitmap?, val back: SpriteSheet?) {
+class MenuArt(val font: AlphabetFont?, val background: ImageBitmap?, val back: BackButtonArt?) {
     companion object {
         fun load(image: (String) -> ImageBitmap?, text: (String) -> String?): MenuArt = MenuArt(
             AlphabetFont.create(image(AlphabetFont.IMAGE), text(AlphabetFont.ATLAS)),
             image(AlphabetFont.BACKGROUND),
-            SpriteSheet.create(image(AlphabetFont.BACK_IMAGE), text(AlphabetFont.BACK_ATLAS))
+            BackButtonArt.load(SkinJson.backButton(text(SkinJson.BACK_BUTTON)), image, text)
         )
     }
 }
@@ -229,10 +238,11 @@ fun FunkinOptionsMenu(
         closing = true
         UiSound.click()
         scope.launch {
-            val frames = art.back?.animation("back").orEmpty()
-            for (i in frames.indices) {
-                backFrame = i
-                delay(1000L / 24)
+            art.back?.takeIf { it.skin.playOnPress }?.let { back ->
+                for (i in back.frames.indices) {
+                    backFrame = i
+                    delay(back.skin.frameMillis)
+                }
             }
             FunkinTransition.go { closeAction.value() }
         }
@@ -360,17 +370,7 @@ fun FunkinOptionsMenu(
                 if (font != null) with(font) { draw(text, x, y, scale, alpha, tick) }
             }
             rects[0] = hits
-            art.back?.let { back ->
-                val frames = back.animation("back")
-                val frame = frames.getOrNull(min(backFrame, frames.lastIndex)) ?: return@let
-                val backScale = scale * 0.6f
-                val bw = frame.frameWidth * backScale
-                val bh = frame.frameHeight * backScale
-                val left = w - bw - 24f * scale
-                val top = h - bh - 24f * scale
-                backRect[0] = Rect(left, top, left + bw, top + bh)
-                with(back) { drawFrame(frame, left, top, backScale, fade) }
-            }
+            backRect[0] = art.back?.let { back -> with(back) { draw(backFrame, scale, fade) } } ?: Rect.Zero
         }
         if (art.font == null) {
             Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp)) {
