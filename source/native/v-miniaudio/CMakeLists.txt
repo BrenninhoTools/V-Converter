@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(VMiniAudio
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Lightweight audio framework written in C"
     LANGUAGES C
 )
@@ -17,12 +17,14 @@ option(VMA_BUILD_SHARED "Build shared library" OFF)
 option(VMA_BUILD_EXAMPLES "Build examples" OFF)
 option(VMA_BUILD_TESTS "Build tests" OFF)
 option(VMA_ENABLE_LOGGING "Enable logging" ON)
+option(VMA_ENABLE_VORBIS "Decode Ogg Vorbis with stb_vorbis" ON)
 
 set(VMA_SOURCES
     src/VAudio.c
     src/VAudioEngine.c
     src/VAudioPlayer.c
     src/VAudioSource.c
+    src/VAudioBus.c
     src/VWaveform.c
 )
 
@@ -62,6 +64,10 @@ set_target_properties(VMiniAudio PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
     POSITION_INDEPENDENT_CODE ON
 )
+
+if(NOT VMA_ENABLE_VORBIS)
+    target_compile_definitions(VMiniAudio PRIVATE VMA_NO_VORBIS=1)
+endif()
 
 if(VMA_ENABLE_LOGGING)
     target_compile_definitions(VMiniAudio
@@ -130,6 +136,10 @@ if(VMA_BUILD_TESTS)
         target_link_libraries(vma_tests
             PRIVATE VMiniAudio::VMiniAudio
         )
+
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/sounds/scrollMenu.ogg")
+            target_compile_definitions(vma_tests PRIVATE VMA_TEST_OGG="${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/sounds/scrollMenu.ogg")
+        endif()
 
         add_test(NAME VMiniAudioTests COMMAND vma_tests)
     endif()

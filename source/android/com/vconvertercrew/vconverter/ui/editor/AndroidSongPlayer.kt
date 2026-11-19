@@ -23,6 +23,12 @@ import java.nio.ByteOrder
 
 object AndroidDecoder {
     fun decode(file: File): PcmAudio {
+        if (file.length() in 13..(256L shl 20)) {
+            val head = ByteArray(4)
+            val known = runCatching { file.inputStream().use { it.read(head) } == 4 }.getOrDefault(false) &&
+                (head.contentEquals("OggS".encodeToByteArray()) || head.contentEquals("RIFF".encodeToByteArray()))
+            if (known) com.vconvertercrew.vconverter.audio.VMiniAudioNative.decodePcm(file.readBytes())?.let { return it }
+        }
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(file.path)

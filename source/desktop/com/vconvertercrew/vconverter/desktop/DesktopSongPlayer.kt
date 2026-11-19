@@ -83,6 +83,7 @@ class DesktopSongPlayer private constructor(private val inner: StreamSongPlayer?
 
     companion object {
         private fun decode(audio: EditorAudio): PcmAudio {
+            com.vconvertercrew.vconverter.audio.VMiniAudioNative.decodePcm(audio.bytes)?.let { return it }
             val source = AudioSystem.getAudioInputStream(BufferedInputStream(ByteArrayInputStream(audio.bytes)))
             val base = source.format
             val channels = base.channels.coerceAtLeast(1)

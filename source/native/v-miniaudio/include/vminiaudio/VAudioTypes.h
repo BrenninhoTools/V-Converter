@@ -10,10 +10,10 @@ extern "C" {
 #endif
 
 #define VMA_VERSION_MAJOR 0
-#define VMA_VERSION_MINOR 1
+#define VMA_VERSION_MINOR 2
 #define VMA_VERSION_PATCH 0
 
-#define VMA_VERSION_STRING "0.1.0"
+#define VMA_VERSION_STRING "0.2.0"
 #define VMA_NAME "V-MiniAudio"
 
 #define VMA_DEFAULT_SAMPLE_RATE 48000
@@ -25,6 +25,9 @@ extern "C" {
 
 #define VMA_MIN_PAN -1.0f
 #define VMA_MAX_PAN 1.0f
+
+#define VMA_MAX_BUSES 8
+#define VMA_MAX_ECHO_SECONDS 2.0f
 
 #if defined(_WIN32)
     #if defined(VMA_BUILD_DLL)
@@ -97,6 +100,31 @@ typedef enum VMALogLevel {
     VMA_LOG_DEBUG,
     VMA_LOG_TRACE
 } VMALogLevel;
+
+typedef enum VMAInterpolation {
+    VMA_INTERPOLATION_NEAREST = 0,
+    VMA_INTERPOLATION_LINEAR,
+    VMA_INTERPOLATION_CUBIC
+} VMAInterpolation;
+
+typedef enum VMAPanLaw {
+    VMA_PAN_LINEAR = 0,
+    VMA_PAN_EQUAL_POWER
+} VMAPanLaw;
+
+typedef enum VMAFadeEnd {
+    VMA_FADE_CONTINUE = 0,
+    VMA_FADE_PAUSE,
+    VMA_FADE_STOP
+} VMAFadeEnd;
+
+typedef struct VMAMeter {
+    float peak_left;
+    float peak_right;
+    float rms_left;
+    float rms_right;
+    float gain_reduction;
+} VMAMeter;
 
 typedef struct VMAContext VMAContext;
 typedef struct VMAAudio VMAAudio;

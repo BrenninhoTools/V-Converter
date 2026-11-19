@@ -1,7 +1,5 @@
 package com.vconvertercrew.vconverter.audio
 
-import java.io.File
-
 object VMiniAudioNative {
     private const val LIBRARY = "vconverter_audio"
 
@@ -9,54 +7,13 @@ object VMiniAudioNative {
     var loadError: String? = null
         private set
 
-    private fun isAndroid(): Boolean =
-        System.getProperty("java.vm.name").orEmpty().contains("Dalvik", true) ||
-            System.getProperty("java.vendor").orEmpty().contains("Android", true)
-
-    fun platformFolder(): String {
-        val os = System.getProperty("os.name").orEmpty().lowercase()
-        val arch = System.getProperty("os.arch").orEmpty().lowercase()
-        val system = when {
-            "win" in os -> "windows"
-            "mac" in os || "darwin" in os -> "macos"
-            else -> "linux"
-        }
-        val cpu = when (arch) {
-            "amd64", "x86_64", "x64" -> "x64"
-            "aarch64", "arm64" -> "arm64"
-            else -> arch
-        }
-        return "$system-$cpu"
-    }
+    fun platformFolder(): String = com.vconvertercrew.vconverter.NativeLibraries.platformFolder()
 
     fun libraryFile(): String = System.mapLibraryName(LIBRARY)
 
     private fun load(): Boolean {
         val result = runCatching {
-            if (isAndroid()) {
-                System.loadLibrary(LIBRARY)
-            } else {
-                val override = System.getProperty("vconverter.audio.library")
-                if (override != null) {
-                    System.load(File(override).absolutePath)
-                } else {
-                    val resource = "native/${platformFolder()}/${libraryFile()}"
-                    val stream = VMiniAudioNative::class.java.classLoader?.getResourceAsStream(resource)
-                        ?: throw UnsatisfiedLinkError("$resource is not bundled")
-                    val folder = File(System.getProperty("java.io.tmpdir"), "v-converter-native").apply { mkdirs() }
-                    val target = File(folder, "${System.getProperty("user.name").orEmpty().hashCode().toUInt()}-${libraryFile()}")
-                    val bytes = stream.use { it.readBytes() }
-                    if (!target.exists() || target.length() != bytes.size.toLong() || !target.readBytes().contentEquals(bytes)) {
-                        val temp = File(folder, "${target.name}.${System.nanoTime()}")
-                        temp.writeBytes(bytes)
-                        if (!temp.renameTo(target)) {
-                            target.delete()
-                            temp.renameTo(target)
-                        }
-                    }
-                    System.load(target.absolutePath)
-                }
-            }
+            com.vconvertercrew.vconverter.NativeLibraries.load(LIBRARY, "vconverter.audio.library")
             version()
         }
         loadError = result.exceptionOrNull()?.let { it.message ?: it::class.java.simpleName }
@@ -81,6 +38,34 @@ object VMiniAudioNative {
     @JvmStatic external fun setLooping(audio: Long, looping: Boolean): Int
     @JvmStatic external fun setMasterVolume(context: Long, volume: Float): Int
     @JvmStatic external fun render(context: Long, output: FloatArray, frames: Int): Int
+    @JvmStatic external fun decode(bytes: ByteArray, info: IntArray): ShortArray?
+    @JvmStatic external fun setPan(audio: Long, pan: Float): Int
+    @JvmStatic external fun fade(audio: Long, target: Float, seconds: Double, end: Int): Int
+    @JvmStatic external fun setLoopPoints(audio: Long, start: Double, end: Double): Int
+    @JvmStatic external fun playDelayed(audio: Long, seconds: Double): Int
+    @JvmStatic external fun peak(audio: Long): Float
+    @JvmStatic external fun setBus(audio: Long, bus: Int): Int
+    @JvmStatic external fun busVolume(context: Long, bus: Int, volume: Float): Int
+    @JvmStatic external fun busMuted(context: Long, bus: Int, muted: Boolean): Int
+    @JvmStatic external fun busFilters(context: Long, bus: Int, lowpass: Float, highpass: Float): Int
+    @JvmStatic external fun busEcho(context: Long, bus: Int, seconds: Float, feedback: Float, mix: Float): Int
+    @JvmStatic external fun busPeak(context: Long, bus: Int): Float
+    @JvmStatic external fun setInterpolation(context: Long, mode: Int): Int
+    @JvmStatic external fun setPanLaw(context: Long, law: Int): Int
+    @JvmStatic external fun setLimiter(context: Long, enabled: Boolean, ceiling: Float): Int
+    @JvmStatic external fun meter(context: Long, out: FloatArray): Int
+    @JvmStatic external fun time(context: Long): Double
+
+    fun canDecode(bytes: ByteArray): Boolean = bytes.size > 12 &&
+        ((bytes[0] == 'O'.code.toByte() && bytes[1] == 'g'.code.toByte() && bytes[2] == 'g'.code.toByte() && bytes[3] == 'S'.code.toByte()) ||
+            (bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() && bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte()))
+
+    fun decodePcm(bytes: ByteArray): PcmAudio? {
+        if (!canDecode(bytes) || !loaded) return null
+        val info = IntArray(2)
+        val samples = runCatching { decode(bytes, info) }.getOrNull() ?: return null
+        return if (info[0] > 0 && info[1] > 0 && samples.isNotEmpty()) PcmAudio(samples, info[0], info[1]) else null
+    }
 }
 
 class NativeMixer private constructor(
@@ -134,6 +119,47 @@ class NativeMixer private constructor(
     override fun setPitch(pitch: Float) {
         if (released || pitch <= 0f) return
         audios.forEach { VMiniAudioNative.setPitch(it, pitch) }
+    }
+
+    override val advanced: Boolean get() = true
+    override val clock: Double get() = if (released) 0.0 else VMiniAudioNative.time(context)
+    private val meterValues = FloatArray(5)
+
+    override fun setTrackPan(index: Int, pan: Float) {
+        if (!released) audios.getOrNull(index)?.let { VMiniAudioNative.setPan(it, pan.coerceIn(-1f, 1f)) }
+    }
+
+    override fun setTrackBus(index: Int, bus: Int) {
+        if (!released) audios.getOrNull(index)?.let { VMiniAudioNative.setBus(it, bus) }
+    }
+
+    override fun fadeTrack(index: Int, volume: Float, seconds: Double) {
+        if (!released) audios.getOrNull(index)?.let { VMiniAudioNative.fade(it, volume.coerceIn(0f, 1f), seconds, 0) }
+    }
+
+    override fun setBusVolume(bus: Int, volume: Float) {
+        if (!released) VMiniAudioNative.busVolume(context, bus, volume)
+    }
+
+    override fun setBusFilters(bus: Int, lowpass: Float, highpass: Float) {
+        if (!released) VMiniAudioNative.busFilters(context, bus, lowpass, highpass)
+    }
+
+    override fun setBusEcho(bus: Int, seconds: Float, feedback: Float, mix: Float) {
+        if (!released) VMiniAudioNative.busEcho(context, bus, seconds, feedback, mix)
+    }
+
+    override fun setQuality(quality: AudioQuality) {
+        if (!released) VMiniAudioNative.setInterpolation(context, quality.ordinal)
+    }
+
+    override fun setLimiter(enabled: Boolean, ceiling: Float) {
+        if (!released) VMiniAudioNative.setLimiter(context, enabled, ceiling)
+    }
+
+    override fun meter(): AudioMeter? {
+        if (released || VMiniAudioNative.meter(context, meterValues) != 0) return null
+        return AudioMeter(meterValues[0], meterValues[1], meterValues[2], meterValues[3], meterValues[4])
     }
 
     override fun render(output: FloatArray, frames: Int) {

@@ -148,6 +148,42 @@ VMA_API VMAResult vma_player_set_finished_callback(
     void* user_data
 );
 
+VMA_API VMAResult vma_player_set_interpolation(
+    VMAPlayer* player,
+    VMAInterpolation interpolation
+);
+
+VMA_API VMAResult vma_player_set_pan_law(
+    VMAPlayer* player,
+    VMAPanLaw law
+);
+
+VMA_API VMAResult vma_player_fade(
+    VMAPlayer* player,
+    float target,
+    double seconds,
+    VMAFadeEnd end
+);
+
+VMA_API float vma_player_get_fade(
+    const VMAPlayer* player
+);
+
+VMA_API VMAResult vma_player_set_loop_points(
+    VMAPlayer* player,
+    double start,
+    double end
+);
+
+VMA_API VMAResult vma_player_play_delayed(
+    VMAPlayer* player,
+    double seconds
+);
+
+VMA_API float vma_player_get_peak(
+    const VMAPlayer* player
+);
+
 VMA_API VMAResult vma_player_process(
     VMAPlayer* player,
     float* output,

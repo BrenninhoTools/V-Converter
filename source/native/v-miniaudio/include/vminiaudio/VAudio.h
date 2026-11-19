@@ -229,6 +229,129 @@ VMA_API VMAAudioFormat vma_detect_format(
     size_t size
 );
 
+VMA_API VMAResult vma_decode_memory(
+    const void* data,
+    size_t size,
+    float** samples,
+    uint64_t* frames,
+    uint32_t* channels,
+    uint32_t* sample_rate
+);
+
+VMA_API void vma_free(
+    void* pointer
+);
+
+VMA_API bool vma_supports_format(
+    VMAAudioFormat format
+);
+
+VMA_API VMAResult vma_audio_fade(
+    VMAAudio* audio,
+    float target,
+    double seconds,
+    VMAFadeEnd end
+);
+
+VMA_API float vma_audio_get_fade(
+    const VMAAudio* audio
+);
+
+VMA_API VMAResult vma_audio_set_loop_points(
+    VMAAudio* audio,
+    double start,
+    double end
+);
+
+VMA_API VMAResult vma_audio_play_delayed(
+    VMAAudio* audio,
+    double seconds
+);
+
+VMA_API float vma_audio_get_peak(
+    const VMAAudio* audio
+);
+
+VMA_API VMAResult vma_audio_set_bus(
+    VMAAudio* audio,
+    uint32_t bus
+);
+
+VMA_API uint32_t vma_audio_get_bus(
+    const VMAAudio* audio
+);
+
+VMA_API VMAResult vma_bus_set_volume(
+    VMAContext* context,
+    uint32_t bus,
+    float volume
+);
+
+VMA_API float vma_bus_get_volume(
+    const VMAContext* context,
+    uint32_t bus
+);
+
+VMA_API VMAResult vma_bus_set_muted(
+    VMAContext* context,
+    uint32_t bus,
+    bool muted
+);
+
+VMA_API VMAResult vma_bus_set_lowpass(
+    VMAContext* context,
+    uint32_t bus,
+    float cutoff
+);
+
+VMA_API VMAResult vma_bus_set_highpass(
+    VMAContext* context,
+    uint32_t bus,
+    float cutoff
+);
+
+VMA_API VMAResult vma_bus_set_echo(
+    VMAContext* context,
+    uint32_t bus,
+    float seconds,
+    float feedback,
+    float mix
+);
+
+VMA_API float vma_bus_get_peak(
+    const VMAContext* context,
+    uint32_t bus
+);
+
+VMA_API VMAResult vma_set_interpolation(
+    VMAContext* context,
+    VMAInterpolation interpolation
+);
+
+VMA_API VMAInterpolation vma_get_interpolation(
+    const VMAContext* context
+);
+
+VMA_API VMAResult vma_set_pan_law(
+    VMAContext* context,
+    VMAPanLaw law
+);
+
+VMA_API VMAResult vma_set_limiter(
+    VMAContext* context,
+    bool enabled,
+    float ceiling
+);
+
+VMA_API VMAResult vma_get_meter(
+    const VMAContext* context,
+    VMAMeter* meter
+);
+
+VMA_API double vma_get_time(
+    const VMAContext* context
+);
+
 #ifdef __cplusplus
 }
 #endif

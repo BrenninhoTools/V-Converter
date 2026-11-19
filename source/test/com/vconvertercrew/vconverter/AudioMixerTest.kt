@@ -57,6 +57,8 @@ class AudioMixerTest {
         val soft = SoftMixer(48000)
         fill(native)
         fill(soft)
+        native.setQuality(com.vconvertercrew.vconverter.audio.AudioQuality.LINEAR)
+        native.setLimiter(false)
         assertTrue(native.backend.startsWith("V-MiniAudio"))
         assertEquals(soft.duration, native.duration, 1e-9)
         native.setMasterVolume(0.8f)

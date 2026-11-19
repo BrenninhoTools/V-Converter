@@ -145,6 +145,11 @@ static VMAResult vma_audio_attach(
 
     result = vma_player_load_pcm(player, samples, frames);
 
+    if (result == VMA_SUCCESS) {
+        vma_player_set_interpolation(player, context->interpolation);
+        vma_player_set_pan_law(player, context->pan_law);
+    }
+
     if (result != VMA_SUCCESS) {
         vma_player_destroy(player);
         return result;
@@ -294,6 +299,149 @@ static VMAResult vma_decode_wav(
     return vma_audio_from_samples(context, data, frames, channels, sample_rate, format, VMA_FORMAT_WAV, size, audio);
 }
 
+#if !defined(VMA_NO_VORBIS)
+#if defined(VMA_VORBIS_HEADER_ONLY)
+#define STB_VORBIS_HEADER_ONLY
+#endif
+#define STB_VORBIS_NO_STDIO
+#define STB_VORBIS_NO_PUSHDATA_API
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-value"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+#include "external/stb_vorbis.c"
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#undef L
+#undef C
+#undef R
+#endif
+
+static VMAResult vma_decode_ogg_pcm(
+    const uint8_t* bytes,
+    size_t size,
+    short** pcm,
+    uint64_t* frames,
+    uint32_t* channels,
+    uint32_t* sample_rate
+) {
+#if defined(VMA_NO_VORBIS)
+    (void)bytes; (void)size; (void)pcm; (void)frames; (void)channels; (void)sample_rate;
+    return VMA_ERROR_UNSUPPORTED_FORMAT;
+#else
+    if (size > (size_t)INT32_MAX)
+        return VMA_ERROR_INVALID_ARGUMENT;
+
+    int count = 0;
+    int rate = 0;
+    short* output = NULL;
+    int decoded = stb_vorbis_decode_memory(bytes, (int)size, &count, &rate, &output);
+
+    if (decoded <= 0 || output == NULL || count <= 0 || rate <= 0) {
+        free(output);
+        return VMA_ERROR_DECODING;
+    }
+
+    *pcm = output;
+    *frames = (uint64_t)decoded;
+    *channels = (uint32_t)count;
+    *sample_rate = (uint32_t)rate;
+
+    return VMA_SUCCESS;
+#endif
+}
+
+static VMAResult vma_decode_ogg(
+    VMAContext* context,
+    const uint8_t* bytes,
+    size_t size,
+    VMAAudio** audio
+) {
+    short* pcm = NULL;
+    uint64_t frames = 0;
+    uint32_t channels = 0;
+    uint32_t rate = 0;
+    VMAResult result = vma_decode_ogg_pcm(bytes, size, &pcm, &frames, &channels, &rate);
+
+    if (result != VMA_SUCCESS)
+        return result;
+
+    result = vma_audio_from_samples(context, (const uint8_t*)pcm, frames, channels, rate, VMA_SAMPLE_S16, VMA_FORMAT_OGG, size, audio);
+    free(pcm);
+
+    return result;
+}
+
+bool vma_supports_format(VMAAudioFormat format) {
+    switch (format) {
+        case VMA_FORMAT_WAV:
+        case VMA_FORMAT_PCM:
+            return true;
+        case VMA_FORMAT_OGG:
+#if defined(VMA_NO_VORBIS)
+            return false;
+#else
+            return true;
+#endif
+        default:
+            return false;
+    }
+}
+
+void vma_free(void* pointer) {
+    free(pointer);
+}
+
+VMAResult vma_decode_memory(
+    const void* data,
+    size_t size,
+    float** samples,
+    uint64_t* frames,
+    uint32_t* channels,
+    uint32_t* sample_rate
+) {
+    if (data == NULL || size == 0 || samples == NULL || frames == NULL || channels == NULL || sample_rate == NULL)
+        return VMA_ERROR_INVALID_ARGUMENT;
+
+    *samples = NULL;
+    VMAConfig config;
+    vma_config_init(&config);
+    config.enable_logging = false;
+    VMAContext* context = NULL;
+    VMAResult result = vma_init(&context, &config);
+
+    if (result != VMA_SUCCESS)
+        return result;
+
+    VMAAudio* audio = NULL;
+    result = vma_audio_load_memory(context, data, size, &audio);
+
+    if (result == VMA_SUCCESS) {
+        VMAPlayerInfo info;
+        vma_player_get_info(audio->player, &info);
+        size_t count = (size_t)info.total_frames * info.channels;
+        float* copy = (float*)malloc(count * sizeof(float));
+
+        if (copy == NULL) {
+            result = VMA_ERROR_OUT_OF_MEMORY;
+        } else {
+            memcpy(copy, vma_player_samples(audio->player), count * sizeof(float));
+            *samples = copy;
+            *frames = info.total_frames;
+            *channels = info.channels;
+            *sample_rate = info.sample_rate;
+        }
+    }
+
+    vma_shutdown(context);
+
+    return result;
+}
+
 VMAResult vma_audio_load_memory(
     VMAContext* context,
     const void* data,
@@ -312,6 +460,7 @@ VMAResult vma_audio_load_memory(
         case VMA_FORMAT_WAV:
             return vma_decode_wav(context, (const uint8_t*)data, size, audio);
         case VMA_FORMAT_OGG:
+            return vma_decode_ogg(context, (const uint8_t*)data, size, audio);
         case VMA_FORMAT_MP3:
         case VMA_FORMAT_FLAC:
             return VMA_ERROR_UNSUPPORTED_FORMAT;
@@ -605,6 +754,85 @@ VMAResult vma_audio_set_finished_callback(VMAAudio* audio, VMAFinishedCallback c
     return VMA_SUCCESS;
 }
 
+VMAResult vma_audio_fade(VMAAudio* audio, float target, double seconds, VMAFadeEnd end) {
+    VMAResult result = VMA_ERROR_INVALID_ARGUMENT;
+    VMA_LOCKED(audio, VMA_ERROR_INVALID_ARGUMENT, {
+        result = vma_player_fade(audio->player, target, seconds, end);
+    });
+    return result;
+}
+
+float vma_audio_get_fade(const VMAAudio* audio) {
+    float value = 0.0f;
+    VMA_LOCKED(audio, 0.0f, {
+        value = vma_player_get_fade(audio->player);
+    });
+    return value;
+}
+
+VMAResult vma_audio_set_loop_points(VMAAudio* audio, double start, double end) {
+    VMAResult result = VMA_ERROR_INVALID_ARGUMENT;
+    VMA_LOCKED(audio, VMA_ERROR_INVALID_ARGUMENT, {
+        result = vma_player_set_loop_points(audio->player, start, end);
+    });
+    return result;
+}
+
+VMAResult vma_audio_play_delayed(VMAAudio* audio, double seconds) {
+    VMAResult result = VMA_ERROR_INVALID_ARGUMENT;
+    VMA_LOCKED(audio, VMA_ERROR_INVALID_ARGUMENT, {
+        result = vma_player_play_delayed(audio->player, seconds);
+    });
+    return result;
+}
+
+float vma_audio_get_peak(const VMAAudio* audio) {
+    float value = 0.0f;
+    VMA_LOCKED(audio, 0.0f, {
+        value = vma_player_get_peak(audio->player);
+    });
+    return value;
+}
+
+VMAResult vma_audio_set_bus(VMAAudio* audio, uint32_t bus) {
+    if (bus >= VMA_MAX_BUSES)
+        return VMA_ERROR_INVALID_ARGUMENT;
+    VMA_LOCKED(audio, VMA_ERROR_INVALID_ARGUMENT, {
+        audio->bus = bus;
+    });
+    return VMA_SUCCESS;
+}
+
+uint32_t vma_audio_get_bus(const VMAAudio* audio) {
+    return audio != NULL ? audio->bus : 0;
+}
+
+VMAResult vma_set_interpolation(VMAContext* context, VMAInterpolation interpolation) {
+    if (!vma_context_ready(context) || interpolation < VMA_INTERPOLATION_NEAREST || interpolation > VMA_INTERPOLATION_CUBIC)
+        return VMA_ERROR_INVALID_ARGUMENT;
+    vma_mutex_lock(&context->lock);
+    context->interpolation = interpolation;
+    for (VMAAudio* audio = context->audios; audio != NULL; audio = audio->next)
+        vma_player_set_interpolation(audio->player, interpolation);
+    vma_mutex_unlock(&context->lock);
+    return VMA_SUCCESS;
+}
+
+VMAInterpolation vma_get_interpolation(const VMAContext* context) {
+    return context != NULL ? context->interpolation : VMA_INTERPOLATION_LINEAR;
+}
+
+VMAResult vma_set_pan_law(VMAContext* context, VMAPanLaw law) {
+    if (!vma_context_ready(context) || law < VMA_PAN_LINEAR || law > VMA_PAN_EQUAL_POWER)
+        return VMA_ERROR_INVALID_ARGUMENT;
+    vma_mutex_lock(&context->lock);
+    context->pan_law = law;
+    for (VMAAudio* audio = context->audios; audio != NULL; audio = audio->next)
+        vma_player_set_pan_law(audio->player, law);
+    vma_mutex_unlock(&context->lock);
+    return VMA_SUCCESS;
+}
+
 uint32_t vma_get_audio_count(const VMAContext* context) {
     if (!vma_context_ready(context))
         return 0;
@@ -651,15 +879,51 @@ VMAResult vma_render(VMAContext* context, float* output, uint32_t frames) {
         context->scratch_size = count;
     }
 
+    for (uint32_t b = 0; b < VMA_MAX_BUSES; ++b) {
+        VMABus* bus = &context->buses[b];
+        bus->used = false;
+        bus->peak = 0.0f;
+
+        if (b != 0 && vma_bus_needs_processing(bus)) {
+            if (vma_bus_reserve(bus, count) == VMA_SUCCESS) {
+                memset(bus->mix, 0, count * sizeof(float));
+                bus->used = true;
+            }
+        }
+    }
+
+    bool direct = !vma_bus_needs_processing(&context->buses[0]) && context->buses[0].volume == 1.0f && !context->buses[0].muted;
+
+    if (!direct && vma_bus_reserve(&context->buses[0], count) == VMA_SUCCESS) {
+        memset(context->buses[0].mix, 0, count * sizeof(float));
+        context->buses[0].used = true;
+    }
+
     for (VMAAudio* audio = context->audios; audio != NULL; audio = audio->next) {
-        if (vma_player_get_state(audio->player) != VMA_STATE_PLAYING)
+        VMAPlaybackState before = vma_player_get_state(audio->player);
+
+        if (before != VMA_STATE_PLAYING)
             continue;
 
         if (vma_player_process(audio->player, context->scratch, frames, channels, rate) != VMA_SUCCESS)
             continue;
 
+        uint32_t index = audio->bus < VMA_MAX_BUSES ? audio->bus : 0;
+        VMABus* bus = &context->buses[index];
+        float* target = output;
+
+        if (index != 0 || !direct) {
+            if (!bus->used) {
+                if (vma_bus_reserve(bus, count) != VMA_SUCCESS)
+                    continue;
+                memset(bus->mix, 0, count * sizeof(float));
+                bus->used = true;
+            }
+            target = bus->mix;
+        }
+
         for (size_t i = 0; i < count; ++i)
-            output[i] += context->scratch[i];
+            target[i] += context->scratch[i];
 
         if (vma_player_get_state(audio->player) == VMA_STATE_FINISHED &&
             audio->finished_callback != NULL &&
@@ -671,23 +935,32 @@ VMAResult vma_render(VMAContext* context, float* output, uint32_t frames) {
         }
     }
 
+    if (direct) {
+        float peak = 0.0f;
+        for (size_t i = 0; i < count; ++i) {
+            float magnitude = fabsf(output[i]);
+            if (magnitude > peak)
+                peak = magnitude;
+        }
+        context->buses[0].peak = peak;
+    }
+
+    for (uint32_t b = 0; b < VMA_MAX_BUSES; ++b) {
+        VMABus* bus = &context->buses[b];
+
+        if (!bus->used)
+            continue;
+
+        vma_bus_process(bus, bus->mix, frames, channels);
+
+        for (size_t i = 0; i < count; ++i)
+            output[i] += bus->mix[i];
+    }
+
     if (context->audio_callback != NULL)
         context->audio_callback(output, frames, channels, context->audio_user_data);
 
-    float gain = context->muted ? 0.0f : context->master_volume;
-
-    for (size_t i = 0; i < count; ++i) {
-        float sample = output[i] * gain;
-
-        if (!isfinite(sample))
-            sample = 0.0f;
-        else if (sample > 1.0f)
-            sample = 1.0f;
-        else if (sample < -1.0f)
-            sample = -1.0f;
-
-        output[i] = sample;
-    }
+    vma_master_process(context, output, frames);
 
     vma_mutex_unlock(&context->lock);
 

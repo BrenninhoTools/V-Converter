@@ -1,0 +1,54 @@
+package = vtouch
+headers = vtouch/VTouch.h
+headerFilter = vtouch/VTouch.h
+staticLibraries = libvtouch.a
+---
+
+static inline void* vct_create(float density, float slop, float double_tap, float long_press, float swipe, float step, float flick, int max_flick, float pad_scale, int lanes, int layout, int features) {
+    VTouchConfig config;
+    vtouch_config_init(&config);
+    config.density = density;
+    config.tap_slop_dp = slop;
+    config.double_tap_ms = double_tap;
+    config.long_press_ms = long_press;
+    config.swipe_back_dp = swipe;
+    config.step_px = step;
+    config.flick_dp_per_second = flick;
+    config.max_flick_steps = max_flick;
+    config.pad_hit_scale = pad_scale;
+    config.lanes = lanes;
+    config.layout = layout;
+    config.features = (uint32_t)features;
+    return vtouch_create(&config);
+}
+
+static inline void vct_configure(void* engine, float density, float slop, float double_tap, float long_press, float swipe, float step, float flick, int max_flick, float pad_scale, int lanes, int layout, int features) {
+    VTouchConfig config;
+    vtouch_config_init(&config);
+    config.density = density;
+    config.tap_slop_dp = slop;
+    config.double_tap_ms = double_tap;
+    config.long_press_ms = long_press;
+    config.swipe_back_dp = swipe;
+    config.step_px = step;
+    config.flick_dp_per_second = flick;
+    config.max_flick_steps = max_flick;
+    config.pad_hit_scale = pad_scale;
+    config.lanes = lanes;
+    config.layout = layout;
+    config.features = (uint32_t)features;
+    vtouch_configure((VTouchEngine*)engine, &config);
+}
+
+static inline int vct_poll(void* engine, float* out) {
+    VTouchEvent event;
+    if (!vtouch_poll((VTouchEngine*)engine, &event))
+        return 0;
+    out[0] = (float)event.lane;
+    out[1] = event.x;
+    out[2] = event.y;
+    out[3] = event.value;
+    out[4] = event.dx;
+    out[5] = event.dy;
+    return event.type;
+}

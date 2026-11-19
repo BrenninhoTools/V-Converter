@@ -71,6 +71,7 @@ jobs:
       - name: Build release APK
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: ./gradlew :app:assembleRelease -Pvconverter.modules=app -Pvconverter.abis=arm64-v8a --build-cache
 
       - name: Name the APK
@@ -157,17 +158,22 @@ jobs:
           restore-keys: ccache-linux-
           max-size: 300M
 
-      - name: Test V-MiniAudio
+      - name: Test V-MiniAudio and V-Touch
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cmake -S source/native/v-miniaudio -B build/v-miniaudio -DVMA_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
           cmake --build build/v-miniaudio --parallel
           ctest --test-dir build/v-miniaudio --output-on-failure
+          cmake -S source/native/v-touch -B build/v-touch -DVTOUCH_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build build/v-touch --parallel
+          ctest --test-dir build/v-touch --output-on-failure
 
       - name: Build package and portable app
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: ./gradlew :desktop:packageDeb :desktop:createDistributable -Pvconverter.modules=desktop --build-cache
 
       - name: Name the builds
@@ -216,6 +222,7 @@ jobs:
       - name: Build disk image and app
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: ./gradlew :desktop:packageDmg :desktop:createDistributable -Pvconverter.modules=desktop --build-cache
 
       - name: Name the builds

@@ -272,6 +272,14 @@ VMAResult vma_init(
     instance->audio_count = 0;
     instance->scratch = NULL;
     instance->scratch_size = 0;
+    instance->interpolation = VMA_INTERPOLATION_CUBIC;
+    instance->pan_law = VMA_PAN_LINEAR;
+    instance->limiter_enabled = true;
+    instance->limiter_ceiling = 1.0f;
+    instance->limiter_gain = 1.0f;
+    instance->limiter_release = (float)exp(-1.0 / (0.08 * (double)config->sample_rate));
+    instance->rendered_frames = 0;
+    vma_buses_init(instance);
 
     vma_mutex_init(&instance->lock);
 
@@ -304,6 +312,7 @@ void vma_shutdown(
 
     context->initialized = false;
 
+    vma_buses_free(context);
     vma_mutex_destroy(&context->lock);
     free(context->scratch);
     free(context);

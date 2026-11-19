@@ -1,12 +1,5 @@
 package com.vconvertercrew.vtouch
 
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.DropdownMenu
@@ -15,30 +8,56 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
-import kotlin.math.abs
 
 class VContextItem(val label: String, val enabled: Boolean = true, val run: () -> Unit)
 
+internal fun PointerInputChange.touchAction(): Int? = when {
+    pressed && !previousPressed -> VTouchAction.DOWN
+    !pressed && previousPressed -> VTouchAction.UP
+    pressed && position != previousPosition -> VTouchAction.MOVE
+    else -> null
+}
+
+internal fun VTouchEngine.feed(event: PointerEvent) {
+    event.changes.forEach { change ->
+        val action = change.touchAction() ?: return@forEach
+        pointer(change.id.value, action, change.position.x, change.position.y, change.uptimeMillis.toDouble())
+    }
+}
+
+internal inline fun VTouchEngine.drain(handle: (VTouchEvent) -> Unit) {
+    while (true) handle(poll() ?: return)
+}
+
 fun Modifier.vPinchPan(key: Any?, onZoom: (Float, Offset) -> Unit, onPan: (Offset) -> Unit = {}): Modifier = pointerInput(key) {
-    awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-        do {
-            val event = awaitPointerEvent(PointerEventPass.Initial)
-            if (VTouch.editorGestures && event.changes.count { it.pressed } >= 2) {
-                val zoom = event.calculateZoom()
-                val pan = event.calculatePan()
-                val centroid = event.calculateCentroid(useCurrent = true)
-                if (zoom != 1f) onZoom(zoom, centroid)
-                if (pan != Offset.Zero) onPan(pan)
-                event.changes.forEach { if (it.positionChanged()) it.consume() }
+    val engine = VTouchEngines.create(VTouchConfig(density = density, features = VTouchFeature.PINCH))
+    try {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                engine.viewport(size.width.toFloat(), size.height.toFloat())
+                engine.feed(event)
+                val active = VTouch.editorGestures
+                engine.drain { touch ->
+                    if (!active) return@drain
+                    when (touch.type) {
+                        VTouchEventType.ZOOM -> onZoom(touch.value, Offset(touch.x, touch.y))
+                        VTouchEventType.PAN -> onPan(Offset(touch.dx, touch.dy))
+                        else -> Unit
+                    }
+                }
+                if (active && engine.pinching) event.changes.forEach { if (it.positionChanged()) it.consume() }
             }
-        } while (event.changes.any { it.pressed })
+        }
+    } finally {
+        engine.release()
     }
 }
 
@@ -48,37 +67,43 @@ fun Modifier.vMenuNavigation(
     onMove: (Int) -> Unit,
     onTap: (Offset) -> Unit,
     onBack: (() -> Unit)? = null,
-    enabled: () -> Boolean = { true }
+    enabled: () -> Boolean = { true },
+    onLongPress: ((Offset) -> Unit)? = null
 ): Modifier = this
     .pointerInput(key) {
-        detectTapGestures { if (enabled()) onTap(it) }
-    }
-    .pointerInput(key) {
-        var vertical = 0f
-        var totalX = 0f
-        var totalY = 0f
-        detectDragGestures(
-            onDragStart = {
-                vertical = 0f
-                totalX = 0f
-                totalY = 0f
-            },
-            onDragEnd = {
-                val swipe = 110.dp.toPx()
-                if (enabled() && VTouch.swipeBack && totalX > swipe && abs(totalX) > abs(totalY) * 2f) onBack?.invoke()
+        val features = VTouchFeature.TAP or VTouchFeature.STEPS or VTouchFeature.SWIPE_BACK or VTouchFeature.FLICK or
+            (if (onLongPress != null) VTouchFeature.LONG_PRESS else 0)
+        val engine = VTouchEngines.create(VTouchConfig(density = density, features = features))
+        try {
+            awaitPointerEventScope {
+                var clock = 0.0
+                while (true) {
+                    val event = if (onLongPress != null && engine.pointerCount > 0) {
+                        withTimeoutOrNull(60L) { awaitPointerEvent() }
+                    } else {
+                        awaitPointerEvent()
+                    }
+                    val on = enabled()
+                    engine.enabled(on)
+                    engine.viewport(size.width.toFloat(), size.height.toFloat())
+                    engine.step(step())
+                    clock = event?.changes?.firstOrNull()?.uptimeMillis?.toDouble() ?: (clock + 60.0)
+                    if (event != null) engine.feed(event)
+                    engine.tick(clock)
+                    engine.drain { touch ->
+                        when (touch.type) {
+                            VTouchEventType.TAP -> onTap(Offset(touch.x, touch.y))
+                            VTouchEventType.STEP -> if (touch.dy == 0f || VTouch.flick) onMove(touch.value.toInt())
+                            VTouchEventType.SWIPE_BACK -> if (VTouch.swipeBack) onBack?.invoke()
+                            VTouchEventType.LONG_PRESS -> onLongPress?.invoke(Offset(touch.x, touch.y))
+                            else -> Unit
+                        }
+                    }
+                    if (event != null && on && engine.dragging) event.changes.forEach { it.consume() }
+                }
             }
-        ) { change, amount ->
-            change.consume()
-            if (!enabled()) return@detectDragGestures
-            totalX += amount.x
-            totalY += amount.y
-            if (abs(totalX) > abs(totalY) * 1.5f) return@detectDragGestures
-            vertical += amount.y
-            val size = step().coerceAtLeast(24f)
-            while (abs(vertical) > size) {
-                onMove(if (vertical > 0) -1 else 1)
-                vertical -= if (vertical > 0) size else -size
-            }
+        } finally {
+            engine.release()
         }
     }
     .pointerInput(key) {

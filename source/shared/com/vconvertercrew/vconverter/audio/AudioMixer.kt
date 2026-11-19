@@ -10,6 +10,10 @@ class PcmAudio(val samples: ShortArray, val channels: Int, val rate: Int) {
     }
 }
 
+class AudioMeter(val peakLeft: Float, val peakRight: Float, val rmsLeft: Float, val rmsRight: Float, val gainReduction: Float)
+
+enum class AudioQuality { NEAREST, LINEAR, CUBIC }
+
 interface AudioMixer {
     val sampleRate: Int
     val channels: Int
@@ -26,6 +30,19 @@ interface AudioMixer {
     fun setPitch(pitch: Float)
     fun render(output: FloatArray, frames: Int)
     fun release()
+
+    val advanced: Boolean get() = false
+    val clock: Double get() = 0.0
+
+    fun setTrackPan(index: Int, pan: Float) {}
+    fun setTrackBus(index: Int, bus: Int) {}
+    fun fadeTrack(index: Int, volume: Float, seconds: Double) {}
+    fun setBusVolume(bus: Int, volume: Float) {}
+    fun setBusFilters(bus: Int, lowpass: Float, highpass: Float) {}
+    fun setBusEcho(bus: Int, seconds: Float, feedback: Float, mix: Float) {}
+    fun setQuality(quality: AudioQuality) {}
+    fun setLimiter(enabled: Boolean, ceiling: Float = 1f) {}
+    fun meter(): AudioMeter? = null
 
     companion object {
         fun renderAll(mixer: AudioMixer, chunk: Int = 4096): FloatArray {

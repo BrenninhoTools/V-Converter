@@ -3,11 +3,13 @@ headers = vminiaudio/VAudio.h
 headerFilter = vconverter_none.h
 compilerOpts = -std=c11 -O2
 ---
+#define VMA_VORBIS_HEADER_ONLY 1
 #include "VAudio.c"
 #include "VAudioEngine.c"
 #include "VAudioPlayer.c"
 #include "VAudioSource.c"
 #include "VWaveform.c"
+#include "VAudioBus.c"
 
 static inline const char* vca_version(void) {
     return vma_get_version();
@@ -68,4 +70,56 @@ static inline int vca_set_master_volume(void* context, float volume) {
 
 static inline int vca_render(void* context, float* output, int frames) {
     return frames > 0 ? (int)vma_render((VMAContext*)context, output, (uint32_t)frames) : 0;
+}
+
+static inline int vca_set_pan(void* audio, float pan) {
+    return (int)vma_audio_set_pan((VMAAudio*)audio, pan);
+}
+
+static inline int vca_fade(void* audio, float target, double seconds) {
+    return (int)vma_audio_fade((VMAAudio*)audio, target, seconds, VMA_FADE_CONTINUE);
+}
+
+static inline int vca_set_bus(void* audio, int bus) {
+    return bus < 0 ? (int)VMA_ERROR_INVALID_ARGUMENT : (int)vma_audio_set_bus((VMAAudio*)audio, (uint32_t)bus);
+}
+
+static inline int vca_bus_volume(void* context, int bus, float volume) {
+    return bus < 0 ? (int)VMA_ERROR_INVALID_ARGUMENT : (int)vma_bus_set_volume((VMAContext*)context, (uint32_t)bus, volume);
+}
+
+static inline int vca_bus_filters(void* context, int bus, float lowpass, float highpass) {
+    if (bus < 0)
+        return (int)VMA_ERROR_INVALID_ARGUMENT;
+    int result = (int)vma_bus_set_lowpass((VMAContext*)context, (uint32_t)bus, lowpass);
+    return result != 0 ? result : (int)vma_bus_set_highpass((VMAContext*)context, (uint32_t)bus, highpass);
+}
+
+static inline int vca_bus_echo(void* context, int bus, float seconds, float feedback, float mix) {
+    return bus < 0 ? (int)VMA_ERROR_INVALID_ARGUMENT : (int)vma_bus_set_echo((VMAContext*)context, (uint32_t)bus, seconds, feedback, mix);
+}
+
+static inline int vca_set_interpolation(void* context, int mode) {
+    return (int)vma_set_interpolation((VMAContext*)context, (VMAInterpolation)mode);
+}
+
+static inline int vca_set_limiter(void* context, int enabled, float ceiling) {
+    return (int)vma_set_limiter((VMAContext*)context, enabled != 0, ceiling);
+}
+
+static inline int vca_meter(void* context, float* out) {
+    VMAMeter meter;
+    int result = (int)vma_get_meter((const VMAContext*)context, &meter);
+    if (result == 0) {
+        out[0] = meter.peak_left;
+        out[1] = meter.peak_right;
+        out[2] = meter.rms_left;
+        out[3] = meter.rms_right;
+        out[4] = meter.gain_reduction;
+    }
+    return result;
+}
+
+static inline double vca_time(void* context) {
+    return vma_get_time((const VMAContext*)context);
 }
