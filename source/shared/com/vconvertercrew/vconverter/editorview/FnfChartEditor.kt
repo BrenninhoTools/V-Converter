@@ -91,30 +91,12 @@ private const val STEPS = 16
 private const val GRID_W = GRID_SIZE * 8
 private const val GRID_H = GRID_SIZE * STEPS
 
-private object Flx {
-    val gridA = Color(0xFFE7E6E6)
-    val gridB = Color(0xFFD9D5D5)
-    val chrome = Color(0xFFC8C8C8)
-    val chromeDark = Color(0xFF7F7F7F)
-    val tabOn = Color(0xFFE6E6E6)
-    val tabOff = Color(0xFFA9A9A9)
-    val button = Color(0xFFE2E2E2)
-    val ink = Color.Black
-}
-
 private val legacyTabs = listOf("Song", "Section", "Note")
 
 private val characterList = listOf(
     "bf", "dad", "gf", "spooky", "pico", "mom", "mom-car", "bf-car", "parents-christmas", "monster-christmas",
     "bf-christmas", "gf-christmas", "monster", "bf-pixel", "senpai", "senpai-angry", "spirit"
 )
-
-private fun roundDecimal(value: Double): String {
-    val scaled = (value * 100.0).roundToInt()
-    val whole = scaled / 100
-    val part = kotlin.math.abs(scaled % 100)
-    return if (part == 0) "$whole" else if (part % 10 == 0) "$whole.${part / 10}" else "$whole.${if (part < 10) "0$part" else "$part"}"
-}
 
 object ChartAutosave {
     var document: ChartDocument? = null
@@ -409,107 +391,6 @@ private fun UiBox(state: ChartEditorState, onSave: () -> Unit, onReloadAudio: ()
                 0 -> SongGroup(state, onSave, onReloadAudio, onReloadJson)
                 1 -> SectionGroup(state)
                 else -> NoteGroup(state)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FlxLabel(text: String) {
-    Text(text, color = Flx.ink, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-}
-
-@Composable
-private fun FlxButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier
-            .width(80.dp)
-            .heightIn(min = 20.dp)
-            .background(Flx.button)
-            .border(1.dp, Flx.chromeDark)
-            .pointerInput(text) {
-                detectTapGestures {
-                    UiSound.click()
-                    onClick()
-                }
-            }
-            .padding(2.dp),
-        contentAlignment = Alignment.Center
-    ) { Text(text, color = Flx.ink, fontSize = 8.sp, fontFamily = FontFamily.Monospace) }
-}
-
-@Composable
-private fun FlxInput(value: String, width: Int, onChange: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    BasicTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            onChange(it)
-        },
-        singleLine = true,
-        textStyle = TextStyle(color = Flx.ink, fontSize = 9.sp, fontFamily = FontFamily.Monospace),
-        cursorBrush = SolidColor(Flx.ink),
-        modifier = Modifier.width(width.dp).background(Color.White).border(1.dp, Flx.ink).padding(2.dp).typingField()
-    )
-}
-
-@Composable
-private fun FlxCheck(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.pointerInput(checked, enabled) {
-            detectTapGestures {
-                if (enabled) {
-                    UiSound.click()
-                    onChange(!checked)
-                }
-            }
-        },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(Modifier.size(11.dp).background(Color.White).border(1.dp, Flx.ink), contentAlignment = Alignment.Center) {
-            if (checked) Box(Modifier.size(7.dp).background(if (enabled) Flx.ink else Flx.chromeDark))
-        }
-        Text(label, color = if (enabled) Flx.ink else Flx.chromeDark, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-    }
-}
-
-@Composable
-private fun FlxStepper(value: Double, step: Double, min: Double, max: Double, decimals: Int, label: String, onValue: (Double) -> Unit) {
-    fun format(v: Double) = if (decimals == 0) v.roundToInt().toString() else roundDecimal(v)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Box(Modifier.width(40.dp).background(Color.White).border(1.dp, Flx.ink).padding(2.dp)) {
-            Text(format(value), color = Flx.ink, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-        }
-        FlxButton("+", Modifier.width(14.dp)) { onValue((value + step).coerceIn(min, max)) }
-        FlxButton("-", Modifier.width(14.dp)) { onValue((value - step).coerceIn(min, max)) }
-        if (label.isNotEmpty()) FlxLabel(label)
-    }
-}
-
-@Composable
-private fun FlxDropDown(selected: String, options: List<String>, onSelect: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        Box(
-            Modifier.width(120.dp).background(Color.White).border(1.dp, Flx.ink).pointerInput(selected) {
-                detectTapGestures {
-                    UiSound.click()
-                    open = true
-                }
-            }.padding(2.dp)
-        ) { Text("$selected ▾", color = Flx.ink, fontSize = 9.sp, fontFamily = FontFamily.Monospace) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, fontSize = 9.sp, fontFamily = FontFamily.Monospace) },
-                    onClick = {
-                        UiSound.click()
-                        open = false
-                        onSelect(option)
-                    }
-                )
             }
         }
     }

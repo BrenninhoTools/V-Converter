@@ -1,8 +1,7 @@
 package com.vconvertercrew.vconverter.fpsplus
 
+import com.vconvertercrew.vconverter.core.RgbaImage
 import com.vconvertercrew.vconverter.platform.Platform
-
-class RgbaImage(val width: Int, val height: Int, val pixels: ByteArray)
 
 object FpsIcon {
     private val signature = byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)

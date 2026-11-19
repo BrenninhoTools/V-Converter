@@ -284,6 +284,7 @@ enum class GenTab(
     CHARACTER("Char", R.drawable.ic_tab_character, Funkin.Left, "Character Editor", "Open any character or a spritesheet, then preview the animations and fix offsets, camera and scale."),
     STAGE("Stage", R.drawable.ic_tab_stage, Funkin.Up, "Stage Editor", "Open any stage or start from your images, then place props and characters with the game camera in view."),
     WEEK("Week", R.drawable.ic_tab_week, Funkin.Right, "Week Editor", "Open any week or start a new one, then lay out the story menu, its songs and how it unlocks."),
+    XML("XML", R.drawable.ic_tab_character, Funkin.Lavender, "XML Editor", "Turn .png frames into a spritesheet with its Sparrow .xml, or make the .xml for one image that already holds every frame."),
     SCRIPT("Script", R.drawable.ic_tab_script, Funkin.Lavender, "New script", "Ready-to-edit .hxc classes for V-Slice.")
 }
 
@@ -570,6 +571,11 @@ fun MainScreen() {
                 backRequests = onlineBack,
                 overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp)) }
             )
+        } else if (section == Section.GENERATOR && generatorTab == GenTab.XML) {
+            val xmlEditor: com.vconvertercrew.vconverter.ui.editor.XmlEditorViewModel = viewModel()
+            Box(Modifier.fillMaxSize()) {
+                com.vconvertercrew.vconverter.ui.editor.XmlEditorScreen(xmlEditor) { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { menuScreen = MENU_GENERATOR } }
+            }
         } else if (section == Section.GENERATOR && generatorTab == GenTab.SONG) {
             Box(Modifier.fillMaxSize()) {
                 ChartEditorScreen(genSong, folderName, save) { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { menuScreen = MENU_GENERATOR } }

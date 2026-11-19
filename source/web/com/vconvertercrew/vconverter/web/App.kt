@@ -83,6 +83,10 @@ fun App(state: AppState) {
         Box(Modifier.fillMaxSize()) { EditorScreen(state) }
         return
     }
+    if (state.tool == EditorTool.XML) {
+        Box(Modifier.fillMaxSize()) { XmlEditorScreen(state) }
+        return
+    }
     if (state.tool == EditorTool.ONLINE) {
         Box(Modifier.fillMaxSize()) { OnlineScreen(state) }
         return

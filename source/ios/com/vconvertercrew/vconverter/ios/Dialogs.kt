@@ -84,6 +84,13 @@ object Dialogs {
         }
     }
 
+    fun exportAll(files: List<File>) {
+        runOnMain {
+            val picker = UIDocumentPickerViewController(forExportingURLs = files.map { NSURL.fileURLWithPath(it.path) }, asCopy = true)
+            present(picker) { }
+        }
+    }
+
     fun openLink(url: String) {
         val target = NSURL.URLWithString(url) ?: return
         UIApplication.sharedApplication.openURL(target, emptyMap<Any?, Any>(), null)

@@ -211,7 +211,7 @@ fun MainMenuOverlay(state: AppState) {
     }
 }
 
-private val generatorTools = listOf(EditorTool.CHART, EditorTool.CHARACTER, EditorTool.STAGE, EditorTool.WEEK)
+private val generatorTools = listOf(EditorTool.CHART, EditorTool.CHARACTER, EditorTool.STAGE, EditorTool.WEEK, EditorTool.XML)
 
 @Composable
 fun OptionsButton() {

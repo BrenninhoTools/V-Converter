@@ -1,6 +1,7 @@
 package com.vconvertercrew.vconverter.desktop
 
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.vconvertercrew.vconverter.mod.ModCancel
@@ -36,6 +37,10 @@ enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphic
     WEEK(
         "Week Editor", Palette.Right,
         "Open a week or start a new one. Click a menu character in the story menu preview and drag it to move it; the arrow keys nudge it (Shift for 10), Enter plays the confirm animation, Left / Right change the difficulty shown, Ctrl+Z / Ctrl+Y undo and redo."
+    ),
+    XML(
+        "XML Editor", Palette.Lavender,
+        "Turn .png frames into a spritesheet with its Sparrow .xml, or make the .xml for one image that already holds every frame. W / S pick the animation, A / D the frame, Space plays, Enter generates."
     )
 }
 
@@ -48,6 +53,7 @@ class AppState(private val scope: CoroutineScope) {
     val characterEditor = DesktopCharacterEditor(scope)
     val stageEditor = DesktopStageEditor(scope)
     val weekEditor = DesktopWeekEditor(scope)
+    val xmlEditor = com.vconvertercrew.vconverter.editorview.XmlEditorState(scope) { bytes -> org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap() }
     val online = com.vconvertercrew.vconverter.onlineview.OnlineState(scope)
     val playtest = DesktopPlayTest(scope)
 
@@ -89,6 +95,7 @@ class AppState(private val scope: CoroutineScope) {
             EditorTool.STAGE -> stageEditor.open(list)
             EditorTool.WEEK -> weekEditor.open(list)
             EditorTool.ONLINE -> Unit
+            EditorTool.XML -> xmlEditor.addFrames(list.filter { it.isFile }.map { it.name to it.readBytes() })
             EditorTool.PLAYTEST -> playtest.open(list)
             null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
         }

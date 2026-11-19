@@ -60,6 +60,7 @@ fun main() {
                     EditorTool.STAGE -> stageShortcut(state.stageEditor.editor, event)
                     EditorTool.WEEK -> weekShortcut(state.weekEditor.editor, event)
                     EditorTool.ONLINE -> false
+                    EditorTool.XML -> false
                     EditorTool.PLAYTEST -> false
                     null -> false
                 }
