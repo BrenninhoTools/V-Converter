@@ -30,6 +30,34 @@ val vtouchTasks = mapOf(
     }
 }
 
+val vscriptSource = File(source, "native/v-script")
+
+fun vscriptLibrary(target: String): File = layout.buildDirectory.dir("vscript/$target").get().asFile
+
+val vscriptFiles = listOf("Json", "LuaParser", "Converter", "Builtins", "Generator", "VScript")
+
+val vscriptTasks = mapOf(
+    "iosArm64" to ("iphoneos" to "arm64-apple-ios14.0"),
+    "iosSimulatorArm64" to ("iphonesimulator" to "arm64-apple-ios14.0-simulator")
+).mapValues { (target, platform) ->
+    tasks.register<Exec>("buildVScript${target.replaceFirstChar { it.uppercase() }}") {
+        val out = vscriptLibrary(target)
+        inputs.dir(vscriptSource)
+        outputs.file(File(out, "libvscript.a"))
+        val compile = vscriptFiles.joinToString(" && ") { name ->
+            "xcrun -sdk ${platform.first} clang++ -std=c++17 -O2 -target ${platform.second} " +
+                "-I '${File(vscriptSource, "include").absolutePath}' -I '${File(vscriptSource, "src").absolutePath}' " +
+                "-c '${File(vscriptSource, "src/$name.cpp").absolutePath}' -o '${out.absolutePath}/$name.o'"
+        }
+        val objects = vscriptFiles.joinToString(" ") { "'${out.absolutePath}/$it.o'" }
+        commandLine(
+            "sh", "-c",
+            "mkdir -p '${out.absolutePath}' && $compile && rm -f '${out.absolutePath}/libvscript.a' && " +
+                "xcrun -sdk ${platform.first} ar rcs '${out.absolutePath}/libvscript.a' $objects"
+        )
+    }
+}
+
 kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
@@ -51,6 +79,14 @@ kotlin {
         }
         tasks.named(vtouchInterop.interopProcessingTaskName) {
             dependsOn(vtouchTasks.getValue(target.name))
+        }
+        val vscriptInterop = target.compilations.getByName("main").cinterops.create("vscript") {
+            defFile(File(source, "native/cinterop/vscript.def"))
+            includeDirs(File(vscriptSource, "include"))
+            extraOpts("-libraryPath", vscriptLibrary(target.name).absolutePath)
+        }
+        tasks.named(vscriptInterop.interopProcessingTaskName) {
+            dependsOn(vscriptTasks.getValue(target.name))
         }
     }
 

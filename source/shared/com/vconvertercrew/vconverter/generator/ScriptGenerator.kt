@@ -1,6 +1,9 @@
 package com.vconvertercrew.vconverter.generator
 
 import com.vconvertercrew.vconverter.core.ReportBuilder
+import com.vconvertercrew.vconverter.json.JSONArray
+import com.vconvertercrew.vconverter.json.JSONObject
+import com.vconvertercrew.vconverter.script.NativeScripts
 
 enum class ScriptKind(val label: String, val folder: String, val targetLabel: String) {
     MODULE("Module", "modules", "Module id"),
@@ -81,7 +84,7 @@ object ScriptGenerator {
         val target = spec.targetId.trim()
         require(target.isNotEmpty()) { "Enter the ${spec.kind.targetLabel.lowercase()}." }
         require(target.none { it == '"' || it == '\\' }) { "The id can't contain quotes." }
-        val source = when (spec.kind) {
+        val source = native(className, target, spec) ?: when (spec.kind) {
             ScriptKind.EVENT -> event(className, target, spec)
             else -> scripted(className, target, spec)
         }
@@ -106,6 +109,31 @@ object ScriptGenerator {
             )
         )
         return Generated(listOf(GenFile(path, source)), report.build())
+    }
+
+    private fun native(className: String, target: String, spec: ScriptSpec): String? {
+        if (!NativeScripts.available) return null
+        val json = JSONObject()
+            .put("kind", when (spec.kind) {
+                ScriptKind.MODULE -> "module"
+                ScriptKind.SONG -> "song"
+                ScriptKind.STAGE -> "stage"
+                ScriptKind.CHARACTER -> "character"
+                ScriptKind.EVENT -> "event"
+                ScriptKind.NOTE_KIND -> "notekind"
+            })
+            .put("className", className)
+            .put("targetId", target)
+            .put("render", spec.render.className)
+            .put("title", spec.title)
+            .put("priority", spec.priority)
+            .put("callbacks", JSONArray().also { array -> callbacksFor(spec.kind).filter { it in spec.callbacks }.forEach { array.put(it.method) } })
+            .put("fields", JSONArray().also { array ->
+                spec.fields.forEach { field -> array.put(JSONObject().put("name", field.name).put("type", field.type.schema)) }
+            })
+        val (source, error) = NativeScripts.generate(json) ?: return null
+        require(error == null) { error ?: "" }
+        return source
     }
 
     private fun scripted(className: String, target: String, spec: ScriptSpec): String {

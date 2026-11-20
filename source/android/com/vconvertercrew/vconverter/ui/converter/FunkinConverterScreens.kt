@@ -263,6 +263,19 @@ private fun FunkinModConverterMenu(
     val game = rememberGameTest(viewModel)
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) openFolder(uri) }
     val archivePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) openArchive(uri) }
+    val context = LocalContext.current
+    val bananaScope = androidx.compose.runtime.rememberCoroutineScope()
+    val banana = remember(viewModel) {
+        com.vconvertercrew.vconverter.converterview.GameBananaState(
+            bananaScope,
+            { bytes -> android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+        ) { _, file, progress ->
+            val downloaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.vconvertercrew.vconverter.online.GameBananaDownloads.toFile(file, java.io.File(context.cacheDir, "gamebanana"), progress)
+            }
+            openArchive(android.net.Uri.fromFile(downloaded))
+        }
+    }
     val spec = ModMenuSpec(
         source = source,
         target = target,
@@ -290,7 +303,7 @@ private fun FunkinModConverterMenu(
         onTestGame = game.action,
         onBack = onBack
     )
-    FunkinModMenu(spec, art, overlay = overlay)
+    FunkinModMenu(spec, art, gameBanana = banana, overlay = overlay)
 }
 
 @Composable

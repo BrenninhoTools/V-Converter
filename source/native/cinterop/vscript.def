@@ -1,0 +1,5 @@
+package = vscript
+headers = vscript/VScript.h
+headerFilter = vscript/VScript.h
+staticLibraries = libvscript.a
+linkerOpts = -lc++

@@ -72,7 +72,8 @@ object ScriptConverter {
 
     fun eventFiles(names: Collection<String>, scripted: Collection<String> = emptyList()): List<ScriptFile> =
         names.filter { it in PsychNativeLibrary.builtinEventNames && scripted.none { s -> eventId(s) == eventId(it) } }.distinct().sorted().map { name ->
-            ScriptFile("scripts/events/${eventClass(name)}.hxc", HxImports.complete(eventSource(name)))
+            val direct = if (NativeScripts.available) NativeScripts.builtinEvent(name, eventClass(name), eventId(name)) else null
+            ScriptFile("scripts/events/${eventClass(name)}.hxc", direct ?: HxImports.complete(eventSource(name)))
         }
 
     private fun eventSource(name: String): String {
@@ -148,6 +149,7 @@ $body
         val claimed = HashSet<String>()
         val fallbacks = mutableListOf<String>()
         var converted = 0
+        var nativeScripts = 0
         var hooks = 0
         val apiUsed = sortedMutableSet<String>()
         val prefix = pascal(modSlug)
@@ -215,7 +217,11 @@ $body
             val ext = source.path.substringAfterLast('.', "").lowercase()
             val generated = try {
                 if (ext == "lua") {
-                    LuaToHScript(className, host.id, target, siblings, noteTypeArray, eventNames, ownEvent, source.skipLines, host).convert(source.text)
+                    val direct = if (NativeScripts.available) {
+                        NativeScripts.convert(source.text, className, NativeScripts.options(className, host, target, noteTypes, eventNames, source.skipLines))
+                    } else null
+                    if (direct != null) nativeScripts++
+                    direct ?: LuaToHScript(className, host.id, target, siblings, noteTypeArray, eventNames, ownEvent, source.skipLines, host).convert(source.text)
                 } else {
                     PsychHScriptWrapper(className, host.id, target, siblings, noteTypeArray, eventNames, ownEvent, host = host).convert(source.text)
                 }
@@ -249,12 +255,19 @@ $body
         if (unsupported.isNotEmpty()) {
             report.warn("These Psych functions have no V-Slice equivalent and do nothing: ${unsupported.joinToString()}.")
         }
+        val runtimeLine = if (nativeScripts > 0 && nativeScripts == converted) {
+            "Lua scripts were rewritten by V-Script (C++) straight into V-Slice code: sprites are typed fields, Psych calls became the matching FunkinSprite, FlxTween, PlayState and Conductor code, and callbacks became the V-Slice event overrides. No Psych API layer is added."
+        } else if (nativeScripts > 0) {
+            "Lua scripts were rewritten by V-Script (C++) straight into V-Slice code with no Psych API layer; Psych HScript files carry only the Psych functions they use, written inside their own class."
+        } else {
+            "The Psych functions a script uses are implemented inside its own class with V-Slice and Flixel code; no extra runtime is needed."
+        }
         report.section(
             "How it runs",
             listOf(
                 "Each script became the V-Slice class made for its job: data/<song>/ scripts are Songs (scripts/songs), stages/ scripts are Stages (scripts/stages), custom_notetypes are NoteKinds (scripts/notekinds), custom_events are SongEvents (scripts/events) and global scripts are Modules (scripts/modules).",
                 "A script only becomes a Module when its class can't carry it (a second script for the same song or stage, a note type that needs more than note events, or an id the base game already scripts); that Module only runs in its song, stage, event or note type.",
-                "The Psych functions a script uses are implemented inside its own class with V-Slice and Flixel code; no extra runtime is needed.",
+                runtimeLine,
                 "Psych events get V-Slice ids (\"Flash Camera\" → \"FlashCamera\") in charts and scripts alike; your scripts still see the original names in onEvent."
             )
         )

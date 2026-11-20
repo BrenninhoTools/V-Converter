@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
+import com.vconvertercrew.vconverter.platform.File
 import com.vconvertercrew.vconverter.chart.preview.ChartWorkbench
 import com.vconvertercrew.vconverter.converterview.ConverterArt
 import com.vconvertercrew.vconverter.converterview.ConverterMenuSpec
@@ -95,6 +97,18 @@ fun FunkinConverterScreen(state: AppState) {
 fun FunkinModScreen(state: AppState) {
     val mod = state.mod()
     val art = remember { ConverterArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val bananaScope = androidx.compose.runtime.rememberCoroutineScope()
+    val banana = remember(state) {
+        com.vconvertercrew.vconverter.converterview.GameBananaState(
+            bananaScope,
+            { bytes -> runCatching { org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap() }.getOrNull() }
+        ) { _, file, progress ->
+        val bytes = com.vconvertercrew.vconverter.online.GameBanana.download(file) { done, total -> if (total > 0) progress(done.toFloat() / total) }
+        val target = File("/gamebanana/" + com.vconvertercrew.vconverter.online.GameBanana.safeFileName(file))
+        target.writeBytes(bytes)
+        state.openMod(target)
+    }
+    }
     val loaded = mod.mod
     val written = state.lastOutput
     val spec = ModMenuSpec(
@@ -132,5 +146,5 @@ fun FunkinModScreen(state: AppState) {
             MainMenu.list = "converter"
         }
     )
-    FunkinModMenu(spec, art, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
+    FunkinModMenu(spec, art, gameBanana = banana, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
 }

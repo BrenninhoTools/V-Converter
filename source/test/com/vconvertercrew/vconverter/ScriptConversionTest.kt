@@ -7,6 +7,7 @@ import com.vconvertercrew.vconverter.chart.psych.PsychChartParser
 import com.vconvertercrew.vconverter.script.HxImports
 import com.vconvertercrew.vconverter.script.LuaPattern
 import com.vconvertercrew.vconverter.script.LuaToHScript
+import com.vconvertercrew.vconverter.script.NativeScripts
 import com.vconvertercrew.vconverter.script.PsychHScriptWrapper
 import com.vconvertercrew.vconverter.script.ReflectCalls
 import com.vconvertercrew.vconverter.script.ScriptConverter
@@ -176,7 +177,11 @@ class ScriptConversionTest {
         assertTrue(file("MySongSong").contains("override public function onDestroy(event:ScriptEvent):Void"))
         assertTrue(!file("MySongSong").contains("onStateChangeBegin"))
         assertTrue(file("MySongExtraModule").contains("class MySongExtraModule extends Module"))
-        assertTrue(file("MySongExtraModule").contains("game.currentSong.id == \"my-song\""))
+        if (NativeScripts.available) {
+            assertTrue(file("MySongExtraModule").contains("super(\"my-song-extra-module\", 1100);"))
+        } else {
+            assertTrue(file("MySongExtraModule").contains("game.currentSong.id == \"my-song\""))
+        }
         val stage = file("PolusStage")
         assertTrue(stage.contains("class PolusStage extends Stage"))
         assertTrue(stage.contains("super(\"polus\");"))
@@ -187,7 +192,7 @@ class ScriptConversionTest {
         assertTrue(!kind.contains("onCountdownStart") && !kind.contains("onSongEvent"))
         assertEquals(mapOf("ghost-note" to "GhostNoteNoteKind"), bundle.noteKinds)
         assertTrue(file("BombNoteTypeModule").contains("extends Module"))
-        assertTrue(file("BombNoteTypeModule").contains("function songUsesNoteType"))
+        if (!NativeScripts.available) assertTrue(file("BombNoteTypeModule").contains("function songUsesNoteType"))
         assertTrue(file("hud").contains("class Hud extends Module"))
         assertTrue(bundle.files.none { it.content.contains("ModuleHandler.getModule(\"") })
         bundle.files.forEach { assertNoLua(it.content) }
@@ -246,8 +251,13 @@ class ScriptConversionTest {
         assertTrue(text.contains("return \"Flash Camera\";"))
         assertTrue(!text.contains("extends Module"))
         assertTrue(text.contains("override public function handleEvent(data:Dynamic):Void"))
-        assertTrue(text.contains("if (data.eventKind == \"FlashCamera\") return;"))
-        assertTrue(text.contains("[\"FlashCamera\", \"Flash Camera\"]"))
+        if (NativeScripts.available) {
+            assertTrue(text.contains("PlayState.instance.camGame.flash(0xFFFFFFFF, Std.parseFloat(v1), null, false);"))
+            assertTrue(!text.contains("psychCallback"))
+        } else {
+            assertTrue(text.contains("if (data.eventKind == \"FlashCamera\") return;"))
+            assertTrue(text.contains("[\"FlashCamera\", \"Flash Camera\"]"))
+        }
         assertEquals(1, Regex("^import funkin.play.event.SongEvent;", RegexOption.MULTILINE).findAll(text).count())
     }
 

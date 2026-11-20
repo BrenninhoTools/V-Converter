@@ -47,7 +47,11 @@ class LuaStageTest {
         val code = bundle.files.single().content
         assertFalse(code.contains("makeSprite(\"bar\""))
         assertFalse(code.contains("makeAnimatedSprite(\"sniper\""))
-        assertTrue(code.contains("playAnim(\"sniper\", \"sip\", true)"))
+        if (com.vconvertercrew.vconverter.script.NativeScripts.available) {
+            assertTrue(code.contains("getNamedProp(\"sniper\").animation.play(\"sip\", true"))
+        } else {
+            assertTrue(code.contains("playAnim(\"sniper\", \"sip\", true)"))
+        }
         assertFalse(code.contains("Reflect.callMethod(null"))
     }
 

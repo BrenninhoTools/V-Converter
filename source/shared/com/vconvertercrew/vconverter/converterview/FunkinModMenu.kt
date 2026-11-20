@@ -143,7 +143,7 @@ private fun fit(text: String): String = if (text.length <= MAX_LABEL) text else 
 private fun wrapIndex(index: Int, by: Int, size: Int): Int = if (size == 0) 0 else ((index + by) % size + size) % size
 
 @Composable
-fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Modifier, overlay: @Composable BoxScope.() -> Unit = {}) {
+fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Modifier, gameBanana: GameBananaState? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     val font = art.menu?.font
     val focus = remember { FocusRequester() }
     var selected by remember { mutableIntStateOf(0) }
@@ -162,6 +162,7 @@ fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Mod
     val items = buildList {
         spec.onOpenFolder?.let { add(ModItem("Open Mod Folder", "Pick the ${spec.source} mod's folder.", "face", !spec.busy, run = it)) }
         add(ModItem("Open Archive", "Pick a .zip, .rar or .7z. The mod can sit inside subfolders, it is found automatically.", "face", !spec.busy, run = spec.onOpenArchive))
+        gameBanana?.let { banana -> add(ModItem("GameBanana", "Browse Friday Night Funkin' mods on GameBanana; one click downloads a mod and opens it here.", "bf", !spec.busy, run = { banana.show() })) }
         if (spec.songs.isNotEmpty()) {
             val index = song.coerceIn(0, spec.songs.size - 1)
             add(ModItem(
@@ -196,7 +197,8 @@ fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Mod
     val live by rememberUpdatedState(items)
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    LaunchedEffect(infoOpen) { if (!infoOpen) runCatching { focus.requestFocus() } }
+    val bananaOpen = gameBanana?.open == true
+    LaunchedEffect(infoOpen, bananaOpen) { if (!infoOpen && !bananaOpen) runCatching { focus.requestFocus() } }
     LaunchedEffect(spec.modName) {
         song = 0
         section = 0
@@ -246,7 +248,7 @@ fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Mod
                 area[1] = it.height.toFloat()
             }
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || infoOpen) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown || infoOpen || bananaOpen) return@onKeyEvent false
                 when (event.key) {
                     Key.DirectionUp, Key.W -> move(-1)
                     Key.DirectionDown, Key.S -> move(1)
@@ -274,7 +276,7 @@ fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Mod
                     }
                 },
                 onBack = { leaving = true },
-                enabled = { !infoOpen }
+                enabled = { !infoOpen && gameBanana?.open != true }
             )
     ) {
         Canvas(Modifier.fillMaxSize()) {
@@ -410,5 +412,6 @@ fun FunkinModMenu(spec: ModMenuSpec, art: ConverterArt, modifier: Modifier = Mod
         if (infoOpen && menu != null) {
             FunkinOptionsMenu("Mod Info", ModMenus.options(spec.info), menu, onClose = { infoOpen = false })
         }
+        if (gameBanana != null && bananaOpen) GameBananaMenu(gameBanana, art)
     }
 }
