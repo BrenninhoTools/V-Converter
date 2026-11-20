@@ -191,11 +191,14 @@ sealed class MenuOption(val label: String, val hint: String) {
 
 class MenuArt(val font: AlphabetFont?, val background: ImageBitmap?, val back: BackButtonArt?) {
     companion object {
+        var last: MenuArt? = null
+            private set
+
         fun load(image: (String) -> ImageBitmap?, text: (String) -> String?): MenuArt = MenuArt(
             AlphabetFont.create(image(AlphabetFont.IMAGE), text(AlphabetFont.ATLAS)),
             image(AlphabetFont.BACKGROUND),
             BackButtonArt.load(SkinJson.backButton(text(SkinJson.BACK_BUTTON)), image, text)
-        )
+        ).also { last = it }
     }
 }
 

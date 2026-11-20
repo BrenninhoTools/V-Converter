@@ -360,6 +360,21 @@ fun EditorScreen(state: AppState) {
     )
     FunkinEditorShell(
         "Chart Editor", accent, menus, windows, panels, Modifier.fillMaxSize(), showMenuBar = false,
+        exportMenu = com.vconvertercrew.vconverter.editorview.ExportMenuSpec(
+            title = "Chart",
+            target = model.target,
+            onTarget = { t -> if (t != model.target) { model.target = t; model.changed(-2) } },
+            busy = model.busy,
+            canExport = true,
+            output = model.output,
+            status = model.status?.text,
+            statusError = model.status is Status.Error,
+            onExport = { model.export() },
+            onSaveZip = { model.save(true) { state.lastOutput = it } },
+            onSaveFolder = null,
+            zipLabel = "Download Zip",
+            onPlayTest = { state.playTestChart(editor.document, model.audio) }
+        ),
         footer = {
             val status = model.status
             if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }

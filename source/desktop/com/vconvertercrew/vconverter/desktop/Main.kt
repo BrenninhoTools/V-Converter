@@ -89,6 +89,7 @@ fun main() {
                     MainMenuOverlay(state)
                     OptionsOverlay()
                     com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
+                    com.vconvertercrew.vconverter.overlay.FpsOverlay()
                     DiscordStatus(state)
                     UiSounds()
                     MenuMusic(suppressed = windowState.isMinimized || state.editor.editor.playing)

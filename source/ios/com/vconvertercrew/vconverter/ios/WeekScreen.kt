@@ -296,6 +296,21 @@ fun WeekEditorScreen(state: AppState) {
     )
     FunkinEditorShell(
         "Week Editor", accent, menus, windows, panels, Modifier.fillMaxSize(),
+        exportMenu = com.vconvertercrew.vconverter.editorview.ExportMenuSpec(
+            title = "Week",
+            target = model.target,
+            onTarget = { t -> if (t != model.target) { model.target = t; model.changed(-2) } },
+            busy = model.busy,
+            canExport = editor.document.songs.isNotEmpty(),
+            output = model.output,
+            status = model.status?.text,
+            statusError = model.status is Status.Error,
+            onExport = { model.export() },
+            onSaveZip = { model.save(true) { state.lastOutput = it } },
+            onSaveFolder = { model.save(false) { state.lastOutput = it } },
+            zipLabel = "Save As Zip",
+            onPlayTest = null
+        ),
         footer = {
             val status = model.status
             if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(10.dp).widthIn(max = 560.dp)) { StatusBanner(status) }

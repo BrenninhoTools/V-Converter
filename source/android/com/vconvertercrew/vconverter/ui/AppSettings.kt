@@ -110,6 +110,7 @@ class AppSettings(context: Context) {
 
     init {
         com.vconvertercrew.vconverter.overlay.TouchOptions.load { prefs.getString(it, null) }
+        com.vconvertercrew.vconverter.overlay.FpsDisplay.load(fpsCounter) { prefs.getString(it, null) }
         com.vconvertercrew.vconverter.vslice.VSlicePreview.enabled = vslicePreview
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
@@ -172,7 +173,7 @@ fun OptionsDialog(settings: AppSettings, onDismiss: () -> Unit) {
         androidx.activity.compose.BackHandler { backPresses++ }
         val links = androidx.compose.ui.platform.LocalUriHandler.current
         val preferences = listOf(
-            MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { settings.fpsCounter }, settings::updateFpsCounter),
+            com.vconvertercrew.vconverter.overlay.FpsDisplay.submenu(settings::saveString) { settings.updateFpsCounter(it) },
             MenuOption.Toggle("Touch Cursor", "Shows the cursor where you touch the screen.", { settings.touchCursor }, settings::updateTouchCursor),
             MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you tap tabs and buttons.", { settings.uiSounds }, settings::updateUiSounds),
             MenuOption.Toggle("Menu Music", "Plays freakyMenu while you work. It pauses while the Chart Editor plays a song.", { settings.menuMusic }, settings::updateMenuMusic),

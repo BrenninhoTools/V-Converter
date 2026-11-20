@@ -359,7 +359,24 @@ fun ChartEditorScreen(viewModel: ChartEditorViewModel, modFolderName: String?, o
         },
         EditorWindow("help", "Controls") { EditorHelpText("Tap the lanes to place notes and tap a note to select it. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
     )
-    FunkinEditorShell(title = "Chart Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize(), showMenuBar = false) {
+    val exportZip = com.vconvertercrew.vconverter.ui.components.rememberDownloader(viewModel)
+    val exportSpec = com.vconvertercrew.vconverter.editorview.ExportMenuSpec(
+        title = "Chart",
+        target = viewModel.target,
+        onTarget = viewModel::selectTarget,
+        busy = busy,
+        canExport = true,
+        output = viewModel.output,
+        status = viewModel.status?.text,
+        statusError = viewModel.status is com.vconvertercrew.vconverter.ui.StatusMessage.Error,
+        onExport = viewModel::export,
+        onSaveZip = exportZip,
+        onSaveFolder = onSave,
+        zipLabel = "Download Zip",
+        folderLabel = if (modFolderName != null) "Save Into Mod" else "Save To Mod Folder",
+        onPlayTest = launcher?.let { l -> { l.chart(editor.document, viewModel.audio) } }
+    )
+    FunkinEditorShell(title = "Chart Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize(), exportMenu = exportSpec, showMenuBar = false) {
         val iconContext = LocalContext.current
         val healthIcons = remember { com.vconvertercrew.vconverter.overlay.HealthIcons { path -> iconContext.assets.open(path).use { BitmapFactory.decodeStream(it) }?.asImageBitmap() } }
         FnfChartEditor(

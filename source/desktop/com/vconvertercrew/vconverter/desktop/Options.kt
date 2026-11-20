@@ -123,6 +123,7 @@ object AppSettings {
         com.vconvertercrew.vconverter.online.Online.serverUrl = serverUrl
         com.vconvertercrew.vconverter.online.Online.reportsEnabled = errorReports
         com.vconvertercrew.vconverter.overlay.TouchOptions.load(com.vconvertercrew.vtouch.VTouchMode.OFF) { key -> prefs?.get(key, "")?.takeIf { it.isNotEmpty() } }
+        com.vconvertercrew.vconverter.overlay.FpsDisplay.load(fpsCounter) { key -> prefs?.get(key, "")?.takeIf { it.isNotEmpty() } }
         com.vconvertercrew.vconverter.overlay.DiscordAccount.setup(
             prefs?.get("discordProfile", "") ?: "",
             store = { value -> runCatching { prefs?.put("discordProfile", value) } },
@@ -246,7 +247,7 @@ fun OptionsOverlay() {
     val art = remember { MenuArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
     val links = LocalUriHandler.current
     val preferences = listOf(
-        MenuOption.Toggle("FPS Counter", "Shows \"FPS:\" in the top-right corner.", { AppSettings.fpsCounter }, AppSettings::updateFpsCounter),
+        com.vconvertercrew.vconverter.overlay.FpsDisplay.submenu(AppSettings::saveString) { AppSettings.updateFpsCounter(it) },
         MenuOption.Toggle("UI Sounds", "Plays scrollMenu when you click tabs and buttons.", { AppSettings.uiSounds }, AppSettings::updateUiSounds),
         MenuOption.Toggle("Menu Music", "Plays freakyMenu while you work. It pauses while an editor plays a song.", { AppSettings.menuMusic }, AppSettings::updateMenuMusic),
         MenuOption.Stepper("Music Volume", "Left and right (or Enter) change the menu music volume.", { "${(AppSettings.musicVolume * 100).roundToInt()}%" }) { step ->

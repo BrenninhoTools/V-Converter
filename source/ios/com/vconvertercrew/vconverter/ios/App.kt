@@ -256,10 +256,6 @@ private fun Content(state: AppState) {
             Spacer(Modifier.height(8.dp))
         }
         Row(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (AppSettings.fpsCounter) {
-                FpsCounter()
-                Spacer(Modifier.width(10.dp))
-            }
             OptionsButton()
         }
     }

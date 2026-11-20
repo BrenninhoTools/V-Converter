@@ -112,6 +112,7 @@ fun FunkinEditorShell(
     modifier: Modifier = Modifier,
     footer: @Composable BoxScope.() -> Unit = {},
     showMenuBar: Boolean = true,
+    exportMenu: ExportMenuSpec? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val windowMenu = EditorMenu(
@@ -132,13 +133,19 @@ fun FunkinEditorShell(
             val areaWidth = constraints.maxWidth.toFloat()
             val areaHeight = constraints.maxHeight.toFloat()
             windows.order.forEachIndexed { index, id ->
+                if (exportMenu != null && id == EXPORT_WINDOW) return@forEachIndexed
                 val panel = panels.firstOrNull { it.id == id } ?: return@forEachIndexed
                 key(id) { ToolboxWindow(panel, windows, areaWidth, areaHeight, panels.indexOf(panel), accent) }
             }
             footer()
+            if (exportMenu != null && windows.isOpen(EXPORT_WINDOW)) {
+                FunkinExportMenu(exportMenu, onClose = { windows.close(EXPORT_WINDOW) })
+            }
         }
     }
 }
+
+const val EXPORT_WINDOW = "export"
 
 @Composable
 private fun EditorMenuBar(title: String, accent: Color, menus: List<EditorMenu>) {

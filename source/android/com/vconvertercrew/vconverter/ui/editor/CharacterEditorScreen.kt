@@ -280,7 +280,24 @@ fun CharacterEditorScreen(viewModel: CharacterEditorViewModel, modFolderName: St
         },
         EditorWindow("help", "Controls") { EditorHelpText("Drag the character to move the offset of the animation shown. Use the menus at the top: File opens, creates and exports, Edit undoes and changes the selection, View changes what you see, and Window shows or hides these boxes. Drag a box by its title to move it.") }
     )
-    FunkinEditorShell(title = "Character Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize()) {
+    val exportZip = com.vconvertercrew.vconverter.ui.components.rememberDownloader(viewModel)
+    val exportSpec = com.vconvertercrew.vconverter.editorview.ExportMenuSpec(
+        title = "Character",
+        target = viewModel.target,
+        onTarget = viewModel::selectTarget,
+        busy = busy,
+        canExport = editor.document.animations.isNotEmpty(),
+        output = viewModel.output,
+        status = viewModel.status?.text,
+        statusError = viewModel.status is com.vconvertercrew.vconverter.ui.StatusMessage.Error,
+        onExport = viewModel::export,
+        onSaveZip = exportZip,
+        onSaveFolder = onSave,
+        zipLabel = "Download Zip",
+        folderLabel = if (modFolderName != null) "Save Into Mod" else "Save To Mod Folder",
+        onPlayTest = null
+    )
+    FunkinEditorShell(title = "Character Editor", accent = accent, menus = menus, windows = windows, panels = panels, modifier = Modifier.fillMaxSize(), exportMenu = exportSpec) {
         CharacterEditorStage(editor, stage)
     }
 }

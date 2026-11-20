@@ -46,6 +46,7 @@ fun MainViewController(): UIViewController {
                 MainMenuOverlay(state)
                 OptionsOverlay()
                 com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
+                com.vconvertercrew.vconverter.overlay.FpsOverlay()
             }
             UiSounds()
             MenuMusic(suppressed = state.editor.editor.playing)

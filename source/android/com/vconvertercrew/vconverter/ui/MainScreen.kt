@@ -696,16 +696,10 @@ fun MainScreen() {
                 }
             }
             }
-            if (settings.fpsCounter) {
-                FpsCounter(
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = padding.calculateTopPadding() + 4.dp, end = 12.dp)
-                )
-            }
             }
         }
         com.vconvertercrew.vconverter.overlay.FunkinTransitionOverlay()
+        com.vconvertercrew.vconverter.overlay.FpsOverlay(Modifier.displayCutoutPadding())
         if (settings.touchCursor) TouchCursorOverlay(touchCursor, cursorImage, Modifier.fillMaxSize())
     }
     }
