@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.vconvertercrew.vconverter.R
 import com.vconvertercrew.vconverter.io.Downloads
 import com.vconvertercrew.vconverter.launcher.FunkinApp
+import com.vconvertercrew.vconverter.launcher.FunkinFolder
 import com.vconvertercrew.vconverter.launcher.FunkinOpen
 import com.vconvertercrew.vconverter.ui.BaseConverterViewModel
 import com.vconvertercrew.vconverter.ui.theme.Funkin
@@ -162,49 +163,58 @@ fun DownloadCard(viewModel: BaseConverterViewModel, accent: Color) {
                     OutlineButton("Downloads", Funkin.Up, viewModel::openDownloads, Modifier.weight(1f), R.drawable.ic_folder)
                 }
             }
-            if (viewModel.vsliceOutput) FunkinTestPanel()
+            if (viewModel.vsliceOutput) FunkinTestPanel(viewModel)
+        }
+    }
+}
+
+private fun openFunkin(context: android.content.Context): String? = when (FunkinApp.open(context)) {
+    FunkinOpen.OPENED -> null
+    FunkinOpen.MISSING -> if (FunkinApp.openStore(context)) "Friday Night Funkin' isn't installed, so its store page was opened." else "Friday Night Funkin' isn't installed."
+    FunkinOpen.FAILED -> "Could not open Friday Night Funkin'."
+}
+
+@Composable
+fun rememberFunkinInstaller(viewModel: BaseConverterViewModel, onProblem: (String?) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val model by rememberUpdatedState(viewModel)
+    val report by rememberUpdatedState(onProblem)
+    val install = { tree: android.net.Uri ->
+        model.installToFunkin(tree, onInstalled = { report(openFunkin(context)) }, onFailed = { FunkinFolder.forget(context) })
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        if (tree != null) {
+            FunkinFolder.keep(context, tree)
+            install(tree)
+        }
+    }
+    return {
+        report(null)
+        if (!FunkinApp.installed(context)) {
+            report(openFunkin(context))
+        } else {
+            val saved = FunkinFolder.saved(context)
+            if (saved != null) {
+                install(saved)
+            } else {
+                android.widget.Toast.makeText(context, "Pick the FNF folder (or its mods folder) and tap \"Use this folder\".", android.widget.Toast.LENGTH_LONG).show()
+                runCatching { picker.launch(FunkinFolder.initialUri()) }.onFailure { report("No app can pick a folder on this device.") }
+            }
         }
     }
 }
 
 @Composable
-fun rememberFunkinTester(onProblem: (String?) -> Unit): () -> Unit {
-    val context = LocalContext.current
-    val report by rememberUpdatedState(onProblem)
-    return {
-        report(
-            when (FunkinApp.open(context)) {
-                FunkinOpen.OPENED -> null
-                FunkinOpen.MISSING -> if (FunkinApp.openStore(context)) "Friday Night Funkin' isn't installed, so its store page was opened." else "Friday Night Funkin' isn't installed."
-                FunkinOpen.FAILED -> "Could not open Friday Night Funkin'."
-            }
-        )
-    }
-}
-
-@Composable
-fun FunkinTestPanel() {
-    val context = LocalContext.current
-    var problem by remember { mutableStateOf<FunkinOpen?>(null) }
+fun FunkinTestPanel(viewModel: BaseConverterViewModel) {
+    var problem by remember { mutableStateOf<String?>(null) }
+    val test = rememberFunkinInstaller(viewModel) { problem = it }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Put the mod in the game's mods folder, then switch to Friday Night Funkin' to try it.",
+            "Installs the mod into Friday Night Funkin's mods folder and switches to the game. The first time, pick the FNF folder and tap \"Use this folder\".",
             style = MaterialTheme.typography.bodySmall,
             color = Funkin.Muted
         )
-        OutlineButton(
-            "Test In Friday Night Funkin'",
-            Funkin.Down,
-            { problem = FunkinApp.open(context).takeIf { it != FunkinOpen.OPENED } },
-            icon = R.drawable.ic_arrow_forward
-        )
-        when (problem) {
-            FunkinOpen.MISSING -> {
-                Text("Friday Night Funkin' isn't installed on this device.", style = MaterialTheme.typography.bodySmall, color = Funkin.Right)
-                OutlineButton("Get Friday Night Funkin'", Funkin.Up, { if (!FunkinApp.openStore(context)) problem = FunkinOpen.FAILED }, icon = R.drawable.ic_download)
-            }
-            FunkinOpen.FAILED -> Text("Could not open Friday Night Funkin'.", style = MaterialTheme.typography.bodySmall, color = Funkin.Right)
-            else -> Unit
-        }
+        OutlineButton("Test In Friday Night Funkin'", Funkin.Down, test, icon = R.drawable.ic_arrow_forward, enabled = !viewModel.busy)
+        problem?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Funkin.Right) }
     }
 }

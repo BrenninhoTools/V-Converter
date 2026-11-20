@@ -24,7 +24,7 @@ import com.vconvertercrew.vconverter.ui.characters.CharactersViewModel
 import com.vconvertercrew.vconverter.ui.charts.ChartsViewModel
 import com.vconvertercrew.vconverter.ui.charts.FunkinStripColors
 import com.vconvertercrew.vconverter.ui.components.rememberDownloader
-import com.vconvertercrew.vconverter.ui.components.rememberFunkinTester
+import com.vconvertercrew.vconverter.ui.components.rememberFunkinInstaller
 import com.vconvertercrew.vconverter.ui.playtest.LocalPlayTest
 import com.vconvertercrew.vconverter.ui.reverse.ReverseViewModel
 
@@ -56,7 +56,7 @@ private class GameTest(val action: (() -> Unit)?, val problem: String?)
 @Composable
 private fun rememberGameTest(viewModel: BaseConverterViewModel): GameTest {
     var problem by remember { mutableStateOf<String?>(null) }
-    val open = rememberFunkinTester { problem = it }
+    val open = rememberFunkinInstaller(viewModel) { problem = it }
     LaunchedEffect(viewModel.download, viewModel.output) { problem = null }
     return GameTest(if (viewModel.vsliceOutput && viewModel.download != null) open else null, problem)
 }

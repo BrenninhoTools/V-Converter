@@ -1,6 +1,8 @@
 package com.vconvertercrew.vconverter
 
 import com.vconvertercrew.vconverter.launcher.FunkinGame
+import com.vconvertercrew.vconverter.launcher.FunkinModWriter
+import com.vconvertercrew.vconverter.mod.ModWriter
 import com.vconvertercrew.vconverter.launcher.NativeLauncher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -102,5 +104,35 @@ class FunkinGameTest {
         } finally {
             dir.deleteRecursively()
         }
+    }
+
+    private class Recorder : ModWriter {
+        val files = LinkedHashMap<String, String>()
+        override fun writeText(path: String, text: String) {
+            files[path] = text
+        }
+        override fun copy(path: String, source: () -> java.io.InputStream) {
+            files[path] = source().use { String(it.readBytes()) }
+        }
+    }
+
+    @Test
+    fun modWriterPrefixesAndAddsMetadata() {
+        val recorder = Recorder()
+        val writer = FunkinModWriter(recorder, FunkinModWriter.prefix("My \"Mod\"", false))
+        writer.writeText("/data/songs/a/a-chart.json", "{}")
+        writer.copy("images/a.png") { "png".byteInputStream() }
+        writer.finish("My \"Mod\"")
+        assertEquals(3, writer.count)
+        assertEquals(listOf("mods/My \"Mod\"/data/songs/a/a-chart.json", "mods/My \"Mod\"/images/a.png", "mods/My \"Mod\"/_polymod_meta.json"), recorder.files.keys.toList())
+        val meta = com.vconvertercrew.vconverter.json.JSONObject(recorder.files.getValue("mods/My \"Mod\"/_polymod_meta.json"))
+        assertEquals("My \"Mod\"", meta.getString("title"))
+        assertEquals(com.vconvertercrew.vconverter.mod.ModConverter.API_VERSION, meta.getString("api_version"))
+
+        val inside = Recorder()
+        val second = FunkinModWriter(inside, FunkinModWriter.prefix("X", true))
+        second.writeText("_polymod_meta.json", "{\"title\":\"Mine\"}")
+        second.finish("X")
+        assertEquals(mapOf("X/_polymod_meta.json" to "{\"title\":\"Mine\"}"), inside.files)
     }
 }

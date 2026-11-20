@@ -104,6 +104,30 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
         }
     }
 
+    open fun funkinModName(): String =
+        ZipModWriter.folderName(zipPrefix().ifBlank { downloadName().removeSuffix(".zip") })
+
+    fun installToFunkin(tree: Uri, onInstalled: () -> Unit, onFailed: () -> Unit) {
+        if (!canDownload) return
+        val name = funkinModName()
+        runTask {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val inside = com.vconvertercrew.vconverter.launcher.FunkinFolder.insideMods(context, tree)
+                    val writer = com.vconvertercrew.vconverter.launcher.FunkinModWriter(com.vconvertercrew.vconverter.io.TreeModWriter(context, tree), com.vconvertercrew.vconverter.launcher.FunkinModWriter.prefix(name, inside))
+                    VSlicePreview.write(writer, vsliceOutput && !wholeMod) { writeDownload(it) }
+                    writer.finish(name)
+                    writer.count
+                }
+                status = StatusMessage.Success("Installed $count file(s) into Friday Night Funkin' (mods/$name). Turn it on in the game's Mods menu.")
+                onInstalled()
+            } catch (e: Exception) {
+                status = failureMessage(e, "Could not write into Friday Night Funkin's mods folder.")
+                if (e !is ModCancelledException) onFailed()
+            }
+        }
+    }
+
     fun shareDownload() {
         val file = download ?: return
         runCatching { Downloads.share(context, file) }
