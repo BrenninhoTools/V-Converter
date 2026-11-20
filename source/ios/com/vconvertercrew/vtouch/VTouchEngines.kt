@@ -27,7 +27,7 @@ import vtouch.vtouch_version
 class NativeTouchEngine private constructor(private var handle: COpaquePointer?) : VTouchEngine {
     private val event = FloatArray(6)
 
-    private val engine: CPointer<vtouch.VTouchEngine>? get() = handle?.reinterpret()
+    private val engine: CPointer<cnames.structs.VTouchEngine>? get() = handle?.reinterpret()
 
     override val native: Boolean get() = true
     override val pointerCount: Int get() = engine?.let { vtouch_pointer_count(it) } ?: 0

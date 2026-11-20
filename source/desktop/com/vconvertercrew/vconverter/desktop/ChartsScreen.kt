@@ -47,7 +47,7 @@ import com.vconvertercrew.vconverter.chartview.ChartStripColors
 import com.vconvertercrew.vconverter.chartview.formatBpm
 import com.vconvertercrew.vconverter.chartview.formatDuration
 
-private val StripColors = ChartStripColors(
+internal val StripColors = ChartStripColors(
     background = Palette.Ink,
     lane = Palette.SurfaceHigh.copy(alpha = 0.55f),
     grid = Palette.Outline,

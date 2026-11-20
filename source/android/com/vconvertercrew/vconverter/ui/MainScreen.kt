@@ -571,6 +571,37 @@ fun MainScreen() {
                 backRequests = onlineBack,
                 overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp)) }
             )
+        } else if (section == Section.CONVERTER && (converterTab == Tab.CHARTS || converterTab == Tab.CHARACTERS) &&
+            direction in listOf(Direction.PSYCH_TO_VSLICE, Direction.VSLICE_TO_PSYCH, Direction.CODENAME_TO_VSLICE, Direction.CODENAME_TO_PSYCH, Direction.PSYCH_TO_CODENAME)
+        ) {
+            val converterBack = { menuScreen = MENU_CONVERTER }
+            val label = "${direction.from.title} to ${direction.to.title}"
+            val badge: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {
+                DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp))
+            }
+            Box(Modifier.fillMaxSize()) {
+                if (converterTab == Tab.CHARTS) {
+                    val chartsModel = when (direction) {
+                        Direction.VSLICE_TO_PSYCH -> revCharts
+                        Direction.CODENAME_TO_VSLICE -> cnCharts
+                        Direction.CODENAME_TO_PSYCH -> c2pCharts
+                        Direction.PSYCH_TO_CODENAME -> p2cCharts
+                        else -> charts
+                    }
+                    com.vconvertercrew.vconverter.ui.converter.FunkinChartsConverter(chartsModel, label, Funkin.Down, folderName, save, converterBack, badge)
+                } else when (direction) {
+                    Direction.PSYCH_TO_VSLICE -> com.vconvertercrew.vconverter.ui.converter.FunkinCharactersConverter(characters, label, Funkin.Left, folderName, save, converterBack, badge)
+                    else -> com.vconvertercrew.vconverter.ui.converter.FunkinFilesConverter(
+                        when (direction) {
+                            Direction.VSLICE_TO_PSYCH -> revCharacters
+                            Direction.CODENAME_TO_VSLICE -> cnCharacters
+                            Direction.CODENAME_TO_PSYCH -> c2pCharacters
+                            else -> p2cCharacters
+                        },
+                        "Characters", label, Funkin.Left, folderName, save, converterBack, badge
+                    )
+                }
+            }
         } else if (section == Section.GENERATOR && generatorTab == GenTab.XML) {
             val xmlEditor: com.vconvertercrew.vconverter.ui.editor.XmlEditorViewModel = viewModel()
             Box(Modifier.fillMaxSize()) {
