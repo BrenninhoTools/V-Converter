@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,6 +19,10 @@ import com.vconvertercrew.vconverter.converterview.ConverterMenuSpec
 import com.vconvertercrew.vconverter.converterview.ConverterMenus
 import com.vconvertercrew.vconverter.converterview.ConverterRow
 import com.vconvertercrew.vconverter.converterview.FunkinConverterMenu
+import com.vconvertercrew.vconverter.converterview.FunkinModMenu
+import com.vconvertercrew.vconverter.converterview.ModMenuInfo
+import com.vconvertercrew.vconverter.converterview.ModMenuSpec
+import com.vconvertercrew.vconverter.converterview.ModMenus
 import com.vconvertercrew.vconverter.ui.BaseConverterViewModel
 import com.vconvertercrew.vconverter.ui.StatusMessage
 import com.vconvertercrew.vconverter.ui.characters.CharactersViewModel
@@ -225,4 +230,170 @@ fun FunkinCharactersConverter(
         onBack = onBack
     )
     FunkinConverterMenu(spec, art, FunkinStripColors, overlay = overlay)
+}
+
+private class ModSummary(val name: String, val root: String, val stats: List<Pair<String, Int>>, val songs: List<String>, val placeholders: Map<String, String>)
+
+@Composable
+private fun FunkinModConverterMenu(
+    viewModel: BaseConverterViewModel,
+    summary: ModSummary?,
+    source: String,
+    target: String,
+    accent: Color,
+    title: String,
+    description: String,
+    author: String,
+    onTitle: (String) -> Unit,
+    onDescription: (String) -> Unit,
+    onAuthor: (String) -> Unit,
+    report: com.vconvertercrew.vconverter.core.Report?,
+    progress: com.vconvertercrew.vconverter.mod.ModProgress?,
+    openFolder: (android.net.Uri) -> Unit,
+    openArchive: (android.net.Uri) -> Unit,
+    clear: () -> Unit,
+    modFolderName: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    overlay: @Composable BoxScope.() -> Unit
+) {
+    val art = rememberConverterArt()
+    val zip = rememberDownloader(viewModel)
+    val (text, error) = status(viewModel)
+    val game = rememberGameTest(viewModel)
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) openFolder(uri) }
+    val archivePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) openArchive(uri) }
+    val spec = ModMenuSpec(
+        source = source,
+        target = target,
+        accent = accent,
+        modName = summary?.name,
+        modRoot = summary?.root,
+        stats = summary?.stats.orEmpty(),
+        songs = summary?.songs.orEmpty(),
+        warnings = summary?.placeholders?.takeIf { it.isNotEmpty() }?.let { listOf("${it.size} empty placeholder folder(s) left out: ${it.keys.joinToString { key -> "$key/" }}") }.orEmpty(),
+        info = ModMenuInfo(title, description, author, onTitle, onDescription, onAuthor, ModMenus.infoNote(target)),
+        busy = viewModel.busy,
+        progress = progress,
+        onCancel = if (viewModel.cancellable) ({ viewModel.cancelConversion() }) else null,
+        cancelling = viewModel.cancelling,
+        status = game.problem ?: text,
+        statusError = game.problem != null || error,
+        report = report,
+        onOpenFolder = { runCatching { folderPicker.launch(null) } },
+        onOpenArchive = { runCatching { archivePicker.launch(arrayOf("*/*")) } },
+        onClear = clear,
+        onInstall = onSave,
+        onSaveZip = zip,
+        installLabel = if (modFolderName != null) "Convert Into Mod" else "Convert Into Folder",
+        zipLabel = "Download Zip",
+        onTestGame = game.action,
+        onBack = onBack
+    )
+    FunkinModMenu(spec, art, overlay = overlay)
+}
+
+@Composable
+fun FunkinPsychModConverter(
+    viewModel: com.vconvertercrew.vconverter.ui.mod.ModViewModel,
+    source: String,
+    target: String,
+    accent: Color,
+    modFolderName: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    overlay: @Composable BoxScope.() -> Unit = {}
+) {
+    val progress by viewModel.progress.collectAsState()
+    val loaded = viewModel.mod
+    val summary = loaded?.let { mod ->
+        val scan = mod.scan
+        ModSummary(
+            mod.sourceName,
+            scan.root,
+            listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Weeks" to scan.weeks.size, "Assets" to scan.assets.size, "Scripts" to scan.scripts.size),
+            scan.songs.map { song -> song.id + if (song.charts.isNotEmpty()) " (${song.charts.keys.joinToString("/")})" else "" },
+            scan.placeholders
+        )
+    }
+    FunkinModConverterMenu(
+        viewModel, summary, source, target, accent,
+        viewModel.title, viewModel.description, viewModel.author,
+        { viewModel.title = it }, { viewModel.description = it }, { viewModel.author = it },
+        viewModel.result, progress,
+        viewModel::openFolder, viewModel::openArchive, viewModel::clear,
+        modFolderName, onSave, onBack, overlay
+    )
+}
+
+@Composable
+fun FunkinCodenameModConverter(
+    viewModel: com.vconvertercrew.vconverter.ui.codename.CodenameModViewModel,
+    source: String,
+    target: String,
+    accent: Color,
+    modFolderName: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    overlay: @Composable BoxScope.() -> Unit = {}
+) {
+    val progress by viewModel.progress.collectAsState()
+    val loaded = viewModel.mod
+    val summary = loaded?.let { mod ->
+        val scan = mod.scan
+        ModSummary(
+            mod.sourceName,
+            scan.root,
+            listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Weeks" to scan.weeks.size, "Assets" to scan.assets.size, "Scripts" to scan.scriptCount),
+            scan.songs.map { song ->
+                val difficulties = (song.charts[""]?.keys ?: emptySet()).joinToString("/")
+                song.id + (if (difficulties.isNotEmpty()) " ($difficulties)" else "") + if (song.variants.isNotEmpty()) " +" + song.variants.joinToString("/") else ""
+            },
+            scan.placeholders
+        )
+    }
+    FunkinModConverterMenu(
+        viewModel, summary, source, target, accent,
+        viewModel.title, viewModel.description, viewModel.author,
+        { viewModel.title = it }, { viewModel.description = it }, { viewModel.author = it },
+        viewModel.result, progress,
+        viewModel::openFolder, viewModel::openArchive, viewModel::clear,
+        modFolderName, onSave, onBack, overlay
+    )
+}
+
+@Composable
+fun FunkinVSliceModConverter(
+    viewModel: com.vconvertercrew.vconverter.ui.reverse.ReverseModViewModel,
+    source: String,
+    target: String,
+    accent: Color,
+    modFolderName: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    overlay: @Composable BoxScope.() -> Unit = {}
+) {
+    val progress by viewModel.progress.collectAsState()
+    val loaded = viewModel.mod
+    val summary = loaded?.let { mod ->
+        val scan = mod.scan
+        ModSummary(
+            mod.sourceName,
+            scan.root,
+            listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Levels" to scan.levels.size, "Assets" to scan.assets.size, "Scripts" to scan.scripts.size),
+            scan.songs.map { song ->
+                val difficulties = song.charts.keys.filter { it.isNotEmpty() }
+                song.id + if (difficulties.isNotEmpty()) " (${difficulties.joinToString("/")})" else ""
+            },
+            scan.placeholders
+        )
+    }
+    FunkinModConverterMenu(
+        viewModel, summary, source, target, accent,
+        viewModel.title, viewModel.description, viewModel.author,
+        { viewModel.title = it }, { viewModel.description = it }, { viewModel.author = it },
+        viewModel.result, progress,
+        viewModel::openFolder, viewModel::openArchive, viewModel::clear,
+        modFolderName, onSave, onBack, overlay
+    )
 }

@@ -571,7 +571,7 @@ fun MainScreen() {
                 backRequests = onlineBack,
                 overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp)) }
             )
-        } else if (section == Section.CONVERTER && (converterTab == Tab.CHARTS || converterTab == Tab.CHARACTERS) &&
+        } else if (section == Section.CONVERTER && (converterTab == Tab.MOD || converterTab == Tab.CHARTS || converterTab == Tab.CHARACTERS) &&
             direction in listOf(Direction.PSYCH_TO_VSLICE, Direction.VSLICE_TO_PSYCH, Direction.CODENAME_TO_VSLICE, Direction.CODENAME_TO_PSYCH, Direction.PSYCH_TO_CODENAME)
         ) {
             val converterBack = { menuScreen = MENU_CONVERTER }
@@ -580,7 +580,17 @@ fun MainScreen() {
                 DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp))
             }
             Box(Modifier.fillMaxSize()) {
-                if (converterTab == Tab.CHARTS) {
+                if (converterTab == Tab.MOD) {
+                    val from = direction.from.title
+                    val to = direction.to.title
+                    when (direction) {
+                        Direction.PSYCH_TO_VSLICE -> com.vconvertercrew.vconverter.ui.converter.FunkinPsychModConverter(mod, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        Direction.PSYCH_TO_CODENAME -> com.vconvertercrew.vconverter.ui.converter.FunkinPsychModConverter(p2cMod, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        Direction.CODENAME_TO_VSLICE -> com.vconvertercrew.vconverter.ui.converter.FunkinCodenameModConverter(cnMod, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        Direction.CODENAME_TO_PSYCH -> com.vconvertercrew.vconverter.ui.converter.FunkinCodenameModConverter(c2pMod, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        else -> com.vconvertercrew.vconverter.ui.converter.FunkinVSliceModConverter(revMod, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                    }
+                } else if (converterTab == Tab.CHARTS) {
                     val chartsModel = when (direction) {
                         Direction.VSLICE_TO_PSYCH -> revCharts
                         Direction.CODENAME_TO_VSLICE -> cnCharts

@@ -12,12 +12,20 @@ import com.vconvertercrew.vconverter.converterview.ConverterMenuSpec
 import com.vconvertercrew.vconverter.converterview.ConverterMenus
 import com.vconvertercrew.vconverter.converterview.ConverterRow
 import com.vconvertercrew.vconverter.converterview.FunkinConverterMenu
+import com.vconvertercrew.vconverter.converterview.FunkinModMenu
+import com.vconvertercrew.vconverter.converterview.ModMenuInfo
+import com.vconvertercrew.vconverter.converterview.ModMenuSpec
+import com.vconvertercrew.vconverter.converterview.ModMenus
 import com.vconvertercrew.vconverter.overlay.DiscordBadge
 
-fun usesFunkinConverter(state: AppState): Boolean = state.tool == null && (state.tab == Tab.CHARTS || state.tab == Tab.CHARACTERS)
+fun usesFunkinConverter(state: AppState): Boolean = state.tool == null && (state.tab == Tab.MOD || state.tab == Tab.CHARTS || state.tab == Tab.CHARACTERS)
 
 @Composable
 fun FunkinConverterScreen(state: AppState) {
+    if (state.tab == Tab.MOD) {
+        FunkinModScreen(state)
+        return
+    }
     val files = state.files()
     val art = remember { ConverterArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
     val charts = files.isCharts
@@ -84,4 +92,50 @@ fun FunkinConverterScreen(state: AppState) {
         }
     )
     FunkinConverterMenu(spec, art, StripColors, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
+}
+
+@Composable
+fun FunkinModScreen(state: AppState) {
+    val mod = state.mod()
+    val art = remember { ConverterArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val loaded = mod.mod
+    val written = state.lastOutput
+    val spec = ModMenuSpec(
+        source = state.direction.from.title,
+        target = state.direction.to.title,
+        accent = Tab.MOD.accent,
+        modName = loaded?.name,
+        modRoot = loaded?.root,
+        stats = loaded?.stats.orEmpty(),
+        songs = loaded?.songs.orEmpty(),
+        warnings = emptyList(),
+        info = ModMenuInfo(mod.title, mod.description, mod.author, { mod.title = it }, { mod.description = it }, { mod.author = it }, ModMenus.infoNote(state.direction.to.title)),
+        busy = mod.busy,
+        progress = mod.progress,
+        onCancel = if (mod.cancel != null) ({ mod.cancelConversion() }) else null,
+        cancelling = mod.cancelling,
+        status = mod.status?.text,
+        statusError = mod.status is Status.Error,
+        report = mod.report,
+        onOpenFolder = { Dialogs.chooseFolder("Open a ${state.direction.from.title} mod folder")?.let { state.openMod(it) } },
+        onOpenArchive = { Dialogs.openFile("Open a mod archive", setOf("zip", "rar", "7z"))?.let { state.openMod(it) } },
+        onClear = { mod.clear() },
+        onInstall = { state.convertMod(zip = false) },
+        onSaveZip = { state.convertMod(zip = true) },
+        zipLabel = "Save As Zip",
+        onPlayTest = if (mod.report != null && written != null && written.exists()) {
+            {
+                state.playtest.open(listOf(written))
+                state.tool = EditorTool.PLAYTEST
+            }
+        } else null,
+        onTestGame = if (mod.report != null && state.lastMod != null && state.direction.to == Engine.VSLICE) {
+            { state.testInFunkin { mod.status = it } }
+        } else null,
+        onBack = {
+            MainMenu.open = true
+            MainMenu.list = "converter"
+        }
+    )
+    FunkinModMenu(spec, art, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
 }
