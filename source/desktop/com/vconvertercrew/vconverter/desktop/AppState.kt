@@ -12,6 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.vconvertercrew.vconverter.launcher.FunkinGame
+import com.vconvertercrew.vconverter.launcher.FunkinInstall
+import com.vconvertercrew.vconverter.launcher.FunkinLaunchException
+import com.vconvertercrew.vconverter.launcher.NativeLauncher
 
 enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphics.Color, val hint: String) {
     CHART(
@@ -48,6 +52,7 @@ class AppState(private val scope: CoroutineScope) {
     var direction by mutableStateOf(Direction.PSYCH_TO_VSLICE)
     var tab by mutableStateOf(Tab.MOD)
     var lastOutput by mutableStateOf<File?>(null)
+    var lastMod by mutableStateOf<File?>(null)
     var tool by mutableStateOf<EditorTool?>(null)
     val editor = DesktopEditor(scope)
     val characterEditor = DesktopCharacterEditor(scope)
@@ -147,6 +152,7 @@ class AppState(private val scope: CoroutineScope) {
                 state.report = result.report
                 state.status = Status.Success("Done! Wrote ${result.filesWritten} files to ${target.absolutePath}")
                 lastOutput = target
+                lastMod = if (state.direction.to == Engine.VSLICE) target else null
             } catch (e: Exception) {
                 if (zip) target.delete()
                 state.status = if (e is ModCancelledException) Status.Info(if (zip) "Conversion cancelled. The zip was removed." else "Conversion cancelled. Files written before cancelling were kept in ${target.absolutePath}.") else Status.Error(e.message ?: "The conversion stopped.")
@@ -206,10 +212,42 @@ class AppState(private val scope: CoroutineScope) {
                 }
                 state.status = Status.Success("Saved ${output.files.size} file(s) to ${target.absolutePath}")
                 lastOutput = target
+                lastMod = if (direction.to == Engine.VSLICE) target else null
             } catch (e: Exception) {
                 state.status = Status.Error(e.message ?: "Could not save the files.")
             } finally {
                 state.busy = false
+            }
+        }
+    }
+
+    private fun savedGame(): FunkinInstall? =
+        AppSettings.funkinPath.takeIf { it.isNotEmpty() }?.let { path -> runCatching { FunkinGame.resolve(File(path)) }.getOrNull() }
+
+    fun testInFunkin(report: (Status) -> Unit) {
+        val output = lastMod ?: return
+        if (!FunkinGame.available) {
+            report(Status.Error("V-Launcher could not be loaded: ${NativeLauncher.loadError ?: "unknown error"}."))
+            return
+        }
+        scope.launch {
+            try {
+                var game = withContext(Dispatchers.IO) { savedGame() ?: FunkinGame.search() }
+                if (game == null) {
+                    report(Status.Info("Friday Night Funkin' wasn't found. Pick the folder it's in."))
+                    val picked = Dialogs.chooseFolder("Choose the Friday Night Funkin' folder") ?: return@launch
+                    game = withContext(Dispatchers.IO) { FunkinGame.resolve(picked) }
+                        ?: throw FunkinLaunchException("No Friday Night Funkin' game was found in ${picked.path}.")
+                }
+                val found = game ?: return@launch
+                AppSettings.updateFunkinPath(found.executable.path)
+                report(Status.Info("Installing the mod into ${found.mods.path}…"))
+                val installed = withContext(Dispatchers.IO) {
+                    FunkinGame.install(found, output, output.nameWithoutExtension.ifBlank { "converted-mod" }).also { FunkinGame.launch(found) }
+                }
+                report(Status.Success("Installed ${installed.files} file(s) into ${installed.folder.path} and opened Friday Night Funkin'. Turn the mod on in its Mods menu."))
+            } catch (e: Exception) {
+                report(Status.Error(e.message ?: "Could not open Friday Night Funkin'."))
             }
         }
     }

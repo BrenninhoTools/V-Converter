@@ -158,7 +158,7 @@ jobs:
           restore-keys: ccache-linux-
           max-size: 300M
 
-      - name: Test V-MiniAudio and V-Touch
+      - name: Test V-MiniAudio, V-Touch and V-Launcher
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
@@ -169,6 +169,9 @@ jobs:
           cmake -S source/native/v-touch -B build/v-touch -DVTOUCH_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
           cmake --build build/v-touch --parallel
           ctest --test-dir build/v-touch --output-on-failure
+          cmake -S source/native/v-launcher -B build/v-launcher -DVLAUNCHER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build build/v-launcher --parallel
+          ctest --test-dir build/v-launcher --output-on-failure
 
       - name: Build package and portable app
         env:

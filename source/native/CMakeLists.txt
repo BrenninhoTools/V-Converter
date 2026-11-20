@@ -10,6 +10,7 @@ set(VMA_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(v-miniaudio)
 add_subdirectory(v-touch)
+add_subdirectory(v-launcher)
 
 add_library(vconverter_audio SHARED bridge/vconverter_audio_jni.c)
 
@@ -19,7 +20,13 @@ add_library(vconverter_touch SHARED bridge/vconverter_touch_jni.c)
 
 target_link_libraries(vconverter_touch PRIVATE VTouch::VTouch)
 
-set(VCA_TARGETS vconverter_audio vconverter_touch)
+add_library(vconverter_launcher SHARED bridge/vconverter_launcher_jni.cpp)
+
+target_link_libraries(vconverter_launcher PRIVATE VLauncher::VLauncher)
+
+set_target_properties(vconverter_launcher PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+
+set(VCA_TARGETS vconverter_audio vconverter_touch vconverter_launcher)
 
 if(NOT ANDROID)
     set(VCA_JAVA_HOME "$ENV{JAVA_HOME}" CACHE PATH "JDK used for the JNI headers")
@@ -49,13 +56,14 @@ if(NOT ANDROID)
         foreach(target IN LISTS VCA_TARGETS)
             target_compile_options(${target} PRIVATE /O2)
         endforeach()
-        set_property(TARGET vconverter_audio vconverter_touch VMiniAudio VTouch PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+        set_property(TARGET vconverter_audio vconverter_touch vconverter_launcher VMiniAudio VTouch VLauncher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
     else()
         foreach(target IN LISTS VCA_TARGETS)
             target_compile_options(${target} PRIVATE -O2)
         endforeach()
         if(NOT APPLE)
             target_link_options(vconverter_touch PRIVATE -static-libstdc++ -static-libgcc)
+            target_link_options(vconverter_launcher PRIVATE -static-libstdc++ -static-libgcc)
         endif()
     endif()
 

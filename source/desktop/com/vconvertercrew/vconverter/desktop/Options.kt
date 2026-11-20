@@ -90,6 +90,14 @@ object AppSettings {
         runCatching { prefs?.putBoolean("errorReports", value) }
     }
 
+    var funkinPath by mutableStateOf(prefs?.get("funkinPath", "") ?: "")
+        private set
+
+    fun updateFunkinPath(value: String) {
+        funkinPath = value
+        runCatching { if (value.isEmpty()) prefs?.remove("funkinPath") else prefs?.put("funkinPath", value) }
+    }
+
     var vslicePreview by mutableStateOf(prefs?.getBoolean("vslicePreview", false) ?: false)
         private set
 
@@ -256,6 +264,11 @@ fun OptionsOverlay() {
         },
         MenuOption.Toggle("Discord Status", "Shows what you are doing in V-Converter on your Discord profile (needs the Discord app open).", { AppSettings.discordStatus }, AppSettings::updateDiscordStatus),
         MenuOption.Toggle("V-Slice Preview", "V-Slice output uses the Public PlayTest layout (gameplay/songs, gameplay/characters, gameplay/stages, ui/story-mode). Off keeps the 0.7 layout.", { AppSettings.vslicePreview }, AppSettings::updateVSlicePreview),
+        MenuOption.Action("Friday Night Funkin' Game", "Picks the Friday Night Funkin' folder that Test In Friday Night Funkin' installs mods into and opens. Now: ${AppSettings.funkinPath.ifEmpty { "found automatically" }}.") {
+            Dialogs.chooseFolder("Choose the Friday Night Funkin' folder")?.let { picked ->
+                runCatching { com.vconvertercrew.vconverter.launcher.FunkinGame.resolve(picked) }.getOrNull()?.let { AppSettings.updateFunkinPath(it.executable.path) }
+            }
+        },
         MenuOption.TextEntry("Online Server", "Leave it empty to connect to a V-Converter server automatically, or type the address of your own server. Press Enter on it to edit.", { AppSettings.serverUrl }, AppSettings::updateServerUrl, "Automatic"),
         MenuOption.Toggle("Error Reports", "Sends conversion errors and crashes (message, app version and platform) to the online server.", { AppSettings.errorReports }, AppSettings::updateErrorReports)
     )

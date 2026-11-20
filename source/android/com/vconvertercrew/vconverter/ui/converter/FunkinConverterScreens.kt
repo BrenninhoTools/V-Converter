@@ -4,7 +4,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +24,7 @@ import com.vconvertercrew.vconverter.ui.characters.CharactersViewModel
 import com.vconvertercrew.vconverter.ui.charts.ChartsViewModel
 import com.vconvertercrew.vconverter.ui.charts.FunkinStripColors
 import com.vconvertercrew.vconverter.ui.components.rememberDownloader
+import com.vconvertercrew.vconverter.ui.components.rememberFunkinTester
 import com.vconvertercrew.vconverter.ui.playtest.LocalPlayTest
 import com.vconvertercrew.vconverter.ui.reverse.ReverseViewModel
 
@@ -46,6 +51,16 @@ private fun rememberPicker(onPick: (List<android.net.Uri>) -> Unit): () -> Unit 
     return { launcher.launch(arrayOf("*/*")) }
 }
 
+private class GameTest(val action: (() -> Unit)?, val problem: String?)
+
+@Composable
+private fun rememberGameTest(viewModel: BaseConverterViewModel): GameTest {
+    var problem by remember { mutableStateOf<String?>(null) }
+    val open = rememberFunkinTester { problem = it }
+    LaunchedEffect(viewModel.download, viewModel.output) { problem = null }
+    return GameTest(if (viewModel.vsliceOutput && viewModel.download != null) open else null, problem)
+}
+
 private fun status(viewModel: BaseConverterViewModel): Pair<String?, Boolean> =
     viewModel.status?.text to (viewModel.status is StatusMessage.Error)
 
@@ -65,6 +80,7 @@ fun FunkinChartsConverter(
     val launcher = LocalPlayTest.current
     val output = viewModel.output
     val (text, error) = status(viewModel)
+    val game = rememberGameTest(viewModel)
     val rows = viewModel.files.map { item ->
         ConverterRow(item.name, item.label, listOfNotNull(item.kind, viewModel.difficultyOf(item)).joinToString(" · "), if (item.kind == "chart") "bf" else "gf", item.slot)
     }
@@ -82,8 +98,8 @@ fun FunkinChartsConverter(
         busy = viewModel.busy,
         canConvert = viewModel.canConvert,
         output = output,
-        status = text,
-        statusError = error,
+        status = game.problem ?: text,
+        statusError = game.problem != null || error,
         onAddFiles = pick,
         onAddFolder = null,
         onRemove = { viewModel.remove(it) },
@@ -94,6 +110,7 @@ fun FunkinChartsConverter(
         onSaveFolder = onSave,
         zipLabel = "Download Zip",
         folderLabel = if (modFolderName != null) "Save Into Mod" else "Save To Mod Folder",
+        onTestGame = game.action,
         onPlayTest = if (launcher != null && playable(output) && output != null) {
             { launcher.files(output.files.map { it.relativePath to (it.bytes ?: it.content.toByteArray()) }, "Charts result") }
         } else null,
@@ -132,6 +149,7 @@ fun FunkinFilesConverter(
     val pick = rememberPicker { viewModel.add(it) }
     val zip = rememberDownloader(viewModel)
     val (text, error) = status(viewModel)
+    val game = rememberGameTest(viewModel)
     val spec = ConverterMenuSpec(
         title = title,
         direction = direction,
@@ -140,8 +158,8 @@ fun FunkinFilesConverter(
         busy = viewModel.busy,
         canConvert = viewModel.canConvert,
         output = viewModel.output,
-        status = text,
-        statusError = error,
+        status = game.problem ?: text,
+        statusError = game.problem != null || error,
         onAddFiles = pick,
         onAddFolder = null,
         onRemove = { viewModel.remove(it) },
@@ -152,6 +170,7 @@ fun FunkinFilesConverter(
         onSaveFolder = onSave,
         zipLabel = "Download Zip",
         folderLabel = if (modFolderName != null) "Save Into Mod" else "Save To Mod Folder",
+        onTestGame = game.action,
         onBack = onBack
     )
     FunkinConverterMenu(spec, art, FunkinStripColors, overlay = overlay)
@@ -171,6 +190,7 @@ fun FunkinCharactersConverter(
     val pick = rememberPicker { viewModel.add(it) }
     val zip = rememberDownloader(viewModel)
     val (text, error) = status(viewModel)
+    val game = rememberGameTest(viewModel)
     val spec = ConverterMenuSpec(
         title = "Characters",
         direction = direction,
@@ -189,8 +209,8 @@ fun FunkinCharactersConverter(
         busy = viewModel.busy,
         canConvert = viewModel.characters.isNotEmpty(),
         output = viewModel.output,
-        status = text,
-        statusError = error,
+        status = game.problem ?: text,
+        statusError = game.problem != null || error,
         onAddFiles = pick,
         onAddFolder = null,
         onRemove = { viewModel.remove(it) },
@@ -201,6 +221,7 @@ fun FunkinCharactersConverter(
         onSaveFolder = onSave,
         zipLabel = "Download Zip",
         folderLabel = if (modFolderName != null) "Save Into Mod" else "Save To Mod Folder",
+        onTestGame = game.action,
         onBack = onBack
     )
     FunkinConverterMenu(spec, art, FunkinStripColors, overlay = overlay)

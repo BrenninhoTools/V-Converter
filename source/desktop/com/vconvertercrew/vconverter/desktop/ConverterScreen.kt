@@ -60,6 +60,9 @@ fun FunkinConverterScreen(state: AppState) {
         onPlayTest = if (output != null && output.files.any { playableResult(it.relativePath) }) {
             { state.playTestFiles(output.files.map { it.relativePath to (it.bytes ?: it.content.encodeToByteArray()) }, "${state.tab.label} result") }
         } else null,
+        onTestGame = if (state.lastMod != null && state.direction.to == Engine.VSLICE && output != null) {
+            { state.testInFunkin { files.status = it } }
+        } else null,
         options = if (charts && files.items.any { it.kind == "chart" }) ConverterMenus.chartOptions(
             files.chartFields,
             { files.tweaks },
