@@ -12,6 +12,7 @@ add_subdirectory(v-miniaudio)
 add_subdirectory(v-touch)
 add_subdirectory(v-launcher)
 add_subdirectory(v-script)
+add_subdirectory(v-archive)
 
 add_library(vconverter_audio SHARED bridge/vconverter_audio_jni.c)
 
@@ -33,7 +34,13 @@ target_link_libraries(vconverter_script PRIVATE VScript::VScript)
 
 set_target_properties(vconverter_script PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
-set(VCA_TARGETS vconverter_audio vconverter_touch vconverter_launcher vconverter_script)
+add_library(vconverter_archive SHARED bridge/vconverter_archive_jni.cpp)
+
+target_link_libraries(vconverter_archive PRIVATE VArchive::VArchive)
+
+set_target_properties(vconverter_archive PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+
+set(VCA_TARGETS vconverter_audio vconverter_touch vconverter_launcher vconverter_script vconverter_archive)
 
 if(NOT ANDROID)
     set(VCA_JAVA_HOME "$ENV{JAVA_HOME}" CACHE PATH "JDK used for the JNI headers")
@@ -63,7 +70,7 @@ if(NOT ANDROID)
         foreach(target IN LISTS VCA_TARGETS)
             target_compile_options(${target} PRIVATE /O2)
         endforeach()
-        set_property(TARGET vconverter_audio vconverter_touch vconverter_launcher vconverter_script VMiniAudio VTouch VLauncher VScript PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+        set_property(TARGET vconverter_audio vconverter_touch vconverter_launcher vconverter_script vconverter_archive VMiniAudio VTouch VLauncher VScript VArchive PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
     else()
         foreach(target IN LISTS VCA_TARGETS)
             target_compile_options(${target} PRIVATE -O2)
@@ -72,6 +79,7 @@ if(NOT ANDROID)
             target_link_options(vconverter_touch PRIVATE -static-libstdc++ -static-libgcc)
             target_link_options(vconverter_launcher PRIVATE -static-libstdc++ -static-libgcc)
             target_link_options(vconverter_script PRIVATE -static-libstdc++ -static-libgcc)
+            target_link_options(vconverter_archive PRIVATE -static-libstdc++ -static-libgcc)
         endif()
     endif()
 

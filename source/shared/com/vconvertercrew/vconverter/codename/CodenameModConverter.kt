@@ -363,7 +363,7 @@ class CodenameModConverter(
 
     private fun copy(source: String, target: String) {
         try {
-            writer.copy(target) { files.open(source) }
+            writer.copyFrom(target, files, source)
             written++
         } catch (e: Exception) {
             report.warn("Could not copy $target: ${e.message}")

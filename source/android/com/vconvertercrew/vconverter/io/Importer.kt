@@ -44,6 +44,22 @@ object Importer {
         }
     }
 
+    fun open(
+        context: Context,
+        uri: Uri,
+        name: String,
+        kind: ArchiveKind,
+        onProgress: (Int, Int) -> Unit = { _, _ -> }
+    ): ExtractedArchive {
+        val cache = File(context.cacheDir, CACHE_FOLDER)
+        cache.mkdirs()
+        return Archives.openCopy(cache, name, kind, { target ->
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { input.copyTo(it, 256 * 1024) }
+            } ?: throw IOException("Could not open $name.")
+        }, onProgress)
+    }
+
     fun importFiles(context: Context, uris: List<Uri>): Pair<List<ImportedFile>, List<ExtractedArchive>> {
         val files = mutableListOf<ImportedFile>()
         val archives = mutableListOf<ExtractedArchive>()

@@ -14,6 +14,7 @@ fun ModFiles.readText(path: String): String = open(path).use { it.readBytes().de
 interface ModWriter {
     fun writeText(path: String, text: String)
     fun copy(path: String, source: () -> InputStream)
+    fun copyFrom(path: String, files: ModFiles, source: String) = copy(path) { files.open(source) }
 }
 
 object SafePaths {

@@ -247,11 +247,11 @@ class ModConverter(
                     writer.writeText("data/songs/${scanned.id}/$name", text)
                     written++
                 }
-                conversion.variations.forEach { variation ->
+                conversion.variationNames.forEach { variation ->
                     scanned.audio.filter { it.substringAfterLast('/').startsWith("Voices", ignoreCase = true) }.forEach { path ->
                         val file = path.substringAfterLast('/')
-                        val target = "songs/${scanned.id}/${file.substringBeforeLast('.')}-${variation.variation}.${file.substringAfterLast('.')}"
-                        runCatching { writer.copy(target) { files.open(path) } }
+                        val target = "songs/${scanned.id}/${file.substringBeforeLast('.')}-$variation.${file.substringAfterLast('.')}"
+                        runCatching { writer.copyFrom(target, files, path) }
                             .onSuccess { written++ }
                             .onFailure { report.warn("Could not copy $target: ${it.message}") }
                     }
@@ -405,7 +405,7 @@ class ModConverter(
             val target = scan.relative(path)
             step(target)
             try {
-                writer.copy(target) { files.open(path) }
+                writer.copyFrom(target, files, path)
                 written++
             } catch (e: Exception) {
                 report.warn("Could not copy $target: ${e.message}")
@@ -413,7 +413,7 @@ class ModConverter(
         }
         scan.packIcon?.let { icon ->
             runCatching {
-                writer.copy("_polymod_icon.png") { files.open(icon) }
+                writer.copyFrom("_polymod_icon.png", files, icon)
                 written++
             }
         }

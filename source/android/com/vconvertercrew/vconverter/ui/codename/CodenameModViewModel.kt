@@ -75,7 +75,7 @@ open class CodenameModViewModel(application: Application) : BaseConverterViewMod
                     val name = DocumentIO.displayName(context, uri)
                     val kind = Importer.archiveKind(context, uri, name)
                         ?: throw IllegalArgumentException("$name is not a ZIP, RAR or 7z archive. To convert a folder, use \"Open mod folder\".")
-                    Importer.extract(context, uri, name, kind) { done, total ->
+                    Importer.open(context, uri, name, kind) { done, total ->
                         _progress.value = ModProgress(done, total, "Extracting $name")
                     }
                 }

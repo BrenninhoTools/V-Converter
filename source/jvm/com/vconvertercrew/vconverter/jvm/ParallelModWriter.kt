@@ -29,16 +29,26 @@ class ParallelModWriter(
         rethrow()
         waitFor(path)
         val input = source()
+        submit(path, { runCatching { input.close() } }) { base.copy(path) { input } }
+    }
+
+    override fun copyFrom(path: String, files: ModFiles, source: String) {
+        rethrow()
+        waitFor(path)
+        submit(path, {}) { base.copyFrom(path, files, source) }
+    }
+
+    private fun submit(path: String, release: () -> Unit, work: () -> Unit) {
         slots.acquire()
         synchronized(lock) { pending += key(path) }
         try {
             pool.execute {
                 try {
-                    if (error.get() == null) base.copy(path) { input }
+                    if (error.get() == null) work()
                 } catch (e: Throwable) {
                     error.compareAndSet(null, e)
                 } finally {
-                    runCatching { input.close() }
+                    release()
                     synchronized(lock) {
                         pending -= key(path)
                         (lock as Object).notifyAll()
@@ -47,7 +57,7 @@ class ParallelModWriter(
                 }
             }
         } catch (e: Throwable) {
-            runCatching { input.close() }
+            release()
             synchronized(lock) { pending -= key(path) }
             slots.release()
             throw e

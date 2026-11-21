@@ -512,7 +512,7 @@ bool convertEvent(const PsychEvent& event, const PsychSong& song, const Timing& 
             value.set("easeDir", Json::string(""));
         }
         value.set("absolute", Json::boolean(false));
-        out.push_back({event.time, "ScrollSpeed", value});
+        out.push_back({event.time, "ScrollSpeed", std::move(value)});
         return true;
     }
     if (name == "set gf speed") {
@@ -620,7 +620,7 @@ Json convertNotes(const Source& source, Report& report) {
         o.set("direction", Json::number(n.lane));
         o.set("length", Json::number(n.length));
         o.set("kind", Json::string(n.kind));
-        list.push(o);
+        list.push(std::move(o));
     }
     return list;
 }
@@ -694,12 +694,12 @@ Json buildGroup(const Source& lead, const std::vector<const Source*>& group, con
         o.set("time", Json::number(e.time));
         o.set("kind", Json::string(e.kind));
         o.set("value", e.value);
-        eventList.push(o);
+        eventList.push(std::move(o));
     }
     Json chart = Json::object();
-    chart.set("scrollSpeed", speeds);
-    chart.set("events", eventList);
-    chart.set("notes", notes);
+    chart.set("scrollSpeed", std::move(speeds));
+    chart.set("events", std::move(eventList));
+    chart.set("notes", std::move(notes));
 
     if (timing.fractional > 0) {
         report.warn(std::to_string(timing.fractional) + " sections" + (variation.empty() ? "" : " in the " + variation + " variation") +
@@ -707,8 +707,8 @@ Json buildGroup(const Source& lead, const std::vector<const Source*>& group, con
     }
     if (song.offset != 0) report.offset = song.offset;
     Json out = Json::object();
-    out.set("metadata", metadata);
-    out.set("chart", chart);
+    out.set("metadata", std::move(metadata));
+    out.set("chart", std::move(chart));
     return out;
 }
 
@@ -843,18 +843,18 @@ Json convertPsychCharts(const Json& input, std::string& error) {
         built.push_back(buildGroup(lead, groups[g], options, report, g == 0 ? "" : names[g - 1]));
     }
     Json result = Json::object();
-    Json mainJson = built.front();
+    Json mainJson = std::move(built.front());
     Json mainMeta = mainJson["metadata"];
     Json variationIds = Json::array();
     for (const std::string& n : names) variationIds.push(Json::string(n));
     mainMeta.set("songVariations", variationIds);
     mainJson.set("metadata", mainMeta);
-    result.set("main", mainJson);
+    result.set("main", std::move(mainJson));
     Json variations = Json::array();
     for (size_t g = 1; g < built.size(); g++) {
-        Json v = built[g];
+        Json v = std::move(built[g]);
         v.set("variation", Json::string(names[g - 1]));
-        variations.push(v);
+        variations.push(std::move(v));
         std::vector<std::string> diffs;
         for (const Source* s : groups[g]) diffs.push_back(s->difficulty);
         bool single = diffs.size() == 1;
@@ -863,7 +863,7 @@ Json convertPsychCharts(const Json& input, std::string& error) {
             " (Voices-<character>-" + names[g - 1] + ".ogg).");
         report.variations.emplace_back(names[g - 1], diffs);
     }
-    result.set("variations", variations);
+    result.set("variations", std::move(variations));
 
     Json r = Json::object();
     auto pairs = [](const std::vector<std::pair<std::string, int>>& list) {
@@ -903,6 +903,156 @@ Json convertPsychCharts(const Json& input, std::string& error) {
     r.set("variations", vars);
     result.set("report", r);
     return result;
+}
+
+}
+
+namespace vscript {
+
+namespace {
+
+double round3(double value) {
+    return jsonNumber(value);
+}
+
+Json numbers(double value) {
+    return Json::number(round3(value));
+}
+
+std::string renderChart(const Json& chart, const std::string& generatedBy) {
+    Json speeds = Json::object();
+    for (const auto& field : chart["scrollSpeed"].fields()) speeds.set(field.first, numbers(field.second.asNumber()));
+    Json events = Json::array();
+    for (const Json& event : chart["events"].items()) {
+        Json value = Json::object();
+        for (const auto& field : event["value"].fields()) {
+            const Json& raw = field.second;
+            if (raw.kind() == Json::Kind::Number) {
+                if (field.first == "char" || field.first == "rate") value.set(field.first, Json::number(static_cast<double>(static_cast<long long>(raw.asNumber()))));
+                else value.set(field.first, numbers(raw.asNumber()));
+            } else {
+                value.set(field.first, raw);
+            }
+        }
+        Json entry = Json::object();
+        entry.set("t", numbers(event["time"].asNumber()));
+        entry.set("e", Json::string(event["kind"].text()));
+        entry.set("v", std::move(value));
+        events.push(std::move(entry));
+    }
+    Json notes = Json::object();
+    for (const auto& field : chart["notes"].fields()) {
+        Json list = Json::array();
+        for (const Json& note : field.second.items()) {
+            Json entry = Json::object();
+            entry.set("t", numbers(note["time"].asNumber()));
+            entry.set("d", Json::number(static_cast<double>(static_cast<long long>(note["direction"].asNumber()))));
+            double length = note["length"].asNumber();
+            if (length > 0.0) entry.set("l", numbers(length));
+            std::string kind = note["kind"].text();
+            if (!kind.empty()) entry.set("k", Json::string(kind));
+            list.push(std::move(entry));
+        }
+        notes.set(field.first, std::move(list));
+    }
+    Json root = Json::object();
+    root.set("version", Json::string("2.0.0"));
+    root.set("scrollSpeed", speeds);
+    root.set("events", std::move(events));
+    root.set("notes", std::move(notes));
+    root.set("generatedBy", Json::string(generatedBy));
+    return kotlinJson(root, 2);
+}
+
+Json strings(const Json& list) {
+    Json out = Json::array();
+    for (const Json& item : list.items()) out.push(Json::string(item.text()));
+    return out;
+}
+
+std::string renderMetadata(const Json& metadata) {
+    const Json& chars = metadata["characters"];
+    Json characters = Json::object();
+    characters.set("player", Json::string(chars["player"].text()));
+    characters.set("girlfriend", Json::string(chars["girlfriend"].text()));
+    characters.set("opponent", Json::string(chars["opponent"].text()));
+    characters.set("instrumental", Json::string(""));
+    characters.set("altInstrumentals", Json::array());
+    if (chars["playerVocals"].kind() == Json::Kind::Array) characters.set("playerVocals", strings(chars["playerVocals"]));
+    if (chars["opponentVocals"].kind() == Json::Kind::Array) characters.set("opponentVocals", strings(chars["opponentVocals"]));
+    Json ratings = Json::object();
+    for (const Json& difficulty : metadata["difficulties"].items()) ratings.set(difficulty.text(), Json::number(0));
+    Json playData = Json::object();
+    playData.set("songVariations", strings(metadata["songVariations"]));
+    playData.set("difficulties", strings(metadata["difficulties"]));
+    playData.set("characters", characters);
+    playData.set("stage", Json::string(metadata["stage"].text()));
+    playData.set("noteStyle", Json::string(metadata["noteStyle"].text()));
+    playData.set("ratings", ratings);
+    playData.set("previewStart", Json::number(0));
+    playData.set("previewEnd", Json::number(15000));
+    Json changes = Json::array();
+    for (const Json& change : metadata["timeChanges"].items()) {
+        Json entry = Json::object();
+        entry.set("t", numbers(change["time"].asNumber()));
+        entry.set("b", numbers(change["beat"].asNumber()));
+        entry.set("bpm", numbers(change["bpm"].asNumber()));
+        entry.set("n", Json::number(static_cast<double>(static_cast<long long>(change["numerator"].asNumber(4)))));
+        entry.set("d", Json::number(4));
+        Json beats = Json::array();
+        for (int i = 0; i < 4; i++) beats.push(Json::number(4));
+        entry.set("bt", beats);
+        changes.push(entry);
+    }
+    Json root = Json::object();
+    root.set("version", Json::string("2.2.4"));
+    root.set("songName", Json::string(metadata["songName"].text()));
+    root.set("artist", Json::string(metadata["artist"].text()));
+    root.set("charter", Json::string(metadata["charter"].text()));
+    root.set("divisions", Json::number(96));
+    root.set("looped", Json::boolean(false));
+    root.set("playData", playData);
+    root.set("generatedBy", Json::string(metadata["generatedBy"].text()));
+    root.set("timeFormat", Json::string("ms"));
+    root.set("timeChanges", changes);
+    double offset = metadata["offset"].asNumber(0);
+    if (offset != 0.0) {
+        Json offsets = Json::object();
+        offsets.set("instrumental", numbers(offset));
+        offsets.set("altInstrumentals", Json::object());
+        offsets.set("vocals", Json::object());
+        offsets.set("altVocals", Json::object());
+        root.set("offsets", offsets);
+    }
+    return kotlinJson(root, 2);
+}
+
+Json file(const std::string& name, const std::string& text) {
+    Json pair = Json::array();
+    pair.push(Json::string(name));
+    pair.push(Json::string(text));
+    return pair;
+}
+
+}
+
+Json renderPsychCharts(const Json& result) {
+    Json files = Json::array();
+    Json names = Json::array();
+    const Json& main = result["main"];
+    files.push(file("metadata.json", renderMetadata(main["metadata"])));
+    files.push(file("chart.json", renderChart(main["chart"], main["metadata"]["generatedBy"].text())));
+    for (const Json& variation : result["variations"].items()) {
+        std::string name = variation["variation"].text();
+        names.push(Json::string(name));
+        files.push(file("metadata-" + name + ".json", renderMetadata(variation["metadata"])));
+        files.push(file("chart-" + name + ".json", renderChart(variation["chart"], variation["metadata"]["generatedBy"].text())));
+    }
+    Json out = Json::object();
+    out.set("report", result["report"]);
+    out.set("variations", names);
+    out.set("files", files);
+    return out;
 }
 
 }

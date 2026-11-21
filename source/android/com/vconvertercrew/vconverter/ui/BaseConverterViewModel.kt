@@ -1,5 +1,7 @@
 package com.vconvertercrew.vconverter.ui
 
+import com.vconvertercrew.vconverter.archive.NativeZipModWriter
+import java.io.File
 import android.app.Application
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -90,7 +92,11 @@ abstract class BaseConverterViewModel(application: Application) : AndroidViewMod
                 download = null
                 val file = withContext(Dispatchers.IO) {
                     Downloads.write(context, name, picked) { stream ->
-                        ZipModWriter(stream, zipPrefix()).use { zip ->
+                        val native = NativeZipModWriter.forStream(stream, zipPrefix(), File(context.cacheDir, "converted"))
+                        native?.use { zip ->
+                            VSlicePreview.write(zip, vsliceOutput && !wholeMod) { writeDownload(it) }
+                            zip.entries
+                        } ?: ZipModWriter(stream, zipPrefix()).use { zip ->
                             VSlicePreview.write(zip, vsliceOutput && !wholeMod) { writeDownload(it) }
                             zip.entries
                         }

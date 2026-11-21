@@ -94,7 +94,7 @@ object VSlicePreview {
     }
 }
 
-private class PendingFile(val text: String?, val source: (() -> InputStream)?)
+private class PendingFile(val text: String?, val source: (() -> InputStream)?, val files: ModFiles? = null, val from: String? = null)
 
 class PreviewModWriter(private val target: ModWriter) : ModWriter {
     private val files = LinkedHashMap<String, PendingFile>()
@@ -105,6 +105,10 @@ class PreviewModWriter(private val target: ModWriter) : ModWriter {
 
     override fun copy(path: String, source: () -> InputStream) {
         files[VSlicePreview.norm(path)] = PendingFile(null, source)
+    }
+
+    override fun copyFrom(path: String, files: ModFiles, source: String) {
+        this.files[VSlicePreview.norm(path)] = PendingFile(null, { files.open(source) }, files, source)
     }
 
     private class Owner(val kind: String, val id: String, val folder: String)
@@ -323,7 +327,7 @@ class PreviewModWriter(private val target: ModWriter) : ModWriter {
                 if (moved == null || path in kept) add(path)
             }
             outputs.forEach { out ->
-                if (text != null) target.writeText(out, text) else file.source?.let { target.copy(out, it) }
+                if (text != null) target.writeText(out, text) else if (file.files != null && file.from != null) target.copyFrom(out, file.files, file.from) else file.source?.let { target.copy(out, it) }
             }
         }
 

@@ -433,7 +433,7 @@ object ToFpsMod {
             progress(ModProgress(index, inside.size, path))
             val root = roots.filter { path.startsWith(it) }.maxByOrNull { it.length } ?: scan.root
             val rel = PsychLayout.normalize(path.removePrefix(root))
-            if (rel.isNotEmpty()) fps.copy(rel) { files.open(path) }
+            if (rel.isNotEmpty()) fps.copyFrom(rel, files, path)
         }
         progress(ModProgress(inside.size, inside.size, "Writing FPS Plus classes"))
         return result(fps, null, listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Weeks" to scan.weeks.size))

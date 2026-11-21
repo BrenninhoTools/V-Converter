@@ -61,7 +61,7 @@ val buildNativeAudio by tasks.registering(Exec::class) {
     inputs.dir(File(source, "native"))
     outputs.dir(nativeOutput)
     isIgnoreExitValue = true
-    commandLine(cmake ?: "cmake", "--build", buildDir.absolutePath, "--config", "Release", "--target", "vconverter_audio", "vconverter_touch", "vconverter_launcher", "vconverter_script")
+    commandLine(cmake ?: "cmake", "--build", buildDir.absolutePath, "--config", "Release", "--target", "vconverter_audio", "vconverter_touch", "vconverter_launcher", "vconverter_script", "vconverter_archive")
 }
 
 tasks.named("processResources") {

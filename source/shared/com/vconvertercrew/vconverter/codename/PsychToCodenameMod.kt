@@ -513,7 +513,7 @@ class PsychToCodenameMod(
 
     private fun copy(source: String, target: String) {
         try {
-            writer.copy(target) { files.open(source) }
+            writer.copyFrom(target, files, source)
             if (writtenPaths.add(target)) written++
         } catch (e: Exception) {
             report.warn("Could not copy $target: ${e.message}")

@@ -60,11 +60,14 @@ struct Reader {
         std::string out;
         at++;
         while (at < text.size() && text[at] != '"') {
-            char c = text[at++];
-            if (c != '\\') {
-                out += c;
+            size_t run = at;
+            while (run < text.size() && text[run] != '"' && text[run] != '\\') run++;
+            if (run > at) {
+                out.append(text, at, run - at);
+                at = run;
                 continue;
             }
+            at++;
             if (at >= text.size()) break;
             char e = text[at++];
             switch (e) {
@@ -141,6 +144,15 @@ struct Reader {
             at += 4;
             return Json();
         }
+        size_t digit = at + (c == '-' ? 1 : 0);
+        size_t scan = digit;
+        long long whole = 0;
+        while (scan < text.size() && scan - digit < 15 && text[scan] >= '0' && text[scan] <= '9') whole = whole * 10 + (text[scan++] - '0');
+        if (scan > digit && (scan >= text.size() || (text[scan] != '.' && text[scan] != 'e' && text[scan] != 'E' && (text[scan] < '0' || text[scan] > '9')))) {
+            at = scan;
+            double integral = static_cast<double>(whole);
+            return Json::number(c == '-' ? -integral : integral);
+        }
         const char* start = text.c_str() + at;
         char* end = nullptr;
         double number = std::strtod(start, &end);
@@ -193,7 +205,8 @@ Json Json::parse(const std::string& text, bool& ok) {
     Json result = reader.value();
     reader.space();
     ok = reader.ok && reader.at == text.size();
-    return ok ? result : Json();
+    if (!ok) return Json();
+    return result;
 }
 
 const Json& Json::operator[](const std::string& key) const {
@@ -217,57 +230,104 @@ void Json::set(const std::string& key, Json value) {
     fields_.emplace_back(key, std::move(value));
 }
 
+void appendQuoted(std::string& out, const std::string& text);
+
 std::string jsonQuote(const std::string& text) {
-    std::string out = "\"";
-    for (unsigned char c : text) {
+    std::string out;
+    appendQuoted(out, text);
+    return out;
+}
+
+bool appendMillis(std::string& out, double value) {
+    if (!(std::fabs(value) < 1e12)) return false;
+    double scaled = std::round(value * 1000.0);
+    if (scaled / 1000.0 != value) return false;
+    long long whole = static_cast<long long>(scaled);
+    if (whole < 0) {
+        out += '-';
+        whole = -whole;
+    }
+    out += std::to_string(whole / 1000);
+    int fraction = static_cast<int>(whole % 1000);
+    if (fraction != 0) {
+        char digits[4] = {static_cast<char>('0' + fraction / 100), static_cast<char>('0' + fraction / 10 % 10), static_cast<char>('0' + fraction % 10), 0};
+        int length = 3;
+        while (length > 0 && digits[length - 1] == '0') length--;
+        out += '.';
+        out.append(digits, static_cast<size_t>(length));
+    }
+    return true;
+}
+
+void appendQuoted(std::string& out, const std::string& text) {
+    out += '"';
+    size_t start = 0;
+    for (size_t i = 0; i < text.size(); i++) {
+        unsigned char c = static_cast<unsigned char>(text[i]);
+        if (c != '"' && c != '\\' && c >= 0x20) continue;
+        out.append(text, start, i - start);
         switch (c) {
             case '"': out += "\\\""; break;
             case '\\': out += "\\\\"; break;
             case '\n': out += "\\n"; break;
             case '\r': out += "\\r"; break;
             case '\t': out += "\\t"; break;
-            default:
-                if (c < 0x20) {
-                    char buffer[8];
-                    std::snprintf(buffer, sizeof buffer, "\\u%04x", c);
-                    out += buffer;
-                } else {
-                    out += static_cast<char>(c);
-                }
+            default: {
+                char buffer[8];
+                std::snprintf(buffer, sizeof buffer, "\\u%04x", c);
+                out += buffer;
+            }
+        }
+        start = i + 1;
+    }
+    out.append(text, start, std::string::npos);
+    out += '"';
+}
+
+void Json::dumpTo(std::string& out) const {
+    switch (kind_) {
+        case Kind::Null: out += "null"; return;
+        case Kind::Bool: out += bool_ ? "true" : "false"; return;
+        case Kind::Number: {
+            if (std::floor(number_) == number_ && std::fabs(number_) < 1e15) {
+                out += std::to_string(static_cast<long long>(number_));
+                return;
+            }
+            if (appendMillis(out, number_)) return;
+            char buffer[32];
+            std::snprintf(buffer, sizeof buffer, "%.17g", number_);
+            out += buffer;
+            return;
+        }
+        case Kind::String: appendQuoted(out, string_); return;
+        case Kind::Array: {
+            out += '[';
+            for (size_t i = 0; i < items_.size(); i++) {
+                if (i > 0) out += ',';
+                items_[i].dumpTo(out);
+            }
+            out += ']';
+            return;
+        }
+        case Kind::Object: {
+            out += '{';
+            for (size_t i = 0; i < fields_.size(); i++) {
+                if (i > 0) out += ',';
+                appendQuoted(out, fields_[i].first);
+                out += ':';
+                fields_[i].second.dumpTo(out);
+            }
+            out += '}';
+            return;
         }
     }
-    return out + "\"";
+    out += "null";
 }
 
 std::string Json::dump() const {
-    switch (kind_) {
-        case Kind::Null: return "null";
-        case Kind::Bool: return bool_ ? "true" : "false";
-        case Kind::Number: {
-            if (std::floor(number_) == number_ && std::fabs(number_) < 1e15) return std::to_string(static_cast<long long>(number_));
-            char buffer[32];
-            std::snprintf(buffer, sizeof buffer, "%.17g", number_);
-            return buffer;
-        }
-        case Kind::String: return jsonQuote(string_);
-        case Kind::Array: {
-            std::string out = "[";
-            for (size_t i = 0; i < items_.size(); i++) {
-                if (i > 0) out += ",";
-                out += items_[i].dump();
-            }
-            return out + "]";
-        }
-        case Kind::Object: {
-            std::string out = "{";
-            for (size_t i = 0; i < fields_.size(); i++) {
-                if (i > 0) out += ",";
-                out += jsonQuote(fields_[i].first) + ":" + fields_[i].second.dump();
-            }
-            return out + "}";
-        }
-    }
-    return "null";
+    std::string out;
+    dumpTo(out);
+    return out;
 }
 
 }

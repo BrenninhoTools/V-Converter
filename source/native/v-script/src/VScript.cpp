@@ -116,14 +116,64 @@ char* vscript_convert_data(const char* kind, const char* input_json) {
     std::string type = kind ? kind : "";
     std::string error;
     Json result;
-    if (type == "chart") result = convertPsychCharts(input, error);
+    if (type == "chart") {
+        result = convertPsychCharts(input, error);
+        if (error.empty() && input["options"]["render"].asBool(false)) result = renderPsychCharts(result);
+    }
     else if (type == "character") result = convertPsychCharacter(input, error);
     else if (type == "stage") result = convertPsychStage(input, error);
     else error = "Unknown conversion \"" + type + "\".";
     out.set("ok", Json::boolean(error.empty()));
-    if (error.empty()) out.set("result", result);
+    if (error.empty()) out.set("result", std::move(result));
     else out.set("error", Json::string(error));
     return copy(out.dump());
+}
+
+char* vscript_convert_charts(const char* const* difficulties, const char* const* texts, size_t count, const char* options_json, char*** files, size_t* file_count) {
+    using namespace vscript;
+    if (files) *files = nullptr;
+    if (file_count) *file_count = 0;
+    Json input = Json::object();
+    Json charts = Json::array();
+    for (size_t i = 0; i < count; i++) {
+        Json chart = Json::object();
+        chart.set("difficulty", Json::string(difficulties && difficulties[i] ? difficulties[i] : ""));
+        chart.set("text", Json::string(texts && texts[i] ? texts[i] : ""));
+        charts.push(std::move(chart));
+    }
+    input.set("charts", std::move(charts));
+    bool ok = false;
+    Json options = Json::parse(options_json && *options_json ? options_json : "{}", ok);
+    input.set("options", ok ? std::move(options) : Json::object());
+    std::string error;
+    Json result = convertPsychCharts(input, error);
+    Json out = Json::object();
+    out.set("ok", Json::boolean(error.empty()));
+    if (!error.empty()) {
+        out.set("error", Json::string(error));
+        return copy(out.dump());
+    }
+    Json rendered = renderPsychCharts(result);
+    const auto& list = rendered["files"].items();
+    Json names = Json::array();
+    char** texts_out = static_cast<char**>(std::calloc(list.size() > 0 ? list.size() : 1, sizeof(char*)));
+    for (size_t i = 0; i < list.size(); i++) {
+        names.push(Json::string(list[i].items()[0].text()));
+        if (texts_out) texts_out[i] = copy(list[i].items()[1].text());
+    }
+    out.set("report", rendered["report"]);
+    out.set("variations", rendered["variations"]);
+    out.set("files", std::move(names));
+    if (files) *files = texts_out;
+    else if (texts_out) vscript_free_files(texts_out, list.size());
+    if (file_count) *file_count = list.size();
+    return copy(out.dump());
+}
+
+void vscript_free_files(char** files, size_t file_count) {
+    if (!files) return;
+    for (size_t i = 0; i < file_count; i++) std::free(files[i]);
+    std::free(files);
 }
 
 void vscript_free(char* text) {

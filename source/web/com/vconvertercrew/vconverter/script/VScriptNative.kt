@@ -10,4 +10,6 @@ object VScriptNative {
     fun builtinEvent(name: String, className: String, id: String): String? = null
 
     fun convertData(kind: String, input: String): String? = null
+
+    fun convertCharts(difficulties: Array<String>, texts: Array<String>, options: String): Array<String>? = null
 }

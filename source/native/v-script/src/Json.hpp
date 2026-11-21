@@ -32,6 +32,7 @@ public:
     void push(Json value);
     void set(const std::string& key, Json value);
     std::string dump() const;
+    void dumpTo(std::string& out) const;
 
 private:
     Kind kind_ = Kind::Null;
@@ -43,5 +44,7 @@ private:
 };
 
 std::string jsonQuote(const std::string& text);
+
+bool appendMillis(std::string& out, double value);
 
 }

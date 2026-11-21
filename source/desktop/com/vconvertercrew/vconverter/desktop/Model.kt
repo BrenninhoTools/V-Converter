@@ -68,6 +68,7 @@ import com.vconvertercrew.vconverter.mod.ModProgress
 import com.vconvertercrew.vconverter.mod.ModScanner
 import com.vconvertercrew.vconverter.mod.ModWriter
 import com.vconvertercrew.vconverter.mod.ZipModWriter
+import com.vconvertercrew.vconverter.archive.NativeZipModWriter
 import com.vconvertercrew.vconverter.reverse.VSliceModConverter
 import com.vconvertercrew.vconverter.reverse.VSliceModScanner
 import java.io.File
@@ -225,6 +226,11 @@ object Workspace {
 
     fun writeZip(target: File, prefix: String, vslice: Boolean = false, body: (ModWriter) -> Unit) {
         target.parentFile?.mkdirs()
+        val native = NativeZipModWriter.create(target, prefix)
+        if (native != null) {
+            native.use { zip -> VSlicePreview.write(zip, vslice, body) }
+            return
+        }
         FileOutputStream(target).use { stream ->
             ZipModWriter(stream, prefix).use { zip -> VSlicePreview.write(zip, vslice, body) }
         }
@@ -265,7 +271,7 @@ class LoadedMod(
                 files = DirectoryModFiles(source)
             } else {
                 val kind = Archives.kind(source) ?: throw IllegalArgumentException("${source.name} is not a ZIP, RAR or 7z archive.")
-                archive = Archives.extract(source, source.name, kind, Workspace.cache) { done, total -> progress(ModProgress(done, total, "Extracting ${source.name}")) }
+                archive = Archives.open(source, source.name, kind, Workspace.cache) { done, total -> progress(ModProgress(done, total, "Extracting ${source.name}")) }
                 files = archive.files
             }
             val name = source.name

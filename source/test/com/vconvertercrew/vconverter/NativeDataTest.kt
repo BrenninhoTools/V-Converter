@@ -81,6 +81,18 @@ class NativeDataTest {
         assertEquals(mapOf("target" to "girlfriend", "rate" to 3), speed.value)
     }
 
+    @Test
+    fun renderedChartFilesMatchTheKotlinWriter() {
+        if (!NativeScripts.available) return
+        val odd = """{"song":{"song":"Odd </script> \u2028 \u0085 \t Song ü 😀","bpm":133.33333,"speed":1.0000004,"offset":-0.0004,"needsVoices":true,"player1":"bf","player2":"dad","stage":"stage",
+            "notes":[{"lengthInSteps":16,"mustHitSection":true,"sectionNotes":[[0.0004,0,0],[1234.56789,1,0.0001],[12345678.9,2,99999999.123],[-5.5,3,-1],[7.0005,4,0.0005,"Weird / Kind"]]}],
+            "events":[[0.00049,[["Camera Follow Pos","1e-7","123456789.5"]]],[10.5,[["Change Scroll Speed","0.33333","1.5"]]]]}}"""
+        val (native, kotlin) = both { PsychToVSliceChart.convert(listOf(ChartSource("normal", PsychChartParser.parse(odd)))) }
+        assertEquals(kotlin.files("odd"), native.files("odd"))
+        assertEquals(kotlin.chart, native.chart)
+        assertEquals(kotlin.metadata, native.metadata)
+    }
+
     private val atlasXml = """<TextureAtlas imagePath="dude.png">
           <SubTexture name="dude idle0000" x="0" y="0" width="400" height="380" frameX="-2" frameY="-4" frameWidth="410" frameHeight="400"/>
           <SubTexture name="dude idle0001" x="0" y="0" width="400" height="380"/>

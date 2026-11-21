@@ -113,7 +113,7 @@ object ToNmvMod {
             progress(ModProgress(index, inside.size, path))
             val root = roots.filter { path.startsWith(it) }.maxByOrNull { it.length } ?: scan.root
             val rel = com.vconvertercrew.vconverter.mod.PsychLayout.normalize(path.removePrefix(root))
-            if (rel.isNotEmpty()) nmv.copy(rel) { files.open(path) }
+            if (rel.isNotEmpty()) nmv.copyFrom(rel, files, path)
         }
         progress(ModProgress(inside.size, inside.size, "Done"))
         return result(nmv, null, listOf("Songs" to scan.songs.size, "Characters" to scan.characters.size, "Stages" to scan.stages.size, "Weeks" to scan.weeks.size))

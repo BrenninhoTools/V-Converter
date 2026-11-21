@@ -203,10 +203,14 @@ class ModRun(
             record(path)
         }
 
-        override fun copy(path: String, source: () -> InputStream) {
+        override fun copy(path: String, source: () -> InputStream) = tracked(path) { base.copy(path, source) }
+
+        override fun copyFrom(path: String, files: ModFiles, source: String) = tracked(path) { base.copyFrom(path, files, source) }
+
+        private inline fun tracked(path: String, body: () -> Unit) {
             cancel.check()
             try {
-                base.copy(path, source)
+                body()
             } catch (e: ModCancelledException) {
                 throw e
             } catch (e: ModAbortedException) {

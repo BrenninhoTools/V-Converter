@@ -19,6 +19,16 @@ object NativeData {
         return result.optJSONObject("result")?.also { conversions++ }
     }
 
+    fun convertCharts(difficulties: List<String>, texts: List<String>, options: JSONObject): Pair<JSONObject, List<String>>? {
+        if (!enabled || !VScriptNative.available) return null
+        val raw = runCatching { VScriptNative.convertCharts(difficulties.toTypedArray(), texts.toTypedArray(), options.toString()) }.getOrNull() ?: return null
+        if (raw.isEmpty()) return null
+        val header = runCatching { JSONObject(raw[0]) }.getOrNull() ?: return null
+        if (!header.optBoolean("ok")) return null
+        conversions++
+        return header to raw.drop(1)
+    }
+
     fun report(json: JSONObject?): Report {
         val builder = ReportBuilder()
         if (json == null) return builder.build()

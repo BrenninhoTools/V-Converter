@@ -147,7 +147,7 @@ class VSliceModConverter(
 
     private fun copy(from: String, to: String): Boolean {
         val source = index[from.lowercase()] ?: return false
-        writer.copy(to) { files.open(source) }
+        writer.copyFrom(to, files, source)
         written++
         return true
     }
@@ -360,7 +360,7 @@ class VSliceModConverter(
     private fun copyAssets() {
         scan.assets.forEach { path ->
             val rel = scan.relative(path)
-            writer.copy(rel) { files.open(path) }
+            writer.copyFrom(rel, files, path)
             written++
             done++
         }
@@ -377,7 +377,7 @@ class VSliceModConverter(
             .put("iconFramerate", 10)
         write("pack.json", pack.toString(2))
         scan.icon?.let {
-            writer.copy("pack.png") { files.open(it) }
+            writer.copyFrom("pack.png", files, it)
             written++
         }
         onProgress(ModProgress(total, total, "Done"))

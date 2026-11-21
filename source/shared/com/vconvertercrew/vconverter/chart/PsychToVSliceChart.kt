@@ -36,13 +36,27 @@ data class VariationChart(
     val chart: VSliceChart
 )
 
-data class ConversionResult(
-    val metadata: VSliceMetadata,
-    val chart: VSliceChart,
+class ConversionResult private constructor(
+    private val lazyMetadata: Lazy<VSliceMetadata>,
+    private val lazyChart: Lazy<VSliceChart>,
     val report: ConversionReport,
-    val variations: List<VariationChart> = emptyList()
+    private val lazyVariations: Lazy<List<VariationChart>>,
+    val variationNames: List<String>,
+    private val rendered: List<Pair<String, String>>?
 ) {
+    constructor(
+        metadata: VSliceMetadata,
+        chart: VSliceChart,
+        report: ConversionReport,
+        variations: List<VariationChart> = emptyList()
+    ) : this(lazyOf(metadata), lazyOf(chart), report, lazyOf(variations), variations.map { it.variation }, null)
+
+    val metadata: VSliceMetadata get() = lazyMetadata.value
+    val chart: VSliceChart get() = lazyChart.value
+    val variations: List<VariationChart> get() = lazyVariations.value
+
     fun files(id: String): List<Pair<String, String>> {
+        rendered?.let { files -> return files.map { (suffix, text) -> "$id-$suffix" to text } }
         val list = mutableListOf(
             "$id-metadata.json" to VSliceWriter.metadataJson(metadata),
             "$id-chart.json" to VSliceWriter.chartJson(chart)
@@ -52,6 +66,18 @@ data class ConversionResult(
             list += "$id-chart-${variation.variation}.json" to VSliceWriter.chartJson(variation.chart)
         }
         return list
+    }
+
+    companion object {
+        internal fun rendered(
+            report: ConversionReport,
+            variationNames: List<String>,
+            files: List<Pair<String, String>>,
+            data: () -> Triple<VSliceMetadata, VSliceChart, List<VariationChart>>
+        ): ConversionResult {
+            val parsed = lazy(data)
+            return ConversionResult(lazy { parsed.value.first }, lazy { parsed.value.second }, report, lazy { parsed.value.third }, variationNames, files)
+        }
     }
 }
 
@@ -84,7 +110,11 @@ object PsychToVSliceChart {
 
     fun convert(sources: List<ChartSource>, options: ConversionOptions = ConversionOptions()): ConversionResult {
         require(sources.isNotEmpty()) { "Select at least one Psych Engine chart." }
-        NativeChart.convert(sources, options)?.let { return it }
+        return NativeChart.convert(sources, options) ?: convertKotlin(sources, options)
+    }
+
+    internal fun convertKotlin(sources: List<ChartSource>, options: ConversionOptions): ConversionResult {
+        require(sources.isNotEmpty()) { "Select at least one Psych Engine chart." }
 
         val normalized = sources.map { it.copy(difficulty = normalizeDifficulty(it.difficulty)) }
         normalized.groupBy { it.difficulty }.forEach { (difficulty, group) ->

@@ -18,6 +18,10 @@ double jsonNumber(double value);
 
 std::string doubleText(double value);
 
+std::string javaDoubleText(double value);
+
+std::string kotlinJson(const Json& value, int indent);
+
 struct ReportOut {
     std::vector<std::pair<std::string, Json>> stats;
     std::vector<std::pair<std::string, std::vector<std::string>>> sections;
@@ -53,5 +57,7 @@ Json convertPsychCharts(const Json& input, std::string& error);
 Json convertPsychCharacter(const Json& input, std::string& error);
 
 Json convertPsychStage(const Json& input, std::string& error);
+
+Json renderPsychCharts(const Json& result);
 
 }

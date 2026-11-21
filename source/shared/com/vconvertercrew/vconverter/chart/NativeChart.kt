@@ -30,13 +30,43 @@ internal object NativeChart {
             .put("noteStyle", options.noteStyle ?: "")
             .put("pixelStages", JSONArray(options.pixelStages.toList()))
             .put("generatedBy", options.generatedBy)
+            .put("render", true)
         options.playerVocals?.let { opts.put("playerVocals", JSONArray(it)) }
         options.opponentVocals?.let { opts.put("opponentVocals", JSONArray(it)) }
-        val result = NativeData.convert("chart", JSONObject().put("charts", charts).put("options", opts)) ?: return null
-        return runCatching { read(result) }.getOrNull()
+        val input = JSONObject().put("charts", charts).put("options", opts)
+        val direct = NativeData.convertCharts(sources.map { it.difficulty }, sources.map { it.song.raw }, opts)
+        if (direct != null) {
+            val (header, texts) = direct
+            return runCatching {
+                val names = strings(header.optJSONArray("files"))
+                require(names.size == texts.size)
+                rendered(header, names.zip(texts), sources, options, input)
+            }.getOrNull()
+        }
+        val result = NativeData.convert("chart", input) ?: return null
+        return runCatching { read(result, sources, options, input) }.getOrNull()
     }
 
-    private fun read(result: JSONObject): ConversionResult {
+    private fun read(result: JSONObject, sources: List<ChartSource>, options: ConversionOptions, input: JSONObject): ConversionResult {
+        val array = result.getJSONArray("files")
+        val files = (0 until array.length()).map { i -> array.getJSONArray(i).let { it.getString(0) to it.getString(1) } }
+        return rendered(result, files, sources, options, input)
+    }
+
+    private fun rendered(result: JSONObject, files: List<Pair<String, String>>, sources: List<ChartSource>, options: ConversionOptions, input: JSONObject): ConversionResult {
+        val report = report(result.getJSONObject("report"))
+        val names = strings(result.optJSONArray("variations"))
+        return ConversionResult.rendered(report, names, files) {
+            opts(input).put("render", false)
+            val parsed = NativeData.convert("chart", input)?.let { data -> runCatching { parse(data) }.getOrNull() }
+                ?: PsychToVSliceChart.convertKotlin(sources, options)
+            Triple(parsed.metadata, parsed.chart, parsed.variations)
+        }
+    }
+
+    private fun opts(input: JSONObject): JSONObject = input.getJSONObject("options")
+
+    private fun parse(result: JSONObject): ConversionResult {
         val main = result.getJSONObject("main")
         val variations = result.optJSONArray("variations")?.let { array ->
             (0 until array.length()).map { i ->
