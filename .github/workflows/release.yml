@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
@@ -8,9 +11,9 @@ on:
         required: true
         default: "0.1.0-playtest"
       prerelease:
-        description: "Mark as pre-release"
+        description: "Mark as pre-release (versions with a suffix like -playtest always are)"
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -280,15 +283,35 @@ jobs:
           compression-level: 0
 
   release:
-    name: Publish v${{ inputs.version }}
+    name: Publish the release
     needs: [android, windows, linux, macos, ios, web]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pick the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          prerelease=false
+          if [ "$INPUT_PRERELEASE" = "true" ] || [[ "$version" == *-* ]]; then
+            prerelease=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$version (pre-release: $prerelease)"
+
       - name: Check the changelog
-        run: test -f "docs/releases/v${{ inputs.version }}.md" || { echo "docs/releases/v${{ inputs.version }}.md is missing"; exit 1; }
+        run: test -f "docs/releases/${{ steps.version.outputs.tag }}.md" || { echo "docs/releases/${{ steps.version.outputs.tag }}.md is missing"; exit 1; }
 
       - name: Download builds
         uses: actions/download-artifact@v4
@@ -296,20 +319,47 @@ jobs:
           path: out
           merge-multiple: true
 
+      - name: Write the checksums
+        run: |
+          cd out
+          sha256sum "V Converter-Android.apk" "V Converter-Windows.exe" "V Converter-Linux.deb" "V Converter-Linux.tar.gz" \
+            "V Converter-MacOS.dmg" "V Converter-MacOS.zip" "V Converter-IOS.ipa" "V Converter-Web.zip" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
-          gh release create "v${{ inputs.version }}" \
-            --target "${{ github.sha }}" \
-            --title "V-Converter v${{ inputs.version }}" \
-            --notes-file "docs/releases/v${{ inputs.version }}.md" \
-            ${{ inputs.prerelease && '--prerelease' || '' }} \
-            "out/V Converter-Android.apk#V Converter-Android.apk" \
-            "out/V Converter-Windows.exe#V Converter-Windows.exe" \
-            "out/V Converter-Linux.deb#V Converter-Linux.deb" \
-            "out/V Converter-Linux.tar.gz#V Converter-Linux.tar.gz" \
-            "out/V Converter-MacOS.dmg#V Converter-MacOS.dmg" \
-            "out/V Converter-MacOS.zip#V Converter-MacOS.zip" \
-            "out/V Converter-IOS.ipa#V Converter-IOS.ipa" \
+          files=(
+            "out/V Converter-Android.apk#V Converter-Android.apk"
+            "out/V Converter-Windows.exe#V Converter-Windows.exe"
+            "out/V Converter-Linux.deb#V Converter-Linux.deb"
+            "out/V Converter-Linux.tar.gz#V Converter-Linux.tar.gz"
+            "out/V Converter-MacOS.dmg#V Converter-MacOS.dmg"
+            "out/V Converter-MacOS.zip#V Converter-MacOS.zip"
+            "out/V Converter-IOS.ipa#V Converter-IOS.ipa"
             "out/V Converter-Web.zip#V Converter-Web.zip"
+            "out/SHA256SUMS.txt#SHA256SUMS.txt"
+          )
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease --latest=false)
+            title="V-Converter v$VERSION (Pre-release)"
+          else
+            flags+=(--latest)
+            title="V-Converter v$VERSION"
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$title" --notes-file "docs/releases/$TAG.md" "${flags[@]}"
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            gh release create "$TAG" \
+              --target "${{ github.sha }}" \
+              --title "$title" \
+              --notes-file "docs/releases/$TAG.md" \
+              "${flags[@]}" \
+              "${files[@]}"
+          fi
