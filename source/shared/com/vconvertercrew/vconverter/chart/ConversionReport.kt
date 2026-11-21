@@ -16,6 +16,7 @@ class ConversionReport {
     var cameraEvents = 0
     var convertedEvents = 0
     var keptPsychEvents = 0
+    val scriptedEvents = sortedMutableMap<String, Int>()
     var offsetApplied = 0.0
     val variations = LinkedHashMap<String, List<String>>()
 
@@ -39,6 +40,10 @@ class ConversionReport {
         appendLine("Events")
         appendLine("  • Camera focus events generated from sections: $cameraEvents")
         appendLine("  • Psych events converted: $convertedEvents")
+        if (scriptedEvents.isNotEmpty()) {
+            appendLine("  • Run by generated SongEvent scripts:")
+            scriptedEvents.forEach { (name, count) -> appendLine("      - $name ×$count") }
+        }
         if (unsupportedEvents.isNotEmpty()) {
             appendLine("  • Skipped (no V-Slice equivalent yet):")
             unsupportedEvents.forEach { (name, count) -> appendLine("      - $name ×$count") }
@@ -59,13 +64,17 @@ class ConversionReport {
     fun toReport(): Report {
         val builder = ReportBuilder()
         noteCounts.forEach { (difficulty, count) -> builder.stat(difficulty.replaceFirstChar { it.titlecase() }, count) }
-        builder.stat("Events", cameraEvents + convertedEvents)
+        builder.stat("Events", cameraEvents + convertedEvents + scriptedEvents.values.sum())
         builder.section(
             "Events",
             listOf(
                 "$cameraEvents camera focus events generated from sections",
                 "$convertedEvents Psych events converted"
             )
+        )
+        builder.section(
+            "Events run by generated scripts (scripts/events)",
+            scriptedEvents.map { (name, count) -> "$name ×$count → ${PsychEventIds.className(name)}.hxc" }
         )
         builder.section(
             if (keptPsychEvents > 0) "Kept with their Psych names (scripts and generated SongEvents handle them)" else "Skipped events (no V-Slice equivalent yet)",

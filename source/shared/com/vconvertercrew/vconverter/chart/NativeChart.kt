@@ -116,6 +116,7 @@ internal object NativeChart {
         pairs("noteCounts", report.noteCounts)
         pairs("duplicateNotes", report.duplicateNotes)
         pairs("unsupportedEvents", report.unsupportedEvents)
+        pairs("scriptedEvents", report.scriptedEvents)
         report.noteKinds += strings(json.optJSONArray("noteKinds"))
         strings(json.optJSONArray("warnings")).forEach(report::warn)
         report.cameraEvents = json.optInt("cameraEvents")

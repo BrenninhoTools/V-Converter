@@ -52,6 +52,8 @@ object HxImports {
         "SongEvent" to "funkin.play.event.SongEvent",
         "SongEventSchema" to "funkin.data.event.SongEventSchema",
         "SongEventRegistry" to "funkin.data.event.SongEventRegistry",
+        "SongEventData" to "funkin.data.song.SongEventData",
+        "CharacterDataParser" to "funkin.data.character.CharacterDataParser",
         "Song" to "funkin.play.song.Song",
         "Stage" to "funkin.play.stage.Stage",
         "NoteKind" to "funkin.play.notes.notekind.NoteKind",

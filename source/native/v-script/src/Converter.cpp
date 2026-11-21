@@ -26,13 +26,14 @@ const std::set<std::string> kTypeNames = {"Math", "Std", "String", "Array", "Ref
 const std::map<std::string, std::string> kImports = {{"Reflect", "Reflect"}, {"Type", "Type"}, {"StringTools", "StringTools"}, {"Lambda", "Lambda"},
     {"EReg", "EReg"}, {"Date", "Date"}, {"StringMap", "haxe.ds.StringMap"}, {"FlxCamera", "flixel.FlxCamera"}, {"FlxSprite", "flixel.FlxSprite"},
     {"FlxRuntimeShader", "flixel.addons.display.FlxRuntimeShader"}, {"FlxMath", "flixel.math.FlxMath"}, {"FlxPoint", "flixel.math.FlxPoint"},
-    {"FlxText", "flixel.text.FlxText"}, {"FlxTextBorderStyle", "flixel.text.FlxText.FlxTextBorderStyle"}, {"FlxEase", "flixel.tweens.FlxEase"},
+    {"FlxText", "flixel.text.FlxText"}, {"FlxTextBorderStyle", "flixel.text.FlxTextBorderStyle"}, {"FlxEase", "flixel.tweens.FlxEase"},
     {"FlxTween", "flixel.tweens.FlxTween"}, {"FlxAxes", "flixel.util.FlxAxes"}, {"FlxColor", "flixel.util.FlxColor"}, {"FlxTimer", "flixel.util.FlxTimer"},
     {"BlendMode", "openfl.display.BlendMode"}, {"Conductor", "funkin.Conductor"}, {"Highscore", "funkin.Highscore"},
     {"PlayerSettings", "funkin.PlayerSettings"}, {"FunkinSound", "funkin.audio.FunkinSound"}, {"FunkinSprite", "funkin.graphics.FunkinSprite"},
     {"Module", "funkin.modding.module.Module"}, {"PlayState", "funkin.play.PlayState"}, {"PlayStatePlaylist", "funkin.play.PlayStatePlaylist"},
     {"SongEvent", "funkin.play.event.SongEvent"}, {"SongEventSchema", "funkin.data.event.SongEventSchema"},
-    {"SongEventRegistry", "funkin.data.event.SongEventRegistry"}, {"SongEventData", "funkin.data.song.SongData.SongEventData"},
+    {"SongEventRegistry", "funkin.data.event.SongEventRegistry"}, {"SongEventData", "funkin.data.song.SongEventData"}, {"CharacterDataParser", "funkin.data.character.CharacterDataParser"},
+    {"BaseCharacter", "funkin.play.character.BaseCharacter"}, {"CharacterType", "funkin.play.character.CharacterType"},
     {"Song", "funkin.play.song.Song"}, {"Stage", "funkin.play.stage.Stage"}, {"NoteKind", "funkin.play.notes.notekind.NoteKind"},
     {"VideoCutscene", "funkin.play.cutscene.VideoCutscene"}, {"Assets", "openfl.utils.Assets"}, {"FlxKey", "flixel.input.keyboard.FlxKey"}};
 
@@ -2287,8 +2288,49 @@ private:
             std::string value = "{value1: " + arg(a, 1, "\"\"") + ", value2: " + arg(a, 2, "\"\"") + "}";
             if (isString(a0)) {
                 std::string key = lower(stringOf(a0));
-                if (key == "play animation") value = "{anim: " + arg(a, 1, "\"\"") + ", target: " + arg(a, 2, "\"bf\"") + ", force: true}";
-                else if (key == "hey!") value = "{anim: \"hey\", target: " + arg(a, 1, "\"bf\"") + ", force: true}";
+                std::string compact;
+                for (char c : key) if (c != ' ' && c != '_' && c != '-') compact += c;
+                std::string time = "Conductor.instance.songPosition";
+                auto fire = [&](const std::string& kind, const std::string& data) {
+                    return "SongEventRegistry.handleEvent(new SongEventData(" + time + ", " + hxString(kind) + ", " + data + "))";
+                };
+                if (key == "play animation") {
+                    std::string target = "\"dad\"";
+                    if (a2 && isString(a2)) {
+                        std::string t = lower(trim(stringOf(a2)));
+                        target = t == "bf" || t == "boyfriend" || t == "1" ? "\"bf\"" : (t == "gf" || t == "girlfriend" || t == "2" ? "\"gf\"" : "\"dad\"");
+                    } else if (a2) {
+                        use("StringTools");
+                        std::string v = "StringTools.trim(Std.string(" + expr(a2) + ")).toLowerCase()";
+                        target = "[\"bf\", \"boyfriend\", \"1\"].indexOf(" + v + ") >= 0 ? \"bf\" : ([\"gf\", \"girlfriend\", \"2\"].indexOf(" + v + ") >= 0 ? \"gf\" : \"dad\")";
+                    }
+                    value = "{anim: " + arg(a, 1, "\"\"") + ", target: " + target + ", force: true}";
+                    return fire("PlayAnimation", value);
+                }
+                if (key == "hey!") {
+                    std::string t = a1 && isString(a1) ? lower(trim(stringOf(a1))) : "";
+                    std::string bf = fire("PlayAnimation", "{anim: \"hey\", target: \"bf\", force: true}");
+                    std::string gf = fire("PlayAnimation", "{anim: \"cheer\", target: \"gf\", force: true}");
+                    if (t == "bf" || t == "boyfriend" || t == "0") return bf;
+                    if (t == "gf" || t == "girlfriend" || t == "1") return gf;
+                    std::string first = bf;
+                    std::string second = gf;
+                    if (a1 && !isString(a1)) {
+                        std::string v = "Std.string(" + expr(a1) + ").toLowerCase()";
+                        first = "if ([\"gf\", \"girlfriend\", \"1\"].indexOf(" + v + ") < 0) " + bf;
+                        second = "if ([\"bf\", \"boyfriend\", \"0\"].indexOf(" + v + ") < 0) " + gf;
+                    }
+                    if (code) {
+                        code->line(first + ";");
+                        code->line(second + ";");
+                        return "";
+                    }
+                    return "{ " + first + "; " + second + "; }";
+                }
+                if (key == "set gf speed") {
+                    return fire("SetTargetBopSpeed", "{target: \"girlfriend\", rate: Std.parseInt(Std.string(" + arg(a, 1, "\"1\"") + "))}");
+                }
+                if (compact == "changecharacter") id = hxString("ChangeCharacter");
                 else if (key == "change scroll speed") value = "{scroll: Std.parseFloat(" + arg(a, 1, "\"1\"") + "), ease: \"INSTANT\", absolute: false}";
                 else if (key == "camera follow pos") value = "{char: -1, x: Std.parseFloat(" + arg(a, 1, "\"0\"") + "), y: Std.parseFloat(" + arg(a, 2, "\"0\"") + ")}";
             }

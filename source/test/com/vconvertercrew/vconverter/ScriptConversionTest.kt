@@ -226,13 +226,14 @@ class ScriptConversionTest {
         val kept = conversion.chart.events.filter { it.kind == "FlashCamera" || it.kind == "AddCameraZoom" }
         assertEquals(2, kept.size)
         assertEquals("0.5", kept.first { it.kind == "FlashCamera" }.value["value1"])
-        val events = ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys)
+        val events = ScriptConverter.eventFiles(conversion.report.scriptedEvents.keys + conversion.report.unsupportedEvents.keys)
         assertEquals(listOf("scripts/events/AddCameraZoomEvent.hxc"), events.map { it.path })
         assertTrue(events.single().content.contains("extends SongEvent"))
         assertTrue(events.single().content.contains("super(\"AddCameraZoom\")"))
         assertTrue(events.single().content.contains("return \"Add Camera Zoom\";"))
-        assertEquals(kept.size, conversion.report.keptPsychEvents)
-        assertEquals(1, conversion.report.unsupportedEvents["Add Camera Zoom"])
+        assertEquals(1, conversion.report.keptPsychEvents)
+        assertEquals(1, conversion.report.scriptedEvents["Add Camera Zoom"])
+        assertEquals(1, conversion.report.unsupportedEvents["Flash Camera"])
     }
 
     @Test

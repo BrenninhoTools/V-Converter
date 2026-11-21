@@ -166,7 +166,7 @@ static void testSongEvents() {
     CHECK(has(s, "event.cancel();"));
     CHECK(has(s, "event.step % Conductor.instance.stepsPerMeasure == 0"));
     CHECK(has(s, "SongEventRegistry.handleEvent(new SongEventData(Conductor.instance.songPosition, \"PlayAnimation\", {anim: \"hey\", target: \"bf\", force: true}));"));
-    CHECK(has(s, "import funkin.data.song.SongData.SongEventData;"));
+    CHECK(has(s, "import funkin.data.song.SongEventData;"));
     CHECK(braceBalance(s) == 0);
 }
 
@@ -363,6 +363,45 @@ static void testDataConverters() {
     CHECK(has(data("stage", "not json"), "\"ok\":false"));
 }
 
+static void testChangeCharacter() {
+    bool known = false;
+    std::string code = vscript::builtinEvent("ChangeCharacter", "ChangeCharacterEvent", "ChangeCharacter", known);
+    CHECK(known);
+    CHECK(has(code, "import funkin.data.character.CharacterDataParser;"));
+    CHECK(has(code, "import funkin.play.character.CharacterType;"));
+    CHECK(has(code, "import funkin.data.song.SongEventData;"));
+    CHECK(has(code, "super(\"ChangeCharacter\", {processOldEvents: true});"));
+    CHECK(has(code, "stage.addCharacter(next, slot == 1 ? CharacterType.DAD : (slot == 2 ? CharacterType.GF : CharacterType.BF));"));
+    CHECK(has(code, "pool.push(characterAt(stage, slot, true));"));
+    CHECK(has(code, "songEvent.eventKind != \"ChangeCharacter\""));
+    CHECK(has(code, "return \"ChangeCharacter\";"));
+    CHECK(braceBalance(code) == 0);
+    CHECK(lacks(code, "trace("));
+
+    std::string alt = vscript::builtinEvent("Alt Idle Animation", "AltIdleAnimationEvent", "AltIdleAnimation", known);
+    CHECK(has(alt, "index == 1 ? stage.getBoyfriend()"));
+    CHECK(has(alt, ": stage.getDad());"));
+
+    auto r = convert(R"(function onBeatHit()
+    triggerEvent('Change Character', 'dad', 'pico')
+    triggerEvent('Hey!', 'gf', '')
+    triggerEvent('Hey!', '', '')
+    triggerEvent('Set GF Speed', '2', '')
+    triggerEvent('Play Animation', 'shoot', '')
+end)", vscript::Base::Song);
+    CHECK(has(r.source, "new SongEventData(Conductor.instance.songPosition, \"ChangeCharacter\", {value1: \"dad\", value2: \"pico\"})"));
+    CHECK(has(r.source, "{anim: \"cheer\", target: \"gf\", force: true}"));
+    CHECK(has(r.source, "{anim: \"hey\", target: \"bf\", force: true}"));
+    CHECK(has(r.source, "\"SetTargetBopSpeed\", {target: \"girlfriend\", rate: Std.parseInt(Std.string(\"2\"))}"));
+    CHECK(has(r.source, "{anim: \"shoot\", target: \"dad\", force: true}"));
+    CHECK(braceBalance(r.source) == 0);
+
+    std::string chart = data("chart", R"({"charts":[{"difficulty":"normal","text":"{\"song\":{\"song\":\"T\",\"bpm\":120,\"notes\":[],\"events\":[[0,[[\"ChangeCharacter\",\"bf\",\"pico\"],[\"Change Character\",\"dad\",\"x\"],[\"Screen Shake\",\"1,0.1\",\"\"]]]]}}"}],"options":{"keepPsychEvents":false}})");
+    CHECK(has(chart, "\"kind\":\"ChangeCharacter\",\"value\":{\"value1\":\"bf\",\"value2\":\"pico\"}"));
+    CHECK(has(chart, "\"scriptedEvents\":[{\"name\":\"Change Character\",\"count\":2},{\"name\":\"Screen Shake\",\"count\":1}]"));
+    CHECK(has(chart, "\"unsupportedEvents\":[]"));
+}
+
 int main() {
     testParser();
     testStage();
@@ -373,6 +412,7 @@ int main() {
     testErrorsAndApi();
     testFuzz();
     testDataConverters();
+    testChangeCharacter();
     if (failures == 0) std::printf("v-script: all tests passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -11,5 +11,11 @@ object PsychEventIds {
         return if (id in vsliceEvents) "Psych$id" else id
     }
 
+    val scriptedEvents = listOf("Add Camera Zoom", "Alt Idle Animation", "Change Character", "Play Sound", "Screen Shake", "Set Property")
+
+    private fun compact(name: String): String = name.trim().lowercase().filter { it != ' ' && it != '_' && it != '-' }
+
+    fun scriptedName(name: String): String? = compact(name).let { key -> scriptedEvents.firstOrNull { compact(it) == key } }
+
     fun className(name: String): String = idFor(name).let { if (it.endsWith("Event")) it else it + "Event" }
 }

@@ -277,6 +277,12 @@ object PsychToVSliceChart {
     private fun psychEvents(events: List<PsychEvent>, song: PsychSong, timing: PsychTiming, report: ConversionReport, keep: Boolean, count: Boolean): List<VSliceEvent> {
         val result = mutableListOf<VSliceEvent>()
         events.distinct().sortedBy { it.time }.forEach { event ->
+            val scripted = PsychEventIds.scriptedName(event.name)
+            if (scripted != null) {
+                if (count) report.scriptedEvents[scripted] = (report.scriptedEvents[scripted] ?: 0) + 1
+                result += VSliceEvent(event.time, PsychEventIds.idFor(scripted), linkedMapOf("value1" to event.value1, "value2" to event.value2))
+                return@forEach
+            }
             val converted = convertEvent(event, song, timing)
             if (converted == null) {
                 if (count || event.name !in report.unsupportedEvents) report.skipEvent(event.name.ifBlank { "(unnamed)" })
@@ -302,7 +308,7 @@ object PsychToVSliceChart {
                     "gf", "girlfriend", "1" -> listOf("gf")
                     else -> listOf("bf", "gf")
                 }
-                targets.map { playAnimation(event.time, it, "hey") }
+                targets.map { playAnimation(event.time, it, if (it == "gf") "cheer" else "hey") }
             }
             "play animation" -> {
                 if (v1.isEmpty()) return null

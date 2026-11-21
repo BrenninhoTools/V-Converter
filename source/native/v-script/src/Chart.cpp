@@ -307,6 +307,7 @@ struct Report {
     int cameraEvents = 0;
     int convertedEvents = 0;
     int keptEvents = 0;
+    std::vector<std::pair<std::string, int>> scripted;
     double offset = 0;
     std::vector<std::pair<std::string, std::vector<std::string>>> variations;
 
@@ -476,7 +477,7 @@ bool convertEvent(const PsychEvent& event, const PsychSong& song, const Timing& 
         if (k == "bf" || k == "boyfriend" || k == "0") targets = {"bf"};
         else if (k == "gf" || k == "girlfriend" || k == "1") targets = {"gf"};
         else targets = {"bf", "gf"};
-        for (const std::string& t : targets) out.push_back(playAnimation(event.time, t, "hey"));
+        for (const std::string& t : targets) out.push_back(playAnimation(event.time, t, t == "gf" ? "cheer" : "hey"));
         return true;
     }
     if (name == "play animation") {
@@ -537,6 +538,18 @@ std::vector<VEvent> cameraEvents(const PsychSong& song, const Timing& timing, Re
     return result;
 }
 
+std::string scriptedEventName(const std::string& raw) {
+    static const std::vector<std::string> names = {"Add Camera Zoom", "Alt Idle Animation", "Change Character", "Play Sound", "Screen Shake", "Set Property"};
+    std::string compact;
+    for (char c : lowerText(trimText(raw))) if (c != ' ' && c != '_' && c != '-') compact += c;
+    for (const std::string& name : names) {
+        std::string key;
+        for (char c : lowerText(name)) if (c != ' ') key += c;
+        if (key == compact) return name;
+    }
+    return "";
+}
+
 std::vector<VEvent> psychEvents(const std::vector<PsychEvent>& all, const PsychSong& song, const Timing& timing, Report& report, bool keep, bool count) {
     std::vector<PsychEvent> events;
     for (const PsychEvent& e : all) {
@@ -546,7 +559,20 @@ std::vector<VEvent> psychEvents(const std::vector<PsychEvent>& all, const PsychS
     std::vector<VEvent> result;
     for (const PsychEvent& event : events) {
         std::vector<VEvent> converted;
-        if (!convertEvent(event, song, timing, converted)) {
+        std::string scripted = scriptedEventName(event.name);
+        if (!scripted.empty()) {
+            if (count) {
+                bool found = false;
+                for (auto& entry : report.scripted) {
+                    if (entry.first == scripted) {
+                        entry.second++;
+                        found = true;
+                    }
+                }
+                if (!found) report.scripted.emplace_back(scripted, 1);
+            }
+            result.push_back({event.time, psychEventId(scripted), valueObject({{"value1", Json::string(event.value1)}, {"value2", Json::string(event.value2)}})});
+        } else if (!convertEvent(event, song, timing, converted)) {
             if (count || !report.hasUnsupported(event.name)) report.skip(trimText(event.name).empty() ? "(unnamed)" : event.name);
             if (keep && !trimText(event.name).empty()) {
                 if (count) report.keptEvents++;
@@ -862,6 +888,8 @@ Json convertPsychCharts(const Json& input, std::string& error) {
     r.set("cameraEvents", Json::number(report.cameraEvents));
     r.set("convertedEvents", Json::number(report.convertedEvents));
     r.set("keptPsychEvents", Json::number(report.keptEvents));
+    std::sort(report.scripted.begin(), report.scripted.end());
+    r.set("scriptedEvents", pairs(report.scripted));
     r.set("offsetApplied", Json::number(report.offset));
     Json vars = Json::array();
     for (const auto& v : report.variations) {

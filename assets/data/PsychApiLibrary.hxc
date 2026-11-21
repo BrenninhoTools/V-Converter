@@ -15,6 +15,7 @@ import funkin.Preferences;
 import funkin.audio.FunkinSound;
 import funkin.data.character.CharacterDataParser;
 import funkin.data.event.SongEventRegistry;
+import funkin.data.song.SongEventData;
 import funkin.data.song.SongRegistry;
 import funkin.graphics.FunkinSprite;
 import funkin.play.cutscene.VideoCutscene;
@@ -742,6 +743,16 @@ class PsychApiLibrary extends Module
     if (key == "dad" || key == "opponent" || key == "1") return game.currentStage.getDad();
     if (key == "gf" || key == "girlfriend" || key == "2") return game.currentStage.getGirlfriend();
     return game.currentStage.getBoyfriend();
+  }
+
+  function eventCharacter(name:Dynamic):Dynamic
+  {
+    if (game == null || game.currentStage == null) return null;
+    var key:String = StringTools.trim(Std.string(name)).toLowerCase();
+    var index:Null<Int> = Std.parseInt(key);
+    if (key == "bf" || key == "boyfriend" || index == 1) return game.currentStage.getBoyfriend();
+    if (key == "gf" || key == "girlfriend" || index == 2) return game.currentStage.getGirlfriend();
+    return game.currentStage.getDad();
   }
 
   function camera(name:Dynamic):Dynamic
@@ -1754,14 +1765,16 @@ class PsychApiLibrary extends Module
           var gf:Dynamic = character("gf");
           if (gf != null) gf.danceEvery = num(value1, 1);
         case "Alt Idle Animation":
-          var c:Dynamic = character(value1);
+          var c:Dynamic = eventCharacter(value1);
           if (c != null) c.idleSuffix = Std.string(value2);
         case "Hey!":
           var key:String = Std.string(value1).toLowerCase();
           if (key != "gf" && key != "girlfriend" && key != "1") character("boyfriend").playAnimation("hey", true, true);
           if (key != "bf" && key != "boyfriend" && key != "0") character("gf").playAnimation("cheer", true, true);
+        case "Change Character":
+          SongEventRegistry.handleEvent(new SongEventData(Conductor.instance.songPosition, "ChangeCharacter", {value1: Std.string(value1), value2: Std.string(value2)}));
         case "Play Animation":
-          var c:Dynamic = character(value2);
+          var c:Dynamic = eventCharacter(value2);
           if (c != null) c.playAnimation(Std.string(value1), true, true);
       }
     }

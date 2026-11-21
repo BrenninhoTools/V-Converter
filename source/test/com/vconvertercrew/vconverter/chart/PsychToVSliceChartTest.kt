@@ -48,7 +48,8 @@ class PsychToVSliceChartTest {
         val result = PsychToVSliceChart.convert(listOf(ChartSource("normal", PsychChartParser.parse(psychV1Chart))))
         val kinds = result.chart.events.map { it.kind }
         assertTrue("ScrollSpeed" in kinds)
-        assertEquals(1, result.report.unsupportedEvents["Add Camera Zoom"])
+        assertEquals(1, result.report.scriptedEvents["Add Camera Zoom"])
+        assertTrue("AddCameraZoom" in kinds)
         assertEquals("pixel", result.metadata.noteStyle)
         assertEquals("hurt", result.chart.notes.getValue("normal").first { it.time == 100.0 }.kind)
         val chartJson = JSONObject(VSliceWriter.chartJson(result.chart))

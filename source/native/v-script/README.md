@@ -19,7 +19,7 @@ The script converter and generator of V-Converter, written in C++17 with a C API
 
 Lua itself is parsed into a full syntax tree (Lua 5.1/LuaJIT with `goto`), so tables become arrays, anonymous objects or `StringMap`s from how the script uses them, `ipairs`/`pairs` loops become Haxe loops, 1-based indexes are shifted, `..` becomes string concatenation and `and`/`or` value tricks become ternaries. Anything without a V-Slice match is listed in the report with its line.
 
-`vscript_generate` writes new V-Slice scripts from a JSON spec, and `vscript_builtin_event` writes the SongEvent classes for Psych's built-in events.
+`vscript_generate` writes new V-Slice scripts from a JSON spec, and `vscript_builtin_event` writes the SongEvent classes for Psych's built-in events. `Change Character` (also written `ChangeCharacter`) becomes a `ChangeCharacterEvent` that preloads every character the chart swaps to, swaps them through `Stage.addCharacter` (positions, camera offsets and health icons come from the stage), and puts the original characters back when the song restarts.
 
 Sprites added with `addLuaSprite` are layered at runtime: `layerSprites()` puts the ones behind characters right under the girlfriend's `zIndex` and the front ones above every character, then calls `refresh()`, so they land where Psych draws them in any V-Slice stage. Stage scripts build in `onCreate` (before the characters exist) and run `onCreatePost` code once the characters are in place.
 

@@ -75,7 +75,8 @@ class PsychChartsConverter : PsychToVSliceConverter() {
             }
             val conversion = PsychToVSliceChart.convert(sources, ConversionOptions(songName = main.name.ifBlank { id }, extraEvents = events, keepPsychEvents = keepEvents, noteStyle = style?.id))
             conversion.files(id).forEach { (name, text) -> outputs += out("data/songs/$id/$name", text) }
-            if (keepEvents) ScriptConverter.eventFiles(conversion.report.unsupportedEvents.keys).forEach { outputs += out(it.path, it.content) }
+            val eventNames = conversion.report.scriptedEvents.keys + if (keepEvents) conversion.report.unsupportedEvents.keys else emptySet()
+            ScriptConverter.eventFiles(eventNames).forEach { outputs += out(it.path, it.content) }
             val converted = conversion.report.toReport()
             val prefix = if (songs.size > 1) "$id " else ""
             converted.stats.forEach { report.stat(prefix + it.label, it.value) }

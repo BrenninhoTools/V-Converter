@@ -258,6 +258,7 @@ class ModConverter(
                 }
                 keptPsychEvents += conversion.report.keptPsychEvents
                 keptEventNames += conversion.report.unsupportedEvents.keys
+                keptEventNames += conversion.report.scriptedEvents.keys
                 conversion.report.warnings.forEach { report.warn("Song ${scanned.id}: $it") }
                 if (conversion.report.unsupportedEvents.isNotEmpty()) {
                     report.section(
@@ -351,7 +352,7 @@ class ModConverter(
             sources.forEach { source -> source.song.sections.forEach { section -> section.notes.forEach { if (it.type.isNotBlank()) noteTypeNames += it.type } } }
         }
         scriptFiles.filter { "/custom_notetypes/" in "/" + scan.relative(it).lowercase() }.forEach { noteTypeNames += it.substringAfterLast('/').substringBeforeLast('.') }
-        val keptEvents = keptPsychEvents > 0
+        val keptEvents = keptPsychEvents > 0 || keptEventNames.isNotEmpty()
         if (scriptFiles.isEmpty() && !keptEvents) return
         val slug = ScriptConverter.slug(info.title.ifBlank { "Mod" })
         val sources = scriptFiles.mapNotNull { path ->

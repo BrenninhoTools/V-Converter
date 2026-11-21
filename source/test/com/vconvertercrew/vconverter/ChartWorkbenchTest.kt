@@ -30,13 +30,13 @@ class ChartWorkbenchTest {
         section(4, true, "[0, 0, 0], [500, 5, 250]"),
         section(3, false, "[2000, 1, 0]"),
         section(4, true, "[3500, 3, 0]", bpm = 150.0)
-    ), events = """[[1000, [["Hey!", "BF", ""]]], [1500, [["Add Camera Zoom", "0.015", "0.03"]]]]""", offset = 25.0)
+    ), events = """[[1000, [["Hey!", "BF", ""]]], [1500, [["Add Camera Zoom", "0.015", "0.03"]]], [1700, [["Flash Camera", "0.5", ""]]]]""", offset = 25.0)
 
     private val hard = chart(2.6, 120.0, listOf(
         section(4, true, "[0, 0, 0], [250, 2, 0], [500, 5, 250]"),
         section(3, false, "[2000, 1, 0]"),
         section(4, true, "[3500, 3, 0]", bpm = 150.0)
-    ), events = """[[1000, [["Hey!", "BF", ""]]], [1500, [["Add Camera Zoom", "0.015", "0.03"]]]]""", offset = 25.0)
+    ), events = """[[1000, [["Hey!", "BF", ""]]], [1500, [["Add Camera Zoom", "0.015", "0.03"]]], [1700, [["Flash Camera", "0.5", ""]]]]""", offset = 25.0)
 
     private val erect = chart(3.0, 140.0, listOf(section(4, true, "[0, 0, 0]")))
 
@@ -88,10 +88,12 @@ class ChartWorkbenchTest {
         val items = listOf(picked(converter, "data/test-song/test-song.json", normal))
         val kept = ChartWorkbench.run(converter, items, ChartTweaks())
         assertTrue(kept.after.first().events.any { it.name == "AddCameraZoom" })
-        assertTrue(kept.output.files.any { it.relativePath.startsWith("scripts/events/") })
+        assertTrue(kept.after.first().events.any { it.name == "FlashCamera" })
+        assertTrue(kept.output.files.any { it.relativePath == "scripts/events/AddCameraZoomEvent.hxc" })
         val dropped = ChartWorkbench.run(converter, items, ChartTweaks(keepUnknownEvents = false))
-        assertFalse(dropped.after.first().events.any { it.name == "AddCameraZoom" })
-        assertFalse(dropped.output.files.any { it.relativePath.startsWith("scripts/events/") })
+        assertTrue(dropped.after.first().events.any { it.name == "AddCameraZoom" })
+        assertFalse(dropped.after.first().events.any { it.name == "FlashCamera" })
+        assertEquals(listOf("scripts/events/AddCameraZoomEvent.hxc"), dropped.output.files.filter { it.relativePath.startsWith("scripts/events/") }.map { it.relativePath })
     }
 
     @Test

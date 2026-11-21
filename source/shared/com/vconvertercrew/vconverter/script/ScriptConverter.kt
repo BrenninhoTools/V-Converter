@@ -68,13 +68,15 @@ object ScriptConverter {
 
     fun eventId(name: String) = PsychEventIds.idFor(name)
 
-    fun builtinEvents(): Set<String> = PsychNativeLibrary.builtinEventNames
+    fun builtinEvents(): Set<String> = PsychNativeLibrary.builtinEventNames + PsychEventIds.scriptedEvents
 
     fun eventFiles(names: Collection<String>, scripted: Collection<String> = emptyList()): List<ScriptFile> =
-        names.filter { it in PsychNativeLibrary.builtinEventNames && scripted.none { s -> eventId(s) == eventId(it) } }.distinct().sorted().map { name ->
-            val direct = if (NativeScripts.available) NativeScripts.builtinEvent(name, eventClass(name), eventId(name)) else null
-            ScriptFile("scripts/events/${eventClass(name)}.hxc", direct ?: HxImports.complete(eventSource(name)))
-        }
+        names.mapNotNull { name -> if (name in PsychNativeLibrary.builtinEventNames) name else PsychEventIds.scriptedName(name) }
+            .filter { name -> scripted.none { s -> eventId(s) == eventId(name) } }.distinct().sorted().map { name ->
+                val direct = if (NativeScripts.available) NativeScripts.builtinEvent(name, eventClass(name), eventId(name)) else null
+                val fallback = if (PsychEventIds.scriptedName(name) == "Change Character") ChangeCharacterEvent.source(eventClass(name), eventId(name), name) else null
+                ScriptFile("scripts/events/${eventClass(name)}.hxc", direct ?: fallback ?: HxImports.complete(eventSource(name)))
+            }
 
     private fun eventSource(name: String): String {
         val body = PsychNativeLibrary.library.builtinEvents.getValue(name).lines()
