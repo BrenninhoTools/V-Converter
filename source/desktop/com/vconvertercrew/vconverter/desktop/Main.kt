@@ -62,6 +62,8 @@ fun main() {
                     EditorTool.ONLINE -> false
                     EditorTool.XML -> false
                     EditorTool.PLAYTEST -> false
+                    EditorTool.MOD_GEN -> false
+                    EditorTool.SCRIPT_GEN -> false
                     null -> false
                 }
             }

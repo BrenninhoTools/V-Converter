@@ -38,6 +38,14 @@ enum class EditorTool(val title: String, val accent: androidx.compose.ui.graphic
         "Week Editor", Palette.Right,
         "Open a week or start a new one. Click a menu character in the story menu preview and drag it to move it; the arrow keys nudge it (Shift for 10), Enter plays the confirm animation, Left / Right change the difficulty shown, Ctrl+Z / Ctrl+Y undo and redo."
     ),
+    MOD_GEN(
+        "New Mod", Palette.Pink,
+        "Make a ready V-Slice mod folder: _polymod_meta.json, an icon and a starter module script."
+    ),
+    SCRIPT_GEN(
+        "New Script", Palette.Lavender,
+        "Make a ready-to-edit .hxc class for V-Slice: module, song, stage, character, song event or note kind."
+    ),
     XML(
         "XML Editor", Palette.Lavender,
         "Turn .png frames into a spritesheet with its Sparrow .xml, or make the .xml for one image that already holds every frame. W / S pick the animation, A / D the frame, Space plays, Enter generates."
@@ -53,6 +61,10 @@ class AppState(private val scope: CoroutineScope) {
     val characterEditor = IosCharacterEditor(scope)
     val stageEditor = IosStageEditor(scope)
     val weekEditor = IosWeekEditor(scope)
+    val modGen = com.vconvertercrew.vconverter.converterview.ModGenForm()
+    val scriptGen = com.vconvertercrew.vconverter.converterview.ScriptGenForm()
+    val modGenRun = com.vconvertercrew.vconverter.converterview.GeneratorRun()
+    val scriptGenRun = com.vconvertercrew.vconverter.converterview.GeneratorRun()
     val xmlEditor = com.vconvertercrew.vconverter.editorview.XmlEditorState(scope) { bytes -> org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap() }
     val online = com.vconvertercrew.vconverter.onlineview.OnlineState(scope)
     val playtest = IosPlayTest(scope)
@@ -97,6 +109,8 @@ class AppState(private val scope: CoroutineScope) {
             EditorTool.ONLINE -> Unit
             EditorTool.XML -> xmlEditor.addFrames(list.filter { it.isFile }.map { it.name to it.readBytes() })
             EditorTool.PLAYTEST -> playtest.open(list)
+            EditorTool.MOD_GEN -> list.firstOrNull { it.name.endsWith(".png", ignoreCase = true) }?.let { file -> modGen.update { it.copy(icon = com.vconvertercrew.vconverter.converterview.GeneratorMenus.pickedIcon(file.name, file.readBytes())) } }
+            EditorTool.SCRIPT_GEN -> Unit
             null -> if (tab == Tab.MOD) openMod(list.first()) else addFiles(list)
         }
     }
@@ -212,6 +226,28 @@ if (zip) Dialogs.export(target)
                     state.status = Status.Error(e.message ?: "Could not save the files.")
                 } finally {
                     state.busy = false
+                }
+            }
+        }
+    }
+
+    fun saveGenerated(run: com.vconvertercrew.vconverter.converterview.GeneratorRun, output: com.vconvertercrew.vconverter.convert.ConvertedOutput, zip: Boolean, name: String, prefix: String) {
+        if (run.busy) return
+        Dialogs.pickTarget(zip, "Save the generated files", name, "Choose the folder to write the files into") { target ->
+            run.busy = true
+            scope.launch {
+                try {
+                    withContext(Dispatchers.Default) {
+                        if (zip) Workspace.writeZip(target, prefix, true) { writer -> output.files.forEach { it.writeTo(writer) } }
+                        else Workspace.writeFolder(target, true) { writer -> output.files.forEach { it.writeTo(writer) } }
+                    }
+                    run.report("Saved ${output.files.size} file(s) to ${target.absolutePath}", false)
+                    if (zip) Dialogs.export(target)
+                    lastOutput = target
+                } catch (e: Exception) {
+                    run.report(e.message ?: "Could not save the files.", true)
+                } finally {
+                    run.busy = false
                 }
             }
         }

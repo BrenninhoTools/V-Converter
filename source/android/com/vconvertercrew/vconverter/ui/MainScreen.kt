@@ -303,6 +303,9 @@ fun MainScreen() {
     val weeks: WeeksViewModel = viewModel()
     val mod: ModViewModel = viewModel()
     val scripts: ScriptsViewModel = viewModel()
+    val psychStages: com.vconvertercrew.vconverter.ui.converter.PsychStagesFilesViewModel = viewModel()
+    val psychWeeks: com.vconvertercrew.vconverter.ui.converter.PsychWeeksFilesViewModel = viewModel()
+    val psychScripts: com.vconvertercrew.vconverter.ui.converter.PsychScriptsFilesViewModel = viewModel()
     val genMod: ModGenViewModel = viewModel()
     val genSong: ChartEditorViewModel = viewModel()
     val genCharacter: CharacterEditorViewModel = viewModel()
@@ -337,7 +340,7 @@ fun MainScreen() {
     val p2cScripts: PsychToCodenameScriptsViewModel = viewModel()
     val nmv = com.vconvertercrew.vconverter.ui.nmv.rememberNmvModels()
     remember {
-        listOf(charts, characters, stages, weeks, mod, scripts, cnMod, cnCharts, cnCharacters, cnStages, cnWeeks, cnScripts, genMod, genScript)
+        listOf(charts, characters, stages, weeks, mod, scripts, psychStages, psychWeeks, psychScripts, cnMod, cnCharts, cnCharacters, cnStages, cnWeeks, cnScripts, genMod, genScript)
             .forEach { it.vsliceTarget = true }
         Tab.entries.forEach { tab -> runCatching { nmv.forTab(Direction.NMV_TO_VSLICE, tab).vsliceTarget = true } }
         true
@@ -390,9 +393,9 @@ fun MainScreen() {
         Tab.MOD -> mod
         Tab.CHARTS -> charts
         Tab.CHARACTERS -> characters
-        Tab.STAGES -> stages
-        Tab.WEEKS -> weeks
-        Tab.SCRIPTS -> scripts
+        Tab.STAGES -> psychStages
+        Tab.WEEKS -> psychWeeks
+        Tab.SCRIPTS -> psychScripts
         GenTab.MOD -> genMod
         GenTab.SONG -> genSong
         GenTab.CHARACTER -> genCharacter
@@ -571,16 +574,36 @@ fun MainScreen() {
                 backRequests = onlineBack,
                 overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp)) }
             )
-        } else if (section == Section.CONVERTER && (converterTab == Tab.MOD || converterTab == Tab.CHARTS || converterTab == Tab.CHARACTERS) &&
-            direction in listOf(Direction.PSYCH_TO_VSLICE, Direction.VSLICE_TO_PSYCH, Direction.CODENAME_TO_VSLICE, Direction.CODENAME_TO_PSYCH, Direction.PSYCH_TO_CODENAME)
-        ) {
+        } else if (section == Section.CONVERTER) {
             val converterBack = { menuScreen = MENU_CONVERTER }
             val label = "${direction.from.title} to ${direction.to.title}"
             val badge: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {
                 DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp))
             }
+            val nmvDirection = direction in com.vconvertercrew.vconverter.ui.nmv.nmvDirections
             Box(Modifier.fillMaxSize()) {
-                if (converterTab == Tab.MOD) {
+                if (converterTab == Tab.MOD && nmvDirection) {
+                    val from = direction.from.title
+                    val to = direction.to.title
+                    when (val model = nmv.mod(direction)) {
+                        is com.vconvertercrew.vconverter.ui.nmv.NmvModViewModel -> com.vconvertercrew.vconverter.ui.converter.FunkinNmvModConverter(model, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        is ModViewModel -> com.vconvertercrew.vconverter.ui.converter.FunkinPsychModConverter(model, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        is CodenameModViewModel -> com.vconvertercrew.vconverter.ui.converter.FunkinCodenameModConverter(model, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        is ReverseModViewModel -> com.vconvertercrew.vconverter.ui.converter.FunkinVSliceModConverter(model, from, to, Funkin.Pink, folderName, save, converterBack, badge)
+                        else -> Unit
+                    }
+                } else if (converterTab != Tab.MOD && nmvDirection) {
+                    com.vconvertercrew.vconverter.ui.converter.FunkinFilesConverter(nmv.files.getValue(direction to converterTab), converterTab.title, label, converterTab.accent, folderName, save, converterBack, badge)
+                } else if (converterTab == Tab.STAGES || converterTab == Tab.WEEKS || converterTab == Tab.SCRIPTS) {
+                    val filesModel: com.vconvertercrew.vconverter.ui.reverse.ReverseViewModel = when (direction) {
+                        Direction.VSLICE_TO_PSYCH -> when (converterTab) { Tab.STAGES -> revStages; Tab.WEEKS -> revWeeks; else -> revScripts }
+                        Direction.CODENAME_TO_VSLICE -> when (converterTab) { Tab.STAGES -> cnStages; Tab.WEEKS -> cnWeeks; else -> cnScripts }
+                        Direction.CODENAME_TO_PSYCH -> when (converterTab) { Tab.STAGES -> c2pStages; Tab.WEEKS -> c2pWeeks; else -> c2pScripts }
+                        Direction.PSYCH_TO_CODENAME -> when (converterTab) { Tab.STAGES -> p2cStages; Tab.WEEKS -> p2cWeeks; else -> p2cScripts }
+                        else -> when (converterTab) { Tab.STAGES -> psychStages; Tab.WEEKS -> psychWeeks; else -> psychScripts }
+                    }
+                    com.vconvertercrew.vconverter.ui.converter.FunkinFilesConverter(filesModel, converterTab.title, label, converterTab.accent, folderName, save, converterBack, badge)
+                } else if (converterTab == Tab.MOD) {
                     val from = direction.from.title
                     val to = direction.to.title
                     when (direction) {
@@ -610,6 +633,23 @@ fun MainScreen() {
                         },
                         "Characters", label, Funkin.Left, folderName, save, converterBack, badge
                     )
+                }
+            }
+        } else if (section == Section.GENERATOR && (generatorTab == GenTab.MOD || generatorTab == GenTab.SCRIPT)) {
+            val badge: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {
+                DiscordBadge(Modifier.align(Alignment.BottomStart).displayCutoutPadding().padding(16.dp))
+            }
+            Box(Modifier.fillMaxSize()) {
+                if (generatorTab == GenTab.MOD) com.vconvertercrew.vconverter.ui.converter.FunkinModGenerator(genMod, folderName, save, { menuScreen = MENU_GENERATOR }, badge)
+                else com.vconvertercrew.vconverter.ui.converter.FunkinScriptGenerator(genScript, folderName, save, { menuScreen = MENU_GENERATOR }, badge)
+            }
+        } else if (section == Section.GENERATOR && (generatorTab == GenTab.CHARACTER || generatorTab == GenTab.STAGE || generatorTab == GenTab.WEEK)) {
+            val exit: () -> Unit = { com.vconvertercrew.vconverter.overlay.FunkinTransition.go { menuScreen = MENU_GENERATOR } }
+            Box(Modifier.fillMaxSize()) {
+                when (generatorTab) {
+                    GenTab.CHARACTER -> CharacterEditorScreen(genCharacter, folderName, save, exit)
+                    GenTab.STAGE -> StageEditorScreen(genStage, folderName, save, exit)
+                    else -> WeekEditorScreen(genWeek, folderName, save, exit)
                 }
             }
         } else if (section == Section.GENERATOR && generatorTab == GenTab.XML) {

@@ -83,6 +83,18 @@ fun App(state: AppState) {
         Box(Modifier.fillMaxSize()) { EditorScreen(state) }
         return
     }
+    if (state.tool == EditorTool.CHARACTER) {
+        Box(Modifier.fillMaxSize()) { CharacterEditorScreen(state) }
+        return
+    }
+    if (state.tool == EditorTool.STAGE) {
+        Box(Modifier.fillMaxSize()) { StageEditorScreen(state) }
+        return
+    }
+    if (state.tool == EditorTool.WEEK) {
+        Box(Modifier.fillMaxSize()) { WeekEditorScreen(state) }
+        return
+    }
     if (usesFunkinConverter(state)) {
         Box(Modifier.fillMaxSize()) { FunkinConverterScreen(state) }
         return

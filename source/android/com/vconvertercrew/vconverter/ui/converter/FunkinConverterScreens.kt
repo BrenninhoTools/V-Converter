@@ -39,7 +39,7 @@ private val notCharts = Regex("(^|/)data/(characters|stages|levels|weeks|events|
 private fun playable(output: ConvertedOutput?): Boolean = output?.files?.any { playableChart.containsMatchIn(it.relativePath) && !notCharts.containsMatchIn(it.relativePath) } == true
 
 @Composable
-private fun rememberConverterArt(): ConverterArt {
+internal fun rememberConverterArt(): ConverterArt {
     val context = LocalContext.current
     return remember {
         val assets = context.assets
@@ -66,7 +66,7 @@ private fun rememberGameTest(viewModel: BaseConverterViewModel): GameTest {
     return GameTest(if (viewModel.vsliceOutput && viewModel.download != null) open else null, problem)
 }
 
-private fun status(viewModel: BaseConverterViewModel): Pair<String?, Boolean> =
+internal fun status(viewModel: BaseConverterViewModel): Pair<String?, Boolean> =
     viewModel.status?.text to (viewModel.status is StatusMessage.Error)
 
 @Composable
@@ -232,10 +232,10 @@ fun FunkinCharactersConverter(
     FunkinConverterMenu(spec, art, FunkinStripColors, overlay = overlay)
 }
 
-private class ModSummary(val name: String, val root: String, val stats: List<Pair<String, Int>>, val songs: List<String>, val placeholders: Map<String, String>)
+internal class ModSummary(val name: String, val root: String, val stats: List<Pair<String, Int>>, val songs: List<String>, val placeholders: Map<String, String>)
 
 @Composable
-private fun FunkinModConverterMenu(
+internal fun FunkinModConverterMenu(
     viewModel: BaseConverterViewModel,
     summary: ModSummary?,
     source: String,

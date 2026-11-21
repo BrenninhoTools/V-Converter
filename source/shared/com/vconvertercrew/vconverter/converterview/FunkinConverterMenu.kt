@@ -113,7 +113,20 @@ class ConverterMenuSpec(
     val onPreview: ((ChartPreview) -> Unit)? = null,
     val showingAfter: Boolean = false,
     val onToggleAfter: (() -> Unit)? = null,
-    val onBack: () -> Unit
+    val onBack: () -> Unit,
+    val addLabel: String? = "Add Files",
+    val addHint: String? = null,
+    val convertLabel: String = "Convert",
+    val convertAgainLabel: String = "Convert Again",
+    val convertHint: String? = null,
+    val busyLabel: String = "Converting...",
+    val optionsLabel: String = "Options",
+    val optionsHint: String = "Song name, characters, stage, scroll speed and more.",
+    val extraItems: List<MenuOption.Action> = emptyList(),
+    val countLabel: String? = null,
+    val infoLines: List<String> = emptyList(),
+    val code: String? = null,
+    val backHint: String = "Goes back to the converter menu."
 )
 
 class ConverterArt(val menu: MenuArt?, val background: ImageBitmap?, val icons: HealthIcons) {
@@ -187,6 +200,7 @@ private class ConverterItem(
 )
 
 private const val MAX_CHARS = 24
+private const val CODE_LINES = 16
 private fun shorten(text: String): String = if (text.length <= MAX_CHARS) text else text.take(MAX_CHARS - 3).trimEnd() + "..."
 
 @Composable
@@ -210,7 +224,7 @@ fun FunkinConverterMenu(spec: ConverterMenuSpec, art: ConverterArt, stripColors:
 
     val ready = spec.output != null
     val items = buildList {
-        add(ConverterItem("Add Files", "Pick ${spec.title.lowercase()} files or archives (.zip, .rar, .7z).", "face", !spec.busy, run = spec.onAddFiles))
+        spec.addLabel?.let { label -> add(ConverterItem(label, spec.addHint ?: "Pick ${spec.title.lowercase()} files or archives (.zip, .rar, .7z).", "face", !spec.busy, run = spec.onAddFiles)) }
         spec.onAddFolder?.let { add(ConverterItem("Add Folder", "Adds every matching file inside a folder.", "face", !spec.busy, run = it)) }
         spec.rows.forEachIndexed { index, row ->
             val slot = row.slot
@@ -241,14 +255,15 @@ fun FunkinConverterMenu(spec: ConverterMenuSpec, art: ConverterArt, stripColors:
                 }
             ))
         }
-        if (spec.options.isNotEmpty()) add(ConverterItem("Options", "Song name, characters, stage, scroll speed and more.", "gf", !spec.busy, run = { optionsOpen = true }))
-        add(ConverterItem(if (ready) "Convert Again" else "Convert", "Converts ${spec.direction}.", "bf", spec.canConvert && !spec.busy, run = spec.onConvert))
+        if (spec.options.isNotEmpty()) add(ConverterItem(spec.optionsLabel, spec.optionsHint, "gf", !spec.busy, run = { optionsOpen = true }))
+        spec.extraItems.forEach { extra -> add(ConverterItem(extra.label, extra.hint, "gf", !spec.busy, run = extra.run)) }
+        add(ConverterItem(if (ready) spec.convertAgainLabel else spec.convertLabel, spec.convertHint ?: "Converts ${spec.direction}.", "bf", spec.canConvert && !spec.busy, run = spec.onConvert))
         spec.onSaveFolder?.let { save -> add(ConverterItem(spec.folderLabel, "Converts if needed, then writes into a mod folder.", "pico", spec.canConvert && !spec.busy, run = { whenReady(save) })) }
         add(ConverterItem(spec.zipLabel, "Converts if needed, then saves one .zip.", "pico", spec.canConvert && !spec.busy, run = { whenReady(spec.onSaveZip) }))
         spec.onPlayTest?.let { play -> add(ConverterItem("PlayTest", "Plays the converted result.", "bf", ready && !spec.busy, run = play)) }
         spec.onTestGame?.let { test -> add(ConverterItem(spec.testGameLabel, "Puts the mod in Friday Night Funkin's mods folder and switches to the game.", "bf", !spec.busy, run = test)) }
         if (spec.rows.isNotEmpty()) add(ConverterItem("Clear All", "Removes every file.", "face", !spec.busy, run = spec.onClear))
-        add(ConverterItem("Back", "Goes back to the converter menu.", null, true, run = { leaving = true }))
+        add(ConverterItem("Back", spec.backHint, null, true, run = { leaving = true }))
     }
     val live by rememberUpdatedState(items)
 
@@ -424,8 +439,9 @@ fun FunkinConverterMenu(spec: ConverterMenuSpec, art: ConverterArt, stripColors:
             val small = TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 13.sp, shadow = shadow, textAlign = TextAlign.End)
             Text(spec.title.uppercase(), style = big)
             Text(spec.direction.uppercase(), style = small.copy(color = spec.accent))
-            Text("${spec.rows.size} FILE(S)" + (spec.output?.let { " · ${it.files.size} READY" } ?: ""), style = small)
-            if (spec.busy) Text("CONVERTING...", style = small.copy(color = Color.White.copy(alpha = blink), fontWeight = FontWeight.Bold))
+            Text((spec.countLabel ?: "${spec.rows.size} FILE(S)") + (spec.output?.let { " · ${it.files.size} READY" } ?: ""), style = small)
+            spec.infoLines.forEach { Text(it, style = small.copy(color = Color(0xFFDADADA))) }
+            if (spec.busy) Text(spec.busyLabel.uppercase(), style = small.copy(color = Color.White.copy(alpha = blink), fontWeight = FontWeight.Bold))
             if (row != null) {
                 Text(row.name, style = small.copy(fontWeight = FontWeight.Bold))
                 Text(row.tag.uppercase() + (row.slot?.let { " · < ${it.label.uppercase()} >" } ?: ""), style = small.copy(color = spec.accent))
@@ -454,6 +470,14 @@ fun FunkinConverterMenu(spec: ConverterMenuSpec, art: ConverterArt, stripColors:
                         "P ${preview.playerNotes} · O ${preview.opponentNotes} · HOLDS ${preview.holdNotes} · ${formatDuration(preview.length)} · BPM ${if (low == high) formatBpm(low) else "${formatBpm(low)}-${formatBpm(high)}"} · SPEED ${formatBpm(preview.speed)}",
                         color = Color(0xFFCFCFCF), fontFamily = FontFamily.Monospace, fontSize = 11.sp
                     )
+                }
+            }
+            val code = spec.code
+            if (code != null && code.isNotBlank()) {
+                val lines = code.lines()
+                Column(Modifier.fillMaxWidth().background(Color(0xCC000000)).padding(8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    lines.take(CODE_LINES).forEach { Text(it.ifEmpty { " " }, color = Color(0xFFE6E6E6), fontFamily = FontFamily.Monospace, fontSize = 11.sp, maxLines = 1) }
+                    if (lines.size > CODE_LINES) Text("…${lines.size - CODE_LINES} more line(s)", color = Color(0xFFA0A0A0), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 }
             }
             val output = spec.output

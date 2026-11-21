@@ -15,15 +15,21 @@ import com.vconvertercrew.vconverter.converterview.ConverterMenus
 import com.vconvertercrew.vconverter.converterview.ConverterRow
 import com.vconvertercrew.vconverter.converterview.FunkinConverterMenu
 import com.vconvertercrew.vconverter.converterview.FunkinModMenu
+import com.vconvertercrew.vconverter.converterview.GeneratorActions
+import com.vconvertercrew.vconverter.converterview.GeneratorMenus
 import com.vconvertercrew.vconverter.converterview.ModMenuInfo
 import com.vconvertercrew.vconverter.converterview.ModMenuSpec
 import com.vconvertercrew.vconverter.converterview.ModMenus
 import com.vconvertercrew.vconverter.overlay.DiscordBadge
 
-fun usesFunkinConverter(state: AppState): Boolean = state.tool == null && (state.tab == Tab.MOD || state.tab == Tab.CHARTS || state.tab == Tab.CHARACTERS)
+fun usesFunkinConverter(state: AppState): Boolean = state.tool == null || state.tool == EditorTool.MOD_GEN || state.tool == EditorTool.SCRIPT_GEN
 
 @Composable
 fun FunkinConverterScreen(state: AppState) {
+    if (state.tool == EditorTool.MOD_GEN || state.tool == EditorTool.SCRIPT_GEN) {
+        FunkinGeneratorScreen(state)
+        return
+    }
     if (state.tab == Tab.MOD) {
         FunkinModScreen(state)
         return
@@ -147,4 +153,49 @@ fun FunkinModScreen(state: AppState) {
         }
     )
     FunkinModMenu(spec, art, gameBanana = banana, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
+}
+
+@Composable
+fun FunkinGeneratorScreen(state: AppState) {
+    val art = remember { ConverterArt.load({ Resources.image(it) }, { Resources.bytes(it)?.decodeToString() }) }
+    val back = {
+        MainMenu.open = true
+        MainMenu.list = "generator"
+    }
+    val spec = if (state.tool == EditorTool.SCRIPT_GEN) {
+        val run = state.scriptGenRun
+        GeneratorMenus.scriptSpec(
+            { state.scriptGen.form },
+            { change -> state.scriptGen.update(change) },
+            run,
+            GeneratorActions(
+                onSaveZip = { output -> state.saveGenerated(run, output, true, state.scriptGen.form.downloadName(), "") },
+                onSaveFolder = { output -> state.saveGenerated(run, output, false, "", "") }
+            ),
+            back
+        )
+    } else {
+        val run = state.modGenRun
+        GeneratorMenus.modSpec(
+            { state.modGen.spec },
+            { change -> state.modGen.update(change) },
+            run,
+            GeneratorActions(
+                onSaveZip = { output ->
+                    val folder = GeneratorMenus.folderName(state.modGen.spec.title)
+                    state.saveGenerated(run, output, true, folder.replace(' ', '-') + ".zip", folder)
+                },
+                onSaveFolder = { output -> state.saveGenerated(run, output, false, "", "") }
+            ),
+            {
+            Dialogs.openFile("Pick the mod icon", setOf("png")) { file ->
+                runCatching { GeneratorMenus.pickedIcon(file.name, file.readBytes()) }
+                    .onSuccess { icon -> state.modGen.update { it.copy(icon = icon) } }
+                    .onFailure { state.modGenRun.report(it.message ?: "Could not read the icon.", true) }
+            }
+        },
+            back
+        )
+    }
+    FunkinConverterMenu(spec, art, StripColors, overlay = { DiscordBadge(Modifier.align(Alignment.BottomStart).padding(16.dp)) })
 }
