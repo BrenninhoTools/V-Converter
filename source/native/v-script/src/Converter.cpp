@@ -17,7 +17,7 @@ namespace {
 const std::set<std::string> kHaxeReserved = {"abstract", "break", "case", "cast", "catch", "class", "continue", "default", "do", "dynamic", "else",
     "enum", "extends", "extern", "false", "final", "for", "function", "if", "implements", "import", "in", "inline", "interface", "macro", "new",
     "null", "operator", "overload", "override", "package", "private", "public", "return", "static", "super", "switch", "this", "throw", "true",
-    "try", "typedef", "untyped", "using", "var", "while", "event", "trace", "activeGame", "closed", "sprites", "create"};
+    "try", "typedef", "untyped", "using", "var", "while", "event", "trace", "activeGame", "closed", "closedGame", "sprites", "create"};
 
 const std::set<std::string> kTypeNames = {"Math", "Std", "String", "Array", "Reflect", "Type", "FlxG", "Paths", "Conductor", "PlayState", "Preferences",
     "Highscore", "FlxTween", "FlxEase", "FlxTimer", "FlxColor", "FlxText", "FlxSprite", "FunkinSprite", "FunkinSound", "StringTools", "Date",
@@ -2347,7 +2347,10 @@ private:
             }
             return out + ")";
         }
-        if (name == "close") return code ? "closed = true;\nreturn;" : "closed = true";
+        if (name == "close") {
+            use("PlayState");
+            return code ? "closedGame = PlayState.instance;\nreturn;" : "closedGame = PlayState.instance";
+        }
         if (name == "endSong") return "PlayState.instance.endSong(true)";
         if (name == "startCountdown") return "PlayState.instance.startCountdown()";
         if (name == "restartSong") return "PlayState.instance.needsReset = true";
@@ -2844,16 +2847,19 @@ private:
 
     std::string guard(bool needsCreate) {
         std::vector<std::string> checks;
-        if (usesClose_) checks.push_back("closed");
+        if (usesClose_) {
+            use("PlayState");
+            checks.push_back("(closedGame != null && closedGame == PlayState.instance)");
+        }
         if (opt_.base == Base::Module) {
             use("PlayState");
             checks.push_back("PlayState.instance == null");
             if (opt_.scopeKind == "song") checks.push_back("PlayState.instance.currentSong == null || PlayState.instance.currentSong.id != " + hxString(opt_.scopeId));
             if (opt_.scopeKind == "stage") checks.push_back("PlayState.instance.currentStageId != " + hxString(opt_.scopeId));
         }
-        if (needsCreate && hasCreate_ && opt_.base != Base::NoteKind && opt_.base != Base::SongEvent) {
+        if (needsCreate && hasCreate_ && opt_.base != Base::Module) {
             use("PlayState");
-            checks.push_back("activeGame != PlayState.instance");
+            checks.push_back("PlayState.instance == null");
         }
         if (checks.empty()) return "";
         std::string out = "if (";
@@ -2891,7 +2897,7 @@ private:
         out.close();
     }
 
-    bool lazyCreate() const { return hasCreate_ && (opt_.base == Base::NoteKind || opt_.base == Base::SongEvent); }
+    bool lazyCreate() const { return hasCreate_; }
 
     bool inCreate_ = false;
     bool addedInCreate_ = false;
@@ -2979,7 +2985,7 @@ private:
 
         Code hooks;
         hooks.setDepth(1);
-        emitHooks(hooks, create, post);
+        emitHooks(hooks, post);
 
         Code methods;
         methods.setDepth(1);
@@ -3055,13 +3061,6 @@ private:
         if (has(psych) && std::find(callbacks_.begin(), callbacks_.end(), psych) == callbacks_.end()) callbacks_.push_back(psych);
     }
 
-    void emitCreateInto(Code& body, const Code& create) {
-        if (create.empty() && tags_.empty()) return;
-        use("PlayState");
-        body.line("activeGame = PlayState.instance;");
-        body.append(create);
-    }
-
     void countdownParts(Code& c) {
         cancelable_ = true;
         if (has("onStartCountdown")) {
@@ -3075,18 +3074,17 @@ private:
         }
     }
 
-    void emitHooks(Code& out, const Code& create, const Code& post) {
+    void emitHooks(Code& out, const Code& post) {
         markHandled("onCreate");
         markHandled("onCreatePost");
         bool stage = opt_.base == Base::Stage;
         bool song = opt_.base == Base::Song;
-        bool lazy = lazyCreate();
         if ((stage || song) && hasCreate_) {
             out.blank();
             out.open("public override function onCreate(event:ScriptEvent):Void");
             out.line("super.onCreate(event);");
-            if (usesClose_) out.line("closed = false;");
-            emitCreateInto(out, create);
+            use("PlayState");
+            out.line("if (PlayState.instance != null) create();");
             out.close();
         }
         bool stagePost = stage && (!post.empty() || usesLayers_);
@@ -3104,19 +3102,13 @@ private:
             out.close();
             countdownParts(out);
             out.close();
-        } else if (!stage && !song && !lazy && (hasCreate_ || has("onStartCountdown") || has("onCountdownStarted"))) {
+        } else if (opt_.base == Base::Module && (hasCreate_ || has("onStartCountdown") || has("onCountdownStarted"))) {
             out.blank();
             out.open("public override function onCountdownStart(event:CountdownScriptEvent):Void");
             out.line("super.onCountdownStart(event);");
             std::string g = guard(false);
             if (!g.empty()) out.line(g);
-            if (hasCreate_) {
-                use("PlayState");
-                out.open("if (activeGame != PlayState.instance)");
-                if (usesClose_) out.line("closed = false;");
-                emitCreateInto(out, create);
-                out.close();
-            }
+            if (hasCreate_) out.line("if (activeGame != PlayState.instance) create();");
             countdownParts(out);
             out.close();
         } else if (has("onStartCountdown") || has("onCountdownStarted")) {
@@ -3241,7 +3233,7 @@ private:
         out.open("public override function handleEvent(data:SongEventData):Void");
         out.line("if (PlayState.instance == null || data == null) return;");
         use("PlayState");
-        if (usesClose_) out.line("if (closed) return;");
+        if (usesClose_) out.line("if (closedGame != null && closedGame == PlayState.instance) return;");
         if (lazyCreate()) out.line("if (activeGame != PlayState.instance) create();");
         if (has("onEvent")) {
             markHandled("onEvent");
@@ -3314,7 +3306,7 @@ private:
             any = true;
         }
         if (usesClose_) {
-            out.line("var closed:Bool = false;");
+            out.line("var closedGame:PlayState = null;");
             any = true;
         }
         for (const std::string& tag : tagOrder_) {

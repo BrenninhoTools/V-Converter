@@ -182,8 +182,10 @@ static void testModuleScope() {
     CHECK(has(s, "class SpookyModule extends Module"));
     CHECK(has(s, "super(\"spooky-module\", 1000);"));
     CHECK(has(s, "PlayState.instance.currentSong.id != \"spookeez\""));
-    CHECK(has(s, "var closed:Bool = false;"));
-    CHECK(has(s, "closed = true;"));
+    CHECK(has(s, "var closedGame:PlayState = null;"));
+    CHECK(has(s, "closedGame = PlayState.instance;"));
+    CHECK(has(s, "(closedGame != null && closedGame == PlayState.instance)"));
+    CHECK(lacks(s, "activeGame != PlayState.instance) return;"));
     CHECK(braceBalance(s) == 0);
 }
 
