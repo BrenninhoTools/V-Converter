@@ -4,6 +4,7 @@ import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.toKString
 import vscript.vscript_builtin_event
+import vscript.vscript_convert_data
 import vscript.vscript_convert_lua
 import vscript.vscript_free
 import vscript.vscript_generate
@@ -25,4 +26,6 @@ object VScriptNative {
     fun generate(spec: String): String? = take(vscript_generate(spec))
 
     fun builtinEvent(name: String, className: String, id: String): String? = take(vscript_builtin_event(name, className, id))
+
+    fun convertData(kind: String, input: String): String? = take(vscript_convert_data(kind, input))
 }

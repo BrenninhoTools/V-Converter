@@ -31,7 +31,7 @@ class NativeScriptTest {
         assertEquals("scripts/stages/SpookyStage.hxc", bundle.files.single().path)
         assertTrue(code.contains("class SpookyStage extends Stage"))
         assertTrue(code.contains("var bg:FunkinSprite;"))
-        assertTrue(code.contains("bg.loadGraphic(Paths.image(\"stageback\"));"))
+        assertTrue(code.contains("bg = FunkinSprite.create(-600, -200, \"stageback\");"))
         assertTrue(code.contains("SongEventRegistry.handleEvent(new SongEventData(Conductor.instance.songPosition, \"AddCameraZoom\""))
         assertFalse(code.contains("psychCallback") || code.contains("function makeSprite"))
         assertTrue(bundle.report.sections.any { section -> section.lines.any { it.contains("V-Script (C++)") } })

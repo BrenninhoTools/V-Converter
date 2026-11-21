@@ -30,7 +30,7 @@ data class CharacterResult(
 )
 
 object PsychToVSliceCharacter {
-    const val CHARACTER_VERSION = "1.0.0"
+    const val CHARACTER_VERSION = "1.0.2"
 
     fun defaultSlot(id: String, character: PsychCharacter): CharacterSlot = when {
         character.editorIsPlayer == true -> CharacterSlot.PLAYER
@@ -44,6 +44,7 @@ object PsychToVSliceCharacter {
 
     fun convert(source: CharacterSource): CharacterResult {
         source.animate?.let { return convertAtlas(source, it) }
+        NativeCharacter.convert(source)?.let { return it }
         val psych = source.character
         val slot = source.slot
         val report = ReportBuilder()

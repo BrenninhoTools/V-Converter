@@ -1,6 +1,7 @@
 #include "vscript/VScript.h"
 
 #include "Converter.hpp"
+#include "Funkin.hpp"
 #include "Generator.hpp"
 #include "Json.hpp"
 
@@ -99,6 +100,29 @@ char* vscript_builtin_event(const char* name, const char* class_name, const char
     Json out = Json::object();
     out.set("known", Json::boolean(known));
     out.set("source", Json::string(source));
+    return copy(out.dump());
+}
+
+char* vscript_convert_data(const char* kind, const char* input_json) {
+    using namespace vscript;
+    bool ok = false;
+    Json input = Json::parse(input_json ? input_json : "", ok);
+    Json out = Json::object();
+    if (!ok) {
+        out.set("ok", Json::boolean(false));
+        out.set("error", Json::string("The input could not be read."));
+        return copy(out.dump());
+    }
+    std::string type = kind ? kind : "";
+    std::string error;
+    Json result;
+    if (type == "chart") result = convertPsychCharts(input, error);
+    else if (type == "character") result = convertPsychCharacter(input, error);
+    else if (type == "stage") result = convertPsychStage(input, error);
+    else error = "Unknown conversion \"" + type + "\".";
+    out.set("ok", Json::boolean(error.empty()));
+    if (error.empty()) out.set("result", result);
+    else out.set("error", Json::string(error));
     return copy(out.dump());
 }
 

@@ -8,4 +8,6 @@ object VScriptNative {
     fun generate(spec: String): String? = null
 
     fun builtinEvent(name: String, className: String, id: String): String? = null
+
+    fun convertData(kind: String, input: String): String? = null
 }

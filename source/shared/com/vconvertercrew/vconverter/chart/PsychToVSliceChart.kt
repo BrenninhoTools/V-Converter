@@ -84,6 +84,7 @@ object PsychToVSliceChart {
 
     fun convert(sources: List<ChartSource>, options: ConversionOptions = ConversionOptions()): ConversionResult {
         require(sources.isNotEmpty()) { "Select at least one Psych Engine chart." }
+        NativeChart.convert(sources, options)?.let { return it }
 
         val normalized = sources.map { it.copy(difficulty = normalizeDifficulty(it.difficulty)) }
         normalized.groupBy { it.difficulty }.forEach { (difficulty, group) ->
@@ -331,6 +332,10 @@ object PsychToVSliceChart {
                 }
                 value["absolute"] = false
                 listOf(VSliceEvent(event.time, "ScrollSpeed", value))
+            }
+            "set gf speed" -> {
+                val rate = (v1.toDoubleOrNull()?.takeIf { it >= 1.0 } ?: 1.0).roundLong().toInt()
+                listOf(VSliceEvent(event.time, "SetTargetBopSpeed", linkedMapOf("target" to "girlfriend", "rate" to rate)))
             }
             else -> null
         }

@@ -46,4 +46,6 @@ data class PsychSong(
     val wrappedLanes: Int
 ) {
     val usesAbsoluteLanes: Boolean get() = format.startsWith("psych_v1")
+
+    var raw: String = ""
 }

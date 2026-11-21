@@ -77,18 +77,18 @@ std::string generateScript(const Json& spec, std::string& error) {
     if (kind == "event") {
         out += "class " + className + " extends SongEvent\n{\n";
         out += "  public function new()\n  {\n    super(" + hxString(target) + ");\n  }\n\n";
-        out += "  override public function handleEvent(data:Dynamic):Void\n  {\n";
+        out += "  public override function handleEvent(data:SongEventData):Void\n  {\n";
         out += "    if (PlayState.instance == null || data == null) return;\n";
         out += "    var value:Dynamic = data.value;\n";
         for (const Json& f : spec["fields"].items()) out += readField(f["name"].text(), f["type"].text("string"));
         out += "  }\n";
         for (const Callback& c : kCallbacks) {
             if (!wanted.count(c.method)) continue;
-            out += "\n  override public function " + std::string(c.method) + "(event:" + c.type + "):Void\n  {\n";
+            out += "\n  public override function " + std::string(c.method) + "(event:" + c.type + "):Void\n  {\n";
             out += "    super." + std::string(c.method) + "(event);\n  }\n";
         }
-        out += "\n  override public function getTitle():String\n  {\n    return " + hxString(title) + ";\n  }\n";
-        out += "\n  override public function getEventSchema():Dynamic\n  {\n";
+        out += "\n  public override function getTitle():String\n  {\n    return " + hxString(title) + ";\n  }\n";
+        out += "\n  public override function getEventSchema():SongEventSchema\n  {\n";
         const auto& fields = spec["fields"].items();
         if (fields.empty()) {
             out += "    return new SongEventSchema([]);\n";
@@ -135,7 +135,7 @@ std::string generateScript(const Json& spec, std::string& error) {
     for (const Callback& c : kCallbacks) {
         if (!wanted.count(c.method)) continue;
         if (kind == "notekind" && !kNoteKindCallbacks.count(c.method)) continue;
-        out += "\n  override public function " + std::string(c.method) + "(event:" + c.type + "):Void\n  {\n";
+        out += "\n  public override function " + std::string(c.method) + "(event:" + c.type + "):Void\n  {\n";
         out += "    super." + std::string(c.method) + "(event);\n";
         if (kind == "module" && c.gameplay) out += "    if (PlayState.instance == null) return;\n";
         if (kind == "module" && std::string(c.method) == "onUpdate") out += "    if (PlayState.instance == null) return;\n";

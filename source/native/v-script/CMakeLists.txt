@@ -18,6 +18,10 @@ add_library(VScript STATIC
     src/Converter.cpp
     src/Builtins.cpp
     src/Generator.cpp
+    src/Funkin.cpp
+    src/Chart.cpp
+    src/Character.cpp
+    src/Stage.cpp
     src/VScript.cpp
     include/vscript/VScript.h
 )

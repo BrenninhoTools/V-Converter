@@ -1116,12 +1116,12 @@ private:
         const std::string& kind = stringOf(literal);
         std::string test;
         if (kind == "string") test = "Std.isOfType(" + value + ", String)";
-        else if (kind == "number") test = "Std.isOfType(" + value + ", Float)";
-        else if (kind == "boolean") test = "Std.isOfType(" + value + ", Bool)";
+        else if (kind == "number") test = "(" + value + " != null && !Std.isOfType(" + value + ", String) && !Math.isNaN(Std.parseFloat(Std.string(" + value + "))))";
+        else if (kind == "boolean") test = "(" + value + " == true || " + value + " == false)";
         else if (kind == "nil") return value + (equal ? " == null" : " != null");
         else if (kind == "table") {
             use("Reflect");
-            test = "Reflect.isObject(" + value + ")";
+            test = "(Reflect.isObject(" + value + ") && !Std.isOfType(" + value + ", String))";
         } else if (kind == "function") {
             use("Reflect");
             test = "Reflect.isFunction(" + value + ")";
@@ -1357,6 +1357,14 @@ private:
 
     std::string pathTail(const std::vector<std::string>& parts, size_t from) {
         std::string out;
+        if (parts.size() >= from + 3 && parts[parts.size() - 3] == "animation" && parts[parts.size() - 2] == "curAnim") {
+            std::vector<std::string> head(parts.begin(), parts.end() - 3);
+            const std::string& last = parts.back();
+            std::string tail = pathTail(head, from);
+            if (last == "name") return tail + ".getCurrentAnimation()";
+            if (last == "finished") return tail + ".isAnimationFinished()";
+            if (last == "curFrame") return tail + ".animation.curAnim.curFrame";
+        }
         for (size_t i = from; i < parts.size(); i++) {
             const std::string& part = parts[i];
             double n;
@@ -1607,22 +1615,45 @@ private:
         return "FlxG.sound.music";
     }
 
+    bool usesLayers_ = false;
+    bool removesSprites_ = false;
+
     std::string addSprite(const std::string& sprite, const Expr* front) {
         front = strip(front);
+        usesLayers_ = true;
         bool inFront = front && front->kind == ExprKind::True;
         bool dynamic = front && front->kind != ExprKind::True && front->kind != ExprKind::False && front->kind != ExprKind::Nil;
-        std::string z = inFront ? std::to_string(opt_.frontLayer + frontCount_++) : std::to_string(std::max(1, opt_.behindLayer - 20 + std::min(behindCount_++, 19)));
-        if (dynamic) z = "(" + cond(front) + " ? " + std::to_string(opt_.frontLayer) + " : " + std::to_string(opt_.behindLayer) + ")";
-        std::string c = container();
-        if (inCreate_ && !inOverride_) {
-            addedInCreate_ = true;
-            return sprite + ".zIndex = " + z + ";\n" + c + "add(" + sprite + ");";
-        }
+        std::string list = dynamic ? "(" + cond(front) + " ? frontSprites : behindSprites)" : (inFront ? "frontSprites" : "behindSprites");
+        std::string out = container() + "add(" + sprite + ");\n" + list + ".push(" + sprite + ");";
         if (inCreate_) {
             addedInCreate_ = true;
-            return sprite + ".zIndex = " + z + ";\n" + c + "add(" + sprite + ");";
+            return out;
         }
-        return sprite + ".zIndex = " + z + ";\n" + c + "add(" + sprite + ");\n" + c + "refresh();";
+        return out + "\nlayerSprites();";
+    }
+
+    std::string layerHelper() const {
+        std::string stage = opt_.base == Base::Stage ? "this" : "PlayState.instance.currentStage";
+        return
+            "function layerSprites():Void\n"
+            "{\n"
+            "  var stage:Stage = " + stage + ";\n"
+            "  if (stage == null) return;\n"
+            "  var low:Int = 0;\n"
+            "  var high:Int = 0;\n"
+            "  var found:Bool = false;\n"
+            "  for (character in [stage.getGirlfriend(), stage.getDad(), stage.getBoyfriend()])\n"
+            "  {\n"
+            "    if (character == null) continue;\n"
+            "    if (!found || character.zIndex < low) low = character.zIndex;\n"
+            "    if (!found || character.zIndex > high) high = character.zIndex;\n"
+            "    found = true;\n"
+            "  }\n"
+            "  if (stage.getGirlfriend() != null) low = stage.getGirlfriend().zIndex;\n"
+            "  for (i in 0...behindSprites.length) behindSprites[i].zIndex = low - behindSprites.length + i;\n"
+            "  for (i in 0...frontSprites.length) frontSprites[i].zIndex = high + 1 + i;\n"
+            "  stage.refresh();\n"
+            "}";
     }
 
     void lines(Code& code, const std::string& text) {
@@ -1827,12 +1858,11 @@ private:
         if (name == "makeLuaSprite") {
             use("FunkinSprite");
             use("Paths");
-            std::string out = created(a0, "new FunkinSprite(" + arg(a, 2, "0") + ", " + arg(a, 3, "0") + ")");
             const Expr* image = strip(a1);
             if (image && image->kind != ExprKind::Nil && !(isString(image) && stringOf(image).empty())) {
-                out += "\n" + createdRef(a0) + ".loadGraphic(Paths.image(" + expr(image) + "));";
+                return created(a0, "FunkinSprite.create(" + arg(a, 2, "0") + ", " + arg(a, 3, "0") + ", " + expr(image) + ")");
             }
-            return out;
+            return created(a0, "new FunkinSprite(" + arg(a, 2, "0") + ", " + arg(a, 3, "0") + ")");
         }
         if (name == "makeAnimatedLuaSprite") {
             use("FunkinSprite");
@@ -1859,12 +1889,14 @@ private:
             return "PlayState.instance.add(" + spriteRef(a0) + ")";
         }
         if (name == "removeLuaSprite" || name == "removeLuaText") {
+            if (name == "removeLuaSprite") removesSprites_ = true;
             std::string obj = spriteRef(a0);
             std::string holder = name == "removeLuaText" || isText(a0) ? "PlayState.instance." : container();
             use("PlayState");
             const Expr* destroy = strip(a1);
             bool keep = destroy && destroy->kind == ExprKind::False;
             std::string out = holder + "remove(" + obj + ");";
+            if (usesLayers_ || name == "removeLuaSprite") out += "\nbehindSprites.remove(" + obj + ");\nfrontSprites.remove(" + obj + ");";
             if (!keep) out += "\n" + obj + ".destroy();";
             if (!code) {
                 issue(line, name + " inside an expression only removes the object.");
@@ -1909,6 +1941,9 @@ private:
         }
         if (name == "playAnim" || name == "objectPlayAnimation") {
             if (isCharacterTag(a0)) return character(a0) + ".playAnimation(" + arg(a, 1, "\"\"") + ", " + (a2 ? cond(a2) : "false") + ")";
+            if (isString(a0) && tagField(stringOf(a0)).empty() && !dynamicTags_) {
+                return object(a0, line) + ".playAnimation(" + arg(a, 1, "\"\"") + ", " + (a2 ? cond(a2) : "false") + ")";
+            }
             std::string frame = name == "playAnim" ? arg(a, 4, "0") : arg(a, 3, "0");
             std::string reversed = name == "playAnim" && a3 ? cond(a3) : "false";
             return spriteRef(a0) + ".animation.play(" + arg(a, 1, "\"\"") + ", " + (a2 ? cond(a2) : "false") + ", " + reversed + ", " + frame + ")";
@@ -1963,7 +1998,7 @@ private:
             use("Paths");
             std::string grid = arg(a, 2, "0");
             if (a2) return spriteRef(a0) + ".loadGraphic(Paths.image(" + arg(a, 1, "\"\"") + "), true, " + grid + ", " + arg(a, 3, "0") + ")";
-            return spriteRef(a0) + ".loadGraphic(Paths.image(" + arg(a, 1, "\"\"") + "))";
+            return spriteRef(a0) + ".loadTexture(" + arg(a, 1, "\"\"") + ")";
         }
         if (name == "loadFrames") {
             use("Paths");
@@ -2310,7 +2345,7 @@ private:
             } else if (key == "accept" || key == "back" || key == "pause" || key == "reset") {
                 std::string up = key;
                 for (char& c : up) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-                control = up;
+                control = up + suffix;
             } else if (key == "space") {
                 return std::string("FlxG.keys.") + (name == "keyJustPressed" ? "justPressed" : name == "keyReleased" ? "justReleased" : "pressed") + ".SPACE";
             }
@@ -2672,11 +2707,11 @@ private:
             {"Dynamic", "Reflect.field(event.eventData.value, \"value2\")"}, {"Float", "event.eventData.time"}};
         if (psych == "goodNoteHit" || psych == "opponentNoteHit" || psych == "goodNoteHitPost" || psych == "opponentNoteHitPost" ||
             psych == "noteMiss" || psych == "noteMissPost" || psych == "onSpawnNote" || psych == "onSpawnNotePost") {
-            return {{"Int", "0"}, {"Int", "event.note.noteData.getDirection()"}, {"String", "event.note.noteData.kind"}, {"Bool", "false"},
-                {"Float", "event.note.noteData.time"}};
+            return {{"Int", "0"}, {"Int", "event.note.noteData.getDirection()"}, {"String", "event.note.kind"}, {"Bool", "false"},
+                {"Float", "event.note.strumTime"}};
         }
         if (psych == "noteMissPress") return {{"Int", "event.dir"}};
-        if (psych == "onCountdownTick") return {{"Int", "Type.enumIndex(event.step) - 1"}};
+        if (psych == "onCountdownTick") return {{"Int", "[\"THREE\", \"TWO\", \"ONE\", \"GO\", \"AFTER\"].indexOf(Std.string(event.step))"}};
         return {};
     }
 
@@ -2691,7 +2726,6 @@ private:
                 callArgs += i < params.size() ? params[i].value : "null";
             }
             if (psych == "onEvent" || psych == "onCountdownTick") use("Reflect");
-            if (psych == "onCountdownTick") use("Type");
             bool cancel = cancelable_;
             if (cancel) code.line("if (" + psych + "(" + callArgs + ") == true) event.cancel();");
             else code.line(psych + "(" + callArgs + ");");
@@ -2707,8 +2741,7 @@ private:
             if (i < params.size()) {
                 std::string bound = bind(func->params[i], params[i], func->body, code);
                 if (params[i].value.find("eventKind") != std::string::npos) eventParam_ = bound;
-                if (params[i].value.find("noteData.kind") != std::string::npos) noteTypeParam_ = bound;
-                if (params[i].value.find("Type.enumIndex") != std::string::npos) use("Type");
+                if (params[i].value.find("note.kind") != std::string::npos) noteTypeParam_ = bound;
             } else {
                 declare(func->params[i]);
             }
@@ -2807,7 +2840,7 @@ private:
             return;
         }
         out.blank();
-        out.open("override public function " + method + "(event:" + type + "):Void");
+        out.open("public override function " + method + "(event:" + type + "):Void");
         out.line("super." + method + "(event);");
         std::string g = guard(needsCreate);
         if (!g.empty()) out.line(g);
@@ -2821,7 +2854,7 @@ private:
     bool inCreate_ = false;
     bool addedInCreate_ = false;
 
-    void createCode(const Block& chunk, Code& code) {
+    void createCode(const Block& chunk, Code& code, Code& post) {
         inCreate_ = true;
         pushScope();
         for (const auto& s : chunk) {
@@ -2844,12 +2877,15 @@ private:
             statement(*s, code);
         }
         popScope();
-        for (const char* psych : {"onCreate", "onCreatePost"}) {
-            if (!has(psych)) continue;
-            callbacks_.push_back(psych);
-            hookBody(psych, code);
+        if (has("onCreate")) {
+            callbacks_.push_back("onCreate");
+            hookBody("onCreate", code);
         }
-        if (addedInCreate_) code.line(container() + "refresh();");
+        if (has("onCreatePost")) {
+            callbacks_.push_back("onCreatePost");
+            hookBody("onCreatePost", opt_.base == Base::Stage ? post : code);
+        }
+        if (addedInCreate_ && opt_.base != Base::Stage) code.line("layerSprites();");
         inCreate_ = false;
     }
 
@@ -2888,18 +2924,20 @@ private:
 
         Code create;
         create.setDepth(0);
+        Code post;
+        post.setDepth(0);
         pushScope();
         if (dynamicTags_) {
             use("StringMap");
             fieldTypes_["sprites"] = "StringMap<Dynamic>";
             fieldInits_["sprites"] = "new StringMap()";
         }
-        createCode(chunk, create);
+        createCode(chunk, create, post);
         popScope();
 
         Code hooks;
         hooks.setDepth(1);
-        emitHooks(hooks, create);
+        emitHooks(hooks, create, post);
 
         Code methods;
         methods.setDepth(1);
@@ -2955,6 +2993,14 @@ private:
             lazy.close();
             for (const std::string& l : lazy.lines()) methodsText_.push_back(l);
         }
+        if (usesLayers_) {
+            Code helper;
+            helper.setDepth(1);
+            helper.line("");
+            helper.line(layerHelper());
+            for (const std::string& l : helper.lines()) methodsText_.push_back(l);
+            imports_.insert("funkin.play.stage.Stage");
+        }
         for (const std::string& l : hooks.lines()) hooksText_.push_back(l);
         for (const std::string& l : methods.lines()) methodsText_.push_back(l);
     }
@@ -2974,68 +3020,65 @@ private:
         body.append(create);
     }
 
-    void emitHooks(Code& out, const Code& create) {
+    void countdownParts(Code& c) {
+        cancelable_ = true;
+        if (has("onStartCountdown")) {
+            markHandled("onStartCountdown");
+            hookBody("onStartCountdown", c);
+        }
+        cancelable_ = false;
+        if (has("onCountdownStarted")) {
+            markHandled("onCountdownStarted");
+            hookBody("onCountdownStarted", c);
+        }
+    }
+
+    void emitHooks(Code& out, const Code& create, const Code& post) {
         markHandled("onCreate");
         markHandled("onCreatePost");
         bool stage = opt_.base == Base::Stage;
+        bool song = opt_.base == Base::Song;
         bool lazy = lazyCreate();
-        if (stage && hasCreate_) {
+        if ((stage || song) && hasCreate_) {
             out.blank();
-            out.open("override public function onCreate(event:ScriptEvent):Void");
+            out.open("public override function onCreate(event:ScriptEvent):Void");
             out.line("super.onCreate(event);");
-            if (usesClose_) out.line("if (closed) return;");
+            if (usesClose_) out.line("closed = false;");
             emitCreateInto(out, create);
             out.close();
         }
-        if (!stage && !lazy && (hasCreate_ || has("onStartCountdown") || has("onCountdownStarted"))) {
+        bool stagePost = stage && (!post.empty() || usesLayers_);
+        if (stagePost) {
+            fieldTypes_["postGame"] = "PlayState";
             out.blank();
-            out.open("override public function onCountdownStart(event:CountdownScriptEvent):Void");
+            out.open("public override function onCountdownStart(event:CountdownScriptEvent):Void");
+            out.line("super.onCountdownStart(event);");
+            std::string g = guard(true);
+            if (!g.empty()) out.line(g);
+            out.open("if (postGame != PlayState.instance)");
+            out.line("postGame = PlayState.instance;");
+            if (usesLayers_) out.line("layerSprites();");
+            out.append(post);
+            out.close();
+            countdownParts(out);
+            out.close();
+        } else if (!stage && !song && !lazy && (hasCreate_ || has("onStartCountdown") || has("onCountdownStarted"))) {
+            out.blank();
+            out.open("public override function onCountdownStart(event:CountdownScriptEvent):Void");
             out.line("super.onCountdownStart(event);");
             std::string g = guard(false);
             if (!g.empty()) out.line(g);
             if (hasCreate_) {
                 use("PlayState");
                 out.open("if (activeGame != PlayState.instance)");
+                if (usesClose_) out.line("closed = false;");
                 emitCreateInto(out, create);
                 out.close();
             }
-            cancelable_ = true;
-            if (has("onStartCountdown")) {
-                markHandled("onStartCountdown");
-                hookBody("onStartCountdown", out);
-            }
-            cancelable_ = false;
-            if (has("onCountdownStarted")) {
-                markHandled("onCountdownStarted");
-                hookBody("onCountdownStarted", out);
-            }
+            countdownParts(out);
             out.close();
-        } else if (!stage && (has("onStartCountdown") || has("onCountdownStarted"))) {
-            override(out, "onCountdownStart", "CountdownScriptEvent", [&](Code& c) {
-                cancelable_ = true;
-                if (has("onStartCountdown")) {
-                    markHandled("onStartCountdown");
-                    hookBody("onStartCountdown", c);
-                }
-                cancelable_ = false;
-                if (has("onCountdownStarted")) {
-                    markHandled("onCountdownStarted");
-                    hookBody("onCountdownStarted", c);
-                }
-            });
-        } else if (stage && (has("onStartCountdown") || has("onCountdownStarted"))) {
-            override(out, "onCountdownStart", "CountdownScriptEvent", [&](Code& c) {
-                cancelable_ = true;
-                if (has("onStartCountdown")) {
-                    markHandled("onStartCountdown");
-                    hookBody("onStartCountdown", c);
-                }
-                cancelable_ = false;
-                if (has("onCountdownStarted")) {
-                    markHandled("onCountdownStarted");
-                    hookBody("onCountdownStarted", c);
-                }
-            });
+        } else if (has("onStartCountdown") || has("onCountdownStarted")) {
+            override(out, "onCountdownStart", "CountdownScriptEvent", [&](Code& c) { countdownParts(c); });
         }
         if (opt_.base == Base::SongEvent) {
             emitEventHook(out);
@@ -3131,7 +3174,7 @@ private:
         bool destroy = has("onDestroy") || hasCreate_;
         if (destroy && opt_.base != Base::SongEvent) {
             out.blank();
-            out.open("override public function onDestroy(event:ScriptEvent):Void");
+            out.open("public override function onDestroy(event:ScriptEvent):Void");
             out.line("super.onDestroy(event);");
             if (has("onDestroy")) {
                 markHandled("onDestroy");
@@ -3153,7 +3196,7 @@ private:
     void emitEventHook(Code& out) {
         use("Reflect");
         out.blank();
-        out.open("override public function handleEvent(data:Dynamic):Void");
+        out.open("public override function handleEvent(data:SongEventData):Void");
         out.line("if (PlayState.instance == null || data == null) return;");
         use("PlayState");
         if (usesClose_) out.line("if (closed) return;");
@@ -3179,12 +3222,12 @@ private:
         }
         out.close();
         out.blank();
-        out.open("override public function getTitle():String");
+        out.open("public override function getTitle():String");
         out.line("return " + hxString(opt_.title.empty() ? opt_.eventName : opt_.title) + ";");
         out.close();
         out.blank();
         use("SongEventSchema");
-        out.open("override public function getEventSchema():Dynamic");
+        out.open("public override function getEventSchema():SongEventSchema");
         out.line("return new SongEventSchema([");
         out.line("  {name: \"value1\", title: \"Value 1\", type: \"string\", defaultValue: \"\"},");
         out.line("  {name: \"value2\", title: \"Value 2\", type: \"string\", defaultValue: \"\"}");
@@ -3237,6 +3280,12 @@ private:
             std::string type = t.kind == TagKind::Text ? "FlxText" : "FunkinSprite";
             use(type);
             out.line("var " + t.field + ":" + type + ";");
+            any = true;
+        }
+        if (usesLayers_ || removesSprites_) {
+            out.line("var behindSprites:Array<FlxSprite> = [];");
+            out.line("var frontSprites:Array<FlxSprite> = [];");
+            imports_.insert("flixel.FlxSprite");
             any = true;
         }
         for (const auto& entry : fieldTypes_) {

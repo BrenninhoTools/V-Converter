@@ -50,4 +50,10 @@ JNIEXPORT jstring JNICALL VCS_FUNCTION(nativeBuiltinEvent)(JNIEnv* env, jclass, 
     return take(env, vscript_builtin_event(n.c_str(), c.c_str(), i.c_str()));
 }
 
+JNIEXPORT jstring JNICALL VCS_FUNCTION(nativeConvertData)(JNIEnv* env, jclass, jstring kind, jstring input) {
+    std::string k = text(env, kind);
+    std::string json = text(env, input);
+    return take(env, vscript_convert_data(k.c_str(), json.c_str()));
+}
+
 }

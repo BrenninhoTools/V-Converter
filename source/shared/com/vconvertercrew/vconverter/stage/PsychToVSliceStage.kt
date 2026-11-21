@@ -23,7 +23,7 @@ data class StageSource(
 data class StageResult(val id: String, val json: String, val report: Report)
 
 object PsychToVSliceStage {
-    const val STAGE_VERSION = "1.0.0"
+    const val STAGE_VERSION = "1.0.2"
     private const val GIRLFRIEND_SCROLL = 0.95
 
     val libraries = setOf("shared", "week1", "week2", "week3", "week4", "week5", "week6", "week7", "weekend1", "tutorial")
@@ -64,6 +64,7 @@ object PsychToVSliceStage {
     }
 
     fun convert(source: StageSource): StageResult {
+        NativeStage.convert(source)?.let { return it }
         val psych = source.stage
         val report = ReportBuilder()
         val notes = Notes()

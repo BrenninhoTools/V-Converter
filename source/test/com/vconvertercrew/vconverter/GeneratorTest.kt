@@ -116,7 +116,7 @@ class GeneratorTest {
         assertTrue(noteKind.contains("onNoteHit"))
         val event = ScriptGenerator.generate(ScriptSpec(ScriptKind.EVENT, "", "dude", setOf(Callback.BEAT_HIT))).files.single().text!!
         assertTrue(event.contains("class DudeSongEvent extends SongEvent") || event.contains("extends SongEvent"))
-        assertTrue(event.contains("override public function onBeatHit(event:SongTimeScriptEvent):Void"))
-        assertTrue(event.contains("override public function handleEvent(data:Dynamic):Void"))
+        assertTrue(event.contains("override public function onBeatHit(event:SongTimeScriptEvent):Void") || event.contains("public override function onBeatHit(event:SongTimeScriptEvent):Void"))
+        assertTrue(event.contains("override public function handleEvent(data:Dynamic):Void") || event.contains("public override function handleEvent(data:SongEventData):Void"))
     }
 }

@@ -103,7 +103,7 @@ object PsychChartParser {
             events = events.sortedBy { it.time },
             invalidNotes = invalidNotes,
             wrappedLanes = wrappedLanes
-        )
+        ).also { it.raw = raw }
     }
 
     fun parseEventsOnly(raw: String): List<PsychEvent> = parse(raw).events

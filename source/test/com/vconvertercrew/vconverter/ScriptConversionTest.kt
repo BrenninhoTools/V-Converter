@@ -174,7 +174,7 @@ class ScriptConversionTest {
         assertTrue(file("MySongSong").contains("class MySongSong extends Song"))
         assertTrue(file("MySongSong").contains("super(\"my-song\");"))
         assertTrue(file("MySongSong").contains("import funkin.play.song.Song;"))
-        assertTrue(file("MySongSong").contains("override public function onDestroy(event:ScriptEvent):Void"))
+        assertTrue(file("MySongSong").contains("override public function onDestroy(event:ScriptEvent):Void") || file("MySongSong").contains("public override function onDestroy(event:ScriptEvent):Void"))
         assertTrue(!file("MySongSong").contains("onStateChangeBegin"))
         assertTrue(file("MySongExtraModule").contains("class MySongExtraModule extends Module"))
         if (NativeScripts.available) {
@@ -250,7 +250,7 @@ class ScriptConversionTest {
         assertTrue(text.contains("super(\"FlashCamera\")"))
         assertTrue(text.contains("return \"Flash Camera\";"))
         assertTrue(!text.contains("extends Module"))
-        assertTrue(text.contains("override public function handleEvent(data:Dynamic):Void"))
+        assertTrue(text.contains("override public function handleEvent(data:Dynamic):Void") || text.contains("public override function handleEvent(data:SongEventData):Void"))
         if (NativeScripts.available) {
             assertTrue(text.contains("PlayState.instance.camGame.flash(0xFFFFFFFF, Std.parseFloat(v1), null, false);"))
             assertTrue(!text.contains("psychCallback"))

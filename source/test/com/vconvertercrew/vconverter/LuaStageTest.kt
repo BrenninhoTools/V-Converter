@@ -48,7 +48,7 @@ class LuaStageTest {
         assertFalse(code.contains("makeSprite(\"bar\""))
         assertFalse(code.contains("makeAnimatedSprite(\"sniper\""))
         if (com.vconvertercrew.vconverter.script.NativeScripts.available) {
-            assertTrue(code.contains("getNamedProp(\"sniper\").animation.play(\"sip\", true"))
+            assertTrue(code.contains("getNamedProp(\"sniper\").playAnimation(\"sip\", true)"))
         } else {
             assertTrue(code.contains("playAnim(\"sniper\", \"sip\", true)"))
         }

@@ -23,8 +23,11 @@ object VScriptNative {
 
     fun builtinEvent(name: String, className: String, id: String): String? = if (available) nativeBuiltinEvent(name, className, id) else null
 
+    fun convertData(kind: String, input: String): String? = if (available) nativeConvertData(kind, input) else null
+
     @JvmStatic private external fun nativeVersion(): String
     @JvmStatic private external fun nativeConvertLua(source: String, options: String): String?
     @JvmStatic private external fun nativeGenerate(spec: String): String?
     @JvmStatic private external fun nativeBuiltinEvent(name: String, className: String, id: String): String?
+    @JvmStatic private external fun nativeConvertData(kind: String, input: String): String?
 }

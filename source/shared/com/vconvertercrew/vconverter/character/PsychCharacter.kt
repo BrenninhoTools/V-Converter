@@ -36,6 +36,8 @@ data class PsychCharacter(
 ) {
     val atlasImages: List<String> get() = image.split(',').map { it.trim() }.filter { it.isNotEmpty() }
     val hasDanceLeftRight: Boolean get() = animations.any { it.anim == "danceLeft" } && animations.any { it.anim == "danceRight" }
+
+    var raw: String = ""
 }
 
 class PsychCharacterException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -92,6 +94,6 @@ object PsychCharacterParser {
             vocalsFile = root.value("vocals_file").asText(),
             editorIsPlayer = root.value("_editor_isPlayer")?.asBool(false),
             animations = animations
-        )
+        ).also { it.raw = raw }
     }
 }

@@ -103,15 +103,19 @@ static void testStage() {
     CHECK(has(s, "import funkin.graphics.FunkinSprite;"));
     CHECK(has(s, "super(\"spooky\");"));
     CHECK(has(s, "var bg:FunkinSprite;"));
-    CHECK(has(s, "override public function onCreate(event:ScriptEvent):Void"));
-    CHECK(has(s, "bg = new FunkinSprite(-600, -200);"));
-    CHECK(has(s, "bg.loadGraphic(Paths.image(\"stageback\"));"));
+    CHECK(has(s, "public override function onCreate(event:ScriptEvent):Void"));
+    CHECK(has(s, "bg = FunkinSprite.create(-600, -200, \"stageback\");"));
+    CHECK(has(s, "behindSprites.push(bg);"));
+    CHECK(has(s, "function layerSprites():Void"));
+    CHECK(has(s, "var stage:Stage = this;"));
+    CHECK(has(s, "public override function onCountdownStart(event:CountdownScriptEvent):Void"));
+    CHECK(has(s, "layerSprites();"));
     CHECK(has(s, "bg.scrollFactor.set(0.9, 0.9);"));
     CHECK(has(s, "crowd = FunkinSprite.createSparrow(0, 300, \"crowd\");"));
     CHECK(has(s, "crowd.animation.addByIndices(\"left\", \"crowd bop\", [0, 1, 2], \"\", 24, false);"));
-    CHECK(has(s, "crowd.zIndex = 1000;"));
+    CHECK(has(s, "frontSprites.push(crowd);"));
     CHECK(has(s, "add(crowd);"));
-    CHECK(has(s, "refresh();"));
+    CHECK(has(s, "stage.refresh();"));
     CHECK(has(s, "Conductor.instance.currentBeat % 2 == 0"));
     CHECK(has(s, "crowd.animation.play(\"bop\", true, false, 0);"));
     CHECK(has(s, "var elapsed:Float = event.elapsed;"));
@@ -148,7 +152,7 @@ static void testSongEvents() {
     vscript::ConvertResult r = convert(lua, vscript::Base::Song, "BopeeboSong", "bopeebo");
     const std::string& s = r.source;
     CHECK(has(s, "class BopeeboSong extends Song"));
-    CHECK(has(s, "override public function onSongEvent(event:SongEventScriptEvent):Void"));
+    CHECK(has(s, "public override function onSongEvent(event:SongEventScriptEvent):Void"));
     CHECK(has(s, "var name:String = event.eventData.eventKind;"));
     CHECK(has(s, "if (name == \"FlashCamera\")"));
     CHECK(has(s, "else if (name == \"PlayAnimation\")"));
@@ -158,7 +162,7 @@ static void testSongEvents() {
     CHECK(has(s, "if (noteType == \"hurt\")"));
     CHECK(has(s, "PlayState.instance.health += -0.2;"));
     CHECK(has(s, "PlayState.instance.camGame.shake(0.01, 0.1);"));
-    CHECK(has(s, "override public function onSongEnd(event:ScriptEvent):Void"));
+    CHECK(has(s, "public override function onSongEnd(event:ScriptEvent):Void"));
     CHECK(has(s, "event.cancel();"));
     CHECK(has(s, "event.step % Conductor.instance.stepsPerMeasure == 0"));
     CHECK(has(s, "SongEventRegistry.handleEvent(new SongEventData(Conductor.instance.songPosition, \"PlayAnimation\", {anim: \"hey\", target: \"bf\", force: true}));"));
@@ -221,7 +225,7 @@ static void testLuaSemantics() {
     CHECK(has(s, "\"abc\".toUpperCase() + \"hello\".substring(1, 3)"));
     CHECK(has(s, "up.indexOf(\"B\") >= 0"));
     CHECK(has(s, "Math.pow(x, 2)"));
-    CHECK(has(s, "Std.isOfType(x, Float)"));
+    CHECK(has(s, "!Math.isNaN(Std.parseFloat(Std.string(x)))"));
     CHECK(has(s, "do"));
     CHECK(has(s, "while (!(x <= 0));"));
     CHECK(has(s, "continue;"));
@@ -238,7 +242,7 @@ static void testNoteKindAndEvent() {
     vscript::ConvertResult r = vscript::convertLua("function goodNoteHit(i, d, t, s) addHealth(-0.3) end\nfunction onBeatHit() end\nfunction onSongStart() debugPrint('x') end", o);
     CHECK(has(r.source, "class HurtNoteKind extends NoteKind"));
     CHECK(has(r.source, "super(\"hurt\", \"Hurt Note\");"));
-    CHECK(has(r.source, "override public function onNoteHit(event:HitNoteScriptEvent):Void"));
+    CHECK(has(r.source, "public override function onNoteHit(event:HitNoteScriptEvent):Void"));
     CHECK(lacks(r.source, "onSongStart(event"));
     CHECK(!r.issues.empty());
 
@@ -249,7 +253,7 @@ static void testNoteKindAndEvent() {
     e.eventName = "Flash";
     vscript::ConvertResult ev = vscript::convertLua("function onEvent(n, a, b) if n == 'Flash' then cameraFlash('game', a, 0.3) end end", e);
     CHECK(has(ev.source, "class FlashEvent extends SongEvent"));
-    CHECK(has(ev.source, "override public function handleEvent(data:Dynamic):Void"));
+    CHECK(has(ev.source, "public override function handleEvent(data:SongEventData):Void"));
     CHECK(has(ev.source, "var a:Dynamic = Reflect.field(data.value, \"value1\");"));
     CHECK(has(ev.source, "getEventSchema"));
     CHECK(braceBalance(ev.source) == 0);
@@ -289,7 +293,7 @@ static void testErrorsAndApi() {
     vscript_free(raw);
     CHECK(result["ok"].asBool());
     CHECK(has(result["source"].text(), "super(\"my-module\", 1000);"));
-    CHECK(has(result["source"].text(), "override public function onNoteHit(event:HitNoteScriptEvent):Void"));
+    CHECK(has(result["source"].text(), "public override function onNoteHit(event:HitNoteScriptEvent):Void"));
     CHECK(has(result["source"].text(), "import funkin.modding.module.Module;"));
     raw = vscript_generate("{\"kind\":\"event\",\"className\":\"BoomEvent\",\"targetId\":\"Boom\",\"fields\":[{\"name\":\"power\",\"type\":\"float\"}]}");
     result = vscript::Json::parse(raw, ok);
@@ -325,6 +329,40 @@ static void testFuzz() {
     }
 }
 
+static std::string data(const char* kind, const std::string& input) {
+    char* raw = vscript_convert_data(kind, input.c_str());
+    std::string out = raw ? raw : "";
+    vscript_free(raw);
+    return out;
+}
+
+static void testDataConverters() {
+    std::string chart = data("chart", R"({"charts":[{"difficulty":"Hard","text":"{\"song\":{\"song\":\"Test\",\"bpm\":150,\"speed\":2,\"player1\":\"bf\",\"player2\":\"dad\",\"stage\":\"spooky\",\"notes\":[{\"mustHitSection\":true,\"sectionNotes\":[[0,0,0],[0,0,0],[400,5,100,\"Hurt Note\"]]}],\"events\":[[100,[[\"Set GF Speed\",\"2\",\"\"],[\"Hey!\",\"bf\",\"\"]]]]}}"}],"options":{}})");
+    CHECK(has(chart, "\"ok\":true"));
+    CHECK(has(chart, "\"stage\":\"spookyMansion\""));
+    CHECK(has(chart, "\"kind\":\"SetTargetBopSpeed\",\"value\":{\"target\":\"girlfriend\",\"rate\":2}"));
+    CHECK(has(chart, "\"kind\":\"hurt\""));
+    CHECK(has(chart, "\"duplicateNotes\":[{\"name\":\"hard\",\"count\":1}]"));
+    CHECK(has(data("chart", R"({"charts":[{"difficulty":"hard","text":"nope"}]})"), "\"ok\":false"));
+    CHECK(has(data("chart", "{}"), "Select at least one Psych Engine chart."));
+
+    std::string character = data("character", R"({"id":"dude","slot":"opponent","atlases":{"dude":[["dude idle0000",410,400]]},"text":"{\"image\":\"characters/Dude\",\"scale\":1.5,\"position\":[20,300],\"animations\":[{\"anim\":\"idle\",\"name\":\"dude idle\",\"fps\":24,\"offsets\":[-5,3]}]}"})");
+    CHECK(has(character, "\"ok\":true"));
+    CHECK(has(character, "\"version\":\"1.0.2\""));
+    CHECK(has(character, "\"name\":\"Dude\""));
+
+    std::string stage = data("stage", R"({"id":"my-stage","atlases":{},"stage":{"directory":"mymod","defaultZoom":0.8,"objects":[{"type":"square","name":"fade","scale":[1280,720],"color":"black","filters":3},{"type":"sprite","name":"bg","image":"images/bg.png","filters":3,"scroll":[0.9,0.9]},{"type":"boyfriend"}]}})");
+    CHECK(has(stage, "\"ok\":true"));
+    CHECK(has(stage, "\"version\":\"1.0.2\""));
+    CHECK(has(stage, "\"name\":\"My Stage\""));
+    CHECK(has(stage, "\"assetPath\":\"#000000\""));
+    CHECK(has(stage, "\"assetPath\":\"bg\""));
+    CHECK(has(stage, "\"directory\":\"shared\""));
+    CHECK(has(data("stage", "{}"), "The stage is missing."));
+    CHECK(has(data("other", "{}"), "\"ok\":false"));
+    CHECK(has(data("stage", "not json"), "\"ok\":false"));
+}
+
 int main() {
     testParser();
     testStage();
@@ -334,6 +372,7 @@ int main() {
     testNoteKindAndEvent();
     testErrorsAndApi();
     testFuzz();
+    testDataConverters();
     if (failures == 0) std::printf("v-script: all tests passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

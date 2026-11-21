@@ -21,6 +21,8 @@ VSCRIPT_API char* vscript_generate(const char* spec_json);
 
 VSCRIPT_API char* vscript_builtin_event(const char* name, const char* class_name, const char* id);
 
+VSCRIPT_API char* vscript_convert_data(const char* kind, const char* input_json);
+
 VSCRIPT_API void vscript_free(char* text);
 
 #ifdef __cplusplus

@@ -34,7 +34,7 @@ val vscriptSource = File(source, "native/v-script")
 
 fun vscriptLibrary(target: String): File = layout.buildDirectory.dir("vscript/$target").get().asFile
 
-val vscriptFiles = listOf("Json", "LuaParser", "Converter", "Builtins", "Generator", "VScript")
+val vscriptFiles = listOf("Json", "LuaParser", "Converter", "Builtins", "Generator", "Funkin", "Chart", "Character", "Stage", "VScript")
 
 val vscriptTasks = mapOf(
     "iosArm64" to ("iphoneos" to "arm64-apple-ios14.0"),
